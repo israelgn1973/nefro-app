@@ -1,0 +1,13 @@
+{
+  "name": "Nefrologia UTI",
+  "short_name": "Nefro UTI",
+  "description": "Roteiro de avaliação nefrológica em UTI",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f4f0",
+  "theme_color": "#1a3a5c",
+  "icons": [
+    { "src": "icon.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
