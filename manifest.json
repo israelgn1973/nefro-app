@@ -2,7 +2,7 @@
   "name": "Nefrologia UTI",
   "short_name": "Nefro UTI",
   "description": "Roteiro de avaliação nefrológica em UTI",
-  "start_url": "/",
+  "start_url": "/nefro-app/"
   "display": "standalone",
   "background_color": "#f4f4f0",
   "theme_color": "#1a3a5c",
