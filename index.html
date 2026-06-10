@@ -687,7 +687,7 @@ function NefroApp() {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v94</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v95</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -2086,7 +2086,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v94</p>
+<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v95</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
@@ -2174,13 +2174,12 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           <div style={{ padding: '0 14px 12px', fontSize: 12, color: '#888' }}>Campos errados? Volte à Conduta pra ajustar.</div>
         </div>
 
-        <div style={{ height: 80 }} />
-        <div style={S.bottomActions}>
-          <button style={{ ...S.btn, background: copiado ? '#1a3a5c' : '#27ae60', color: 'white' }} onClick={copiarTexto}>
+        <div style={{ display: 'flex', gap: 10, padding: '0 16px' }}>
+          <button style={{ ...S.btn, background: copiado ? '#1a3a5c' : '#27ae60', color: 'white', flex: 1, padding: '16px 0', fontSize: 16 }} onClick={copiarTexto}>
             {copiado ? '✓ Copiado' : '📋 WhatsApp'}
           </button>
-          <button style={{ ...S.btn, background: '#c0392b', color: 'white' }} onClick={gerarPDF}>
-            📄 PDF
+          <button style={{ ...S.btn, background: '#c0392b', color: 'white', flex: 1, padding: '16px 0', fontSize: 16 }} onClick={gerarPDF}>
+            📄 PDF / Imprimir
           </button>
         </div>
 
