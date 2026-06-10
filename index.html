@@ -376,8 +376,6 @@ function NefroApp() {
       ? { ...p, ultimaAvaliacao: { conduta: avAtual.conduta, data: avAtual.data } } : p);
     setPacientes(pacs);
     setPacAtual(pacs.find(p => p.id === pacAtual.id));
-    setTab('info');
-    setView('paciente');
   }
 
   function abrirEdicaoPaciente(comExcluir) {
@@ -686,7 +684,7 @@ function NefroApp() {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v91</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v93</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -1233,7 +1231,7 @@ function NefroApp() {
     return (
       <div style={S.app}>{numPadEl}
         <div style={S.header}>
-          <button style={S.backBtn} onClick={() => setView('paciente')}>‹</button>
+          <button style={S.backBtn} onClick={() => { salvarAvaliacao(); setView('paciente'); }}>‹</button>
           <h1 style={S.h1}>{pacAtual.nome}</h1>
         </div>
         <TabBar atual="roteiro" />
@@ -1709,6 +1707,8 @@ function NefroApp() {
               )}
               <div style={{ fontSize: 10, color: '#999', textTransform: 'uppercase', margin: '10px 0 4px' }}>Preenchimento do cateter</div>
               <ChipSelect label="" options={['FAV — não preencher','Bic. Na 8,4%','Heparina diluída']} value={avAtual.cateter==='fav'?'FAV — não preencher':avAtual.cateter==='hep'?'Heparina diluída':'Bic. Na 8,4%'} onSelect={v => upAv('cateter', v==='FAV — não preencher'?'fav':v==='Heparina diluída'?'hep':'bic')} color="#c0392b" />
+              <button style={{ ...S.btn, background: '#c0392b', color: 'white', width: '100%', marginTop: 12 }}
+                onClick={() => { salvarAvaliacao(); setView('prescricao'); }}>📄 Prescrição HD — texto e impressão</button>
             </div>
           )}
 
@@ -1928,13 +1928,6 @@ function NefroApp() {
         </div>
 
 
-        {avAtual.conduta === 'hd_hoje' && (
-          <div style={{ padding: '0 16px' }}>
-            <button style={{ ...S.btn, background: '#c0392b', color: 'white', width: '100%' }}
-              onClick={() => { salvarAvaliacao(); setView('prescricao'); }}>📄 Prescrição HD — texto e impressão</button>
-          </div>
-        )}
-
         <RodapeNav direita="Resumo ▸" onDireita={() => { salvarAvaliacao(); setView('panorama'); }} onPacientes={() => { salvarAvaliacao(); setView('lista'); }} />
       </div>
     );
@@ -2061,7 +2054,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v91</p>
+<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v93</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
