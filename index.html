@@ -590,7 +590,7 @@ function NefroApp() {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v47</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v48</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -1410,7 +1410,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 .matg-label { background: #eee; font-weight: bold; font-size: 4pt; width: 22%; padding: 1.5px 3px; }
 .matg-val { height: 0.575cm; }
 .corpo { display: table; width: 100%; border-collapse: separate; border-spacing: 2.5px 0; table-layout: fixed; }
-.c-esq { display: table-cell; vertical-align: top; width: 14.84cm; }
+.c-esq { display: table-cell; vertical-align: top; width: 13.45cm; }
 .c-dir { display: table-cell; vertical-align: top; }
 .matv2 { height: 0.58cm; }
 .graf5 { table-layout: fixed; width: auto; margin-left: auto; }
@@ -1427,7 +1427,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v47</p>
+<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v48</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
@@ -1472,7 +1472,7 @@ ${pressoes.map(pr => `<tr><td class="pl5">${pr}</td>${Array(24).fill('<td></td>'
 </div>
 </div>
 <div class="c-dir">
-<table>
+<table style="width:4.36cm;">
 <tr><td class="cinza">MATERIAIS / 24H</td></tr>
 ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HEPARINA', 'SERINGAS', 'AGULHAS', 'LUVAS', 'ÁLCOOL 70%', 'OUTROS'].map(m => `<tr><td class="mat">${m}</td></tr><tr><td class="matv2"></td></tr>`).join('')}
 </table>
