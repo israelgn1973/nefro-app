@@ -223,6 +223,7 @@ function NefroApp() {
   const [nomeTemp, setNomeTemp] = useState('');
   const [copiado, setCopiado] = useState(false);
   const [numpad, setNumpad] = useState(null);
+  const [pdfHtml, setPdfHtml] = useState(null);
 
   const NumInput = ({ value, onSet, placeholder, label, style: st, allowComma, mode }) => (
     <input readOnly inputMode="none" value={value || ''} placeholder={placeholder}
@@ -1383,7 +1384,8 @@ function NefroApp() {
       const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <title>Prescrição HD - ${p.nome}</title>
 <style>
-@page { size: A4 landscape; margin: 0.6cm; }
+@page { size: A4; margin: 0; }
+.sheet { padding: 0.6cm; width: 29.7cm; background: #fff; }
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
 body { font-size: 9pt; }
 h1 { text-align: center; font-size: 13pt; margin-bottom: 2px; }
@@ -1403,8 +1405,11 @@ td, th { border: 1px solid #000; padding: 2px 4px; vertical-align: middle; }
 .mat { font-size: 7.5pt; font-weight: bold; padding: 3px 4px; }
 .matv { height: 22px; }
 .lin { font-size: 8pt; padding: 2px 4px; }
-@media print { body { margin: 0; } }
-</style></head><body>
+@media print {
+  body { margin: 0; }
+  .sheet { width: 29.7cm; height: 21cm; transform: rotate(90deg) translateY(-21cm); transform-origin: top left; }
+}
+</style></head><body><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
 <p class="sub">Data: <b>${hoje}</b></p>
 <div class="layout">
@@ -1451,16 +1456,22 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
 </table>
 </div>
 </div>
-<script>window.onload = () => { setTimeout(() => window.print(), 300); }<\/script>
-</body></html>`;
+</div></body></html>`;
 
-      const w = window.open('', '_blank');
-      if (w) { w.document.write(html); w.document.close(); }
-      else { alert('Permita pop-ups para gerar o PDF.'); }
+      setPdfHtml(html);
     };
 
     return (
       <div style={S.app}>{numPadEl}
+        {pdfHtml && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#fff', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', gap: 10, padding: '12px 14px', paddingTop: 'max(12px, env(safe-area-inset-top))', background: '#1a3a5c', alignItems: 'center' }}>
+              <button style={{ ...S.btn, background: '#f0f0f0', flex: '0 0 auto', padding: '10px 16px' }} onClick={() => setPdfHtml(null)}>✕ Fechar</button>
+              <button style={{ ...S.btn, background: '#27ae60', color: 'white', flex: 1 }} onClick={() => { const f = document.getElementById('pdfFrame'); if (f && f.contentWindow) { f.contentWindow.focus(); f.contentWindow.print(); } }}>🖨️ Imprimir / Salvar PDF</button>
+            </div>
+            <iframe id="pdfFrame" srcDoc={pdfHtml} style={{ flex: 1, border: 'none', width: '100%', background: '#fff' }} title="Prescrição" />
+          </div>
+        )}
         <div style={S.header}>
           <button style={S.backBtn} onClick={() => setView('roteiro')}>‹</button>
           <h1 style={S.h1}>Prescrição HD</h1>
