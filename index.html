@@ -672,7 +672,7 @@ function NefroApp() {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v83</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v84</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -1994,7 +1994,7 @@ function NefroApp() {
 <style>
 @page { size: A4; margin: 0; }
 .page { width: 39.2cm; height: 27.5cm; overflow: hidden; position: relative; background: #fff; }
-.sheet { padding: 0.15cm; width: 18.75cm; transform: scale(2); transform-origin: top left; }
+.sheet { padding: 0.15cm; width: 18.3cm; transform: scale(2); transform-origin: top left; }
 @media print {
   html, body { margin: 0; padding: 0; height: 1cm; overflow: visible; }
   .page { width: 27.5cm; height: 1cm; position: absolute; top: 0; left: 0; overflow: visible; }
@@ -2035,7 +2035,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v83</p>
+<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v84</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
