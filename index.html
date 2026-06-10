@@ -248,7 +248,7 @@ function NefroApp() {
   useEffect(() => { salvarDados(pacientes, avaliacoes); }, [pacientes, avaliacoes]);
   const [pacAtual, setPacAtual] = useState(null);
   const [avAtual, setAvAtual] = useState(null);
-  const [tab, setTab] = useState('ultima');
+  const [tab, setTab] = useState('info');
   const [showModal, setShowModal] = useState(false);
   const [editandoPacId, setEditandoPacId] = useState(null);
   const [novoPac, setNovoPac] = useState({ nome:'', idade:'', sexo:'', leito:'', temLeito:false, convenio:'SUS', convenioOutro:'', diag:'IRA', trat:'tratamento conservador', filaHD:'', uti:'', esquemaHD:'', preopTipos:[], preopOutro:'', creatBasal:'', comorbidades:[], perfilHemo:'', fe:'', comorbidades_outras:'', gatilhos:[], sepseFocos:[], sepseOutro:'', gatilhos_outros:'', urgenciaAdm:false, urgencias:[] });
@@ -285,7 +285,7 @@ function NefroApp() {
 
   const TabBar = ({ atual }) => (
     <div style={{ display: 'flex', gap: 0, background: '#142e49', position: 'sticky', top: 0, zIndex: 50 }}>
-      {[['eventos','Eventos'],['comorb','Comorb.'],['roteiro','Beira leito'],['prescricao','Prescr.'],['panorama','Panorama']].map(([v, l]) => (
+      {[['eventos','Eventos'],['comorb','Comorb.'],['roteiro','Beira leito'],['prescricao','Prescr.'],['panorama','Resumo']].map(([v, l]) => (
         <div key={v} onClick={() => setView(v)}
           style={{ flex: 1, textAlign: 'center', padding: '10px 2px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
             color: atual === v ? '#1a3a5c' : 'rgba(255,255,255,0.75)', background: atual === v ? '#f4f4f0' : 'transparent',
@@ -302,7 +302,7 @@ function NefroApp() {
   function abrirPaciente(p) {
     setPacAtual(p);
     const avs = avaliacoes[p.id] || [];
-    setTab(avs.length > 0 ? 'ultima' : 'info');
+    setTab('info');
     setView('paciente');
   }
 
@@ -363,7 +363,7 @@ function NefroApp() {
       ? { ...p, ultimaAvaliacao: { conduta: avAtual.conduta, data: avAtual.data } } : p);
     setPacientes(pacs);
     setPacAtual(pacs.find(p => p.id === pacAtual.id));
-    setTab('ultima');
+    setTab('info');
     setView('paciente');
   }
 
@@ -540,7 +540,7 @@ function NefroApp() {
                   const n = (avaliacoes[editandoPacId] || []).length;
                   const nome = (pacientes.find(p => p.id === editandoPacId) || {}).nome || '';
                   if (!confirm(`Excluir ${nome}?`)) return;
-                  if (!confirm(`Tem certeza? Serão apagadas ${n} avaliação(ões). Esta ação NÃO pode ser desfeita.`)) return;
+                  if (!confirm(`Tem certeza? Serão apagadas ${n} evolução(ões). Esta ação NÃO pode ser desfeita.`)) return;
                   setPacientes(ps => ps.filter(p => p.id !== editandoPacId));
                   setAvaliacoes(av => { const novo = { ...av }; delete novo[editandoPacId]; return novo; });
                   setShowModal(false); setEditandoPacId(null); setPacAtual(null); setAvAtual(null); setView('lista');
@@ -616,7 +616,7 @@ function NefroApp() {
       const L = [];
       L.push(`RELATÓRIO NEFROLOGIA UTI — ${rotMes(mes)}`);
       L.push('');
-      L.push(`Avaliações: ${avsMes.length}`);
+      L.push(`Evoluções: ${avsMes.length}`);
       L.push(`Pacientes acompanhados: ${pacsUnicos.length}`);
       L.push(`Pacientes novos: ${novos}`);
       L.push(`Dias com atividade: ${diasComAv}`);
@@ -650,7 +650,7 @@ function NefroApp() {
             ))}
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Cartao n={avsMes.length} l="avaliações" />
+            <Cartao n={avsMes.length} l="evoluções" />
             <Cartao n={pacsUnicos.length} l="pacientes" />
             <Cartao n={novos} l="novos" />
             <Cartao n={hds.length} l="HD prescritas" />
@@ -672,7 +672,7 @@ function NefroApp() {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v86</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v88</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -742,7 +742,7 @@ function NefroApp() {
             if (!selExcluir.length) return;
             const nomes = pacientes.filter(p => selExcluir.includes(p.id)).map(p => p.nome).join(', ');
             if (!confirm(`Excluir ${selExcluir.length} paciente(s)?\n${nomes}`)) return;
-            if (!confirm('Tem certeza? Todas as avaliações destes pacientes serão apagadas. Esta ação NÃO pode ser desfeita.')) return;
+            if (!confirm('Tem certeza? Todas as evoluções destes pacientes serão apagadas. Esta ação NÃO pode ser desfeita.')) return;
             setPacientes(ps => ps.filter(p => !selExcluir.includes(p.id)));
             setAvaliacoes(av => { const novo = { ...av }; selExcluir.forEach(id => delete novo[id]); return novo; });
             setModoExcluir(false); setSelExcluir([]);
@@ -852,12 +852,12 @@ function NefroApp() {
           <h1 style={{ ...S.h1, cursor: 'pointer' }} onClick={abrirEdicaoPaciente}>
             {pacAtual.nome} <span style={{ fontSize: 13, opacity: 0.6 }}>✎</span>
           </h1>
-          <button style={S.headerBtn} onClick={novaAvaliacao}>+ Avaliar</button>
+          
         </div>
         {modalPaciente}
 
         <div style={S.tabs}>
-          {[['info','Dados'], ['historico','Histórico'], ...(ultimaAv ? [['ultima','Última Av.']] : [])].map(([t, lbl]) => (
+          {[['info','Dados'], ['historico','Histórico']].map(([t, lbl]) => (
             <div key={t} style={{ ...S.tab, ...(tab === t ? S.tabActive : {}) }} onClick={() => setTab(t)}>{lbl}</div>
           ))}
         </div>
@@ -938,6 +938,35 @@ function NefroApp() {
             )}
             
 
+            {ultimaAv && (
+            <div style={{ ...S.card, cursor: 'pointer' }} onClick={() => { setAvAtual(ultimaAv); setView('roteiro'); }}>
+              <div style={S.cardHeader}>Última evolução — toque para abrir · {new Date(ultimaAv.data).toLocaleDateString('pt-BR')}</div>
+              <div style={{ padding: 14, fontSize: 14 }}>
+                <div style={{ marginBottom: 8 }}><b>Conduta:</b> {{hd_hoje:'HD HOJE',hd_amanha:'HD AMANHÃ',conservador:'CONSERVADOR'}[ultimaAv.conduta]}</div>
+                <div style={{ marginBottom: 8 }}><b>Estado:</b> {ultimaAv.eg} · {ultimaAv.consciencia}</div>
+                <div style={{ marginBottom: 8 }}><b>PA:</b> {ultimaAv.pam} · SatO2: {ultimaAv.sat}%</div>
+                <div style={{ marginBottom: 8 }}><b>BH:</b> Ganhos {ultimaAv.ganhos}ml · Diurese {ultimaAv.diurese}ml</div>
+                <div style={{ fontFamily: 'monospace', background: '#f4f4f0', padding: 8, borderRadius: 6 }}>
+                  Ur {ultimaAv.labs?.ureia_hoje||'—'} / Cr {ultimaAv.labs?.creat_hoje||'—'} / Na {ultimaAv.labs?.sodio_hoje||'—'} / K {ultimaAv.labs?.pot_hoje||'—'} / Bic {ultimaAv.labs?.bic_hoje||'—'}
+                </div>
+                {ultimaAv.observacoes && <div style={{ marginTop: 8, color: '#666' }}>{ultimaAv.observacoes}</div>}
+              </div>
+            </div>
+            )}
+            {(() => {
+              const hojeISO = new Date().toISOString().slice(0, 10);
+              const avHojeF = avs.find(a => new Date(a.data).toISOString().slice(0, 10) === hojeISO);
+              return (
+                <div style={{ padding: '14px 16px 30px', display: 'flex', gap: 10 }}>
+                  <button style={{ ...S.btn, background: 'white', color: '#555', border: '1px solid #ccc', flex: 1 }}
+                    onClick={() => setView('lista')}>‹ Voltar</button>
+                  <button style={{ ...S.btn, background: '#1a3a5c', color: 'white', flex: 2 }}
+                    onClick={() => { if (avHojeF) { setAvAtual(avHojeF); setView('roteiro'); } else { novaAvaliacao(); } }}>
+                    {avHojeF ? 'Continuar evolução de hoje ▶' : 'Evoluir hoje ▶'}
+                  </button>
+                </div>
+              );
+            })()}
           </>
         )}
 
@@ -945,7 +974,7 @@ function NefroApp() {
           <div style={S.card}>
             <div style={S.cardHeader}>Histórico</div>
             {avs.length === 0
-              ? <div style={S.emptyState}><p>Sem avaliações</p></div>
+              ? <div style={S.emptyState}><p>Sem evoluções</p></div>
               : avs.map(av => (
                 <div key={av.id} style={{ padding: '12px 14px', borderBottom: '1px solid #f0f0f0', cursor: 'pointer' }}
                   onClick={() => { setAvAtual(av); setView('roteiro'); }}>
@@ -960,35 +989,7 @@ function NefroApp() {
           </div>
         )}
 
-        {tab === 'ultima' && ultimaAv && (
-          <>
-            <div style={S.card}>
-              <div style={S.cardHeader}>Última Avaliação — {new Date(ultimaAv.data).toLocaleDateString('pt-BR')}</div>
-              <div style={{ padding: 14, fontSize: 14 }}>
-                <div style={{ marginBottom: 8 }}><b>Conduta:</b> {{hd_hoje:'HD HOJE',hd_amanha:'HD AMANHÃ',conservador:'CONSERVADOR'}[ultimaAv.conduta]}</div>
-                <div style={{ marginBottom: 8 }}><b>Estado:</b> {ultimaAv.eg} · {ultimaAv.consciencia}</div>
-                <div style={{ marginBottom: 8 }}><b>PA:</b> {ultimaAv.pam} · SatO2: {ultimaAv.sat}%</div>
-                <div style={{ marginBottom: 8 }}><b>BH:</b> Ganhos {ultimaAv.ganhos}ml · Diurese {ultimaAv.diurese}ml</div>
-                <div style={{ fontFamily: 'monospace', background: '#f4f4f0', padding: 8, borderRadius: 6 }}>
-                  Ur {ultimaAv.labs?.ureia_hoje||'—'} / Cr {ultimaAv.labs?.creat_hoje||'—'} / Na {ultimaAv.labs?.sodio_hoje||'—'} / K {ultimaAv.labs?.pot_hoje||'—'} / Bic {ultimaAv.labs?.bic_hoje||'—'}
-                </div>
-                {ultimaAv.observacoes && <div style={{ marginTop: 8, color: '#666' }}>{ultimaAv.observacoes}</div>}
-              </div>
-            </div>
-            <div style={{ padding: '0 16px', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button style={{ ...S.btn, background: '#1a3a5c', color: 'white', flex: 1 }}
-                onClick={() => { setAvAtual(ultimaAv); setView('roteiro'); }}>✎ Continuar/editar</button>
-              <button style={{ ...S.btn, background: '#27ae60', color: 'white', flex: 1 }}
-                onClick={() => { setAvAtual(ultimaAv); setView('panorama'); }}>Panorama</button>
-            </div>
-            {ultimaAv.conduta?.startsWith('hd') && (
-              <div style={{ padding: '8px 16px 0' }}>
-                <button style={{ ...S.btn, background: '#c0392b', color: 'white', width: '100%' }}
-                  onClick={() => { setAvAtual(ultimaAv); setView('prescricao'); }}>📄 Gerar Prescrição HD</button>
-              </div>
-            )}
-          </>
-        )}
+
 
         <div style={{ height: 80 }} />
         <div style={S.bottomActions}>
@@ -1215,6 +1216,11 @@ function NefroApp() {
             
             </div>
           )}
+        </div>
+
+        <div style={{ padding: '18px 16px 34px' }}>
+          <button style={{ ...S.btn, background: 'white', color: '#1a3a5c', border: '1.5px solid #1a3a5c', width: '100%' }}
+            onClick={() => setView('lista')}>✓ Tudo salvo — voltar à lista</button>
         </div>
       </div>
     );
@@ -1910,6 +1916,11 @@ function NefroApp() {
           <button style={{ ...S.btn, background: '#27ae60', color: 'white' }} onClick={() => { salvarAvaliacao(); setView('panorama'); }}>Panorama</button>
           <button style={{ ...S.btn, background: '#1a3a5c', color: 'white' }} onClick={salvarAvaliacao}>Salvar</button>
         </div>
+
+        <div style={{ padding: '18px 16px 34px' }}>
+          <button style={{ ...S.btn, background: 'white', color: '#1a3a5c', border: '1.5px solid #1a3a5c', width: '100%' }}
+            onClick={() => setView('lista')}>✓ Tudo salvo — voltar à lista</button>
+        </div>
       </div>
     );
   }
@@ -2001,7 +2012,7 @@ function NefroApp() {
   .sheet { position: absolute; top: 0; left: 0; transform: translateX(27.5cm) rotate(90deg) scale(2); transform-origin: top left; }
   }
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
-body { font-size: 4.75pt; }
+body { font-size: 4.75pt; text-transform: uppercase; }
 h1 { text-align: center; font-size: 5.5pt; margin-bottom: 0.5px; }
 .sub { text-align: center; font-size: 3.75pt; margin-bottom: 2px; }
 table { width: 100%; border-collapse: collapse; }
@@ -2035,7 +2046,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v86</p>
+<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v88</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
@@ -2201,6 +2212,11 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
             📄 PDF
           </button>
         </div>
+
+        <div style={{ padding: '18px 16px 34px' }}>
+          <button style={{ ...S.btn, background: 'white', color: '#1a3a5c', border: '1.5px solid #1a3a5c', width: '100%' }}
+            onClick={() => setView('lista')}>✓ Tudo salvo — voltar à lista</button>
+        </div>
       </div>
     );
   }
@@ -2337,7 +2353,7 @@ const ajRotulo = aj => {
       <div style={S.app}>{numPadEl}
         <div style={S.header}>
           <button style={S.backBtn} onClick={() => setView('roteiro')}>‹</button>
-          <h1 style={S.h1}>Panorama</h1>
+          <h1 style={S.h1}>Resumo</h1>
         </div>
         <TabBar atual="panorama" />
         <div style={{ padding: 16, paddingBottom: 90 }}>
@@ -2462,6 +2478,11 @@ const ajRotulo = aj => {
           {avAtual.conduta?.startsWith('hd') && (
             <button style={{ ...S.btn, background: '#c0392b', color: 'white' }} onClick={() => setView('prescricao')}>Prescrição</button>
           )}
+        </div>
+
+        <div style={{ padding: '18px 16px 34px' }}>
+          <button style={{ ...S.btn, background: 'white', color: '#1a3a5c', border: '1.5px solid #1a3a5c', width: '100%' }}
+            onClick={() => setView('lista')}>✓ Tudo salvo — voltar à lista</button>
         </div>
       </div>
     );
