@@ -27,6 +27,7 @@ const { useState, useEffect } = React;
 
 // ── DADOS INICIAIS ──
 const UTIs = ['Azul','Amarela','Branca','Cinza','Laranja','Verde','Lilás','Rosa','Dourada','Prata'];
+const CORES_UTI = { 'Azul':'#2980d9', 'Amarela':'#f1c40f', 'Branca':'#ffffff', 'Cinza':'#95a5a6', 'Laranja':'#e67e22', 'Verde':'#27ae60', 'Lilás':'#9b59b6', 'Rosa':'#e91e8c', 'Dourada':'#d4a017', 'Prata':'#aab2bd' };
 
 const CONVENIOS = ['IPASGO','UNIMED','IMAS','PARTICULAR','OUTROS'];
 
@@ -218,7 +219,7 @@ function NefroApp() {
   const [tab, setTab] = useState('ultima');
   const [showModal, setShowModal] = useState(false);
   const [editandoPacId, setEditandoPacId] = useState(null);
-  const [novoPac, setNovoPac] = useState({ nome:'', idade:'', sexo:'', leito:'', temLeito:false, convenio:'SUS', convenioOutro:'', diag:'IRA', trat:'tratamento conservador', filaHD:'', uti:'', comorbidades:[], perfilHemo:'', fe:'', comorbidades_outras:'', gatilhos:[], sepseFocos:[], sepseOutro:'', gatilhos_outros:'', urgenciaAdm:false, urgencias:[] });
+  const [novoPac, setNovoPac] = useState({ nome:'', idade:'', sexo:'', leito:'', temLeito:false, convenio:'SUS', convenioOutro:'', diag:'IRA', trat:'tratamento conservador', filaHD:'', uti:'', esquemaHD:'', comorbidades:[], perfilHemo:'', fe:'', comorbidades_outras:'', gatilhos:[], sepseFocos:[], sepseOutro:'', gatilhos_outros:'', urgenciaAdm:false, urgencias:[] });
   const [editandoNome, setEditandoNome] = useState(false);
   const [nomeTemp, setNomeTemp] = useState('');
   const [copiado, setCopiado] = useState(false);
@@ -390,6 +391,14 @@ function NefroApp() {
                   {['M','F'].map(s => (
                     <span key={s} style={{ ...S.checkItem, minWidth: 44, textAlign: 'center', ...(novoPac.sexo === s ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}
                       onClick={() => setNovoPac(n => ({ ...n, sexo: s }))}>{s}</span>
+                  ))}
+                </div>
+              </FormRow>
+              <FormRow label="Esquema HD">
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {[['','Nenhum'],['sqs','Seg/Qua/Sex'],['tqs','Ter/Qui/Sáb']].map(([v,l]) => (
+                    <span key={v} style={{ ...S.checkItem, textAlign: 'center', ...(novoPac.esquemaHD === v ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}
+                      onClick={() => setNovoPac(n => ({ ...n, esquemaHD: v }))}>{l}</span>
                   ))}
                 </div>
               </FormRow>
@@ -590,7 +599,7 @@ function NefroApp() {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v50</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v52</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -606,19 +615,58 @@ function NefroApp() {
         </label>
       </div>
 
+      {(() => {
+        const ontem = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+        const diaSemana = new Date().getDay(); // 0=dom
+        const motivo = p => {
+          const avOntem = (avaliacoes[p.id] || []).find(a => new Date(a.data).toISOString().slice(0, 10) === ontem);
+          if (avOntem?.conduta === 'hd_amanha') return 'ontem: HD amanhã';
+          if (avOntem?.conduta === 'hd_hoje') return 'dialisou ontem';
+          if (p.esquemaHD === 'sqs' && [1,3,5].includes(diaSemana)) return 'esquema Seg/Qua/Sex';
+          if (p.esquemaHD === 'tqs' && [2,4,6].includes(diaSemana)) return 'esquema Ter/Qui/Sáb';
+          return null;
+        };
+        const provaveis = pacientes.map(p => [p, motivo(p)]).filter(([, m]) => m);
+        if (!provaveis.length) return null;
+        return (
+          <div style={{ ...S.card, marginTop: 16, border: '1.5px solid #c0392b' }}>
+            <div style={{ padding: '8px 16px', background: '#fdf0ef', borderBottom: '1px solid #f5d6d3', fontSize: 13, fontWeight: 700, color: '#c0392b' }}>
+              💧 PROVÁVEL HD HOJE ({provaveis.length})
+            </div>
+            {provaveis.map(([p, m]) => (
+              <div key={p.id} style={S.patientItem} onClick={() => abrirPaciente(p)}>
+                <div style={{ flex: 1 }}>
+                  <div style={S.patientName}>{p.nome}</div>
+                  <div style={S.patientMeta}>{p.uti && `UTI ${p.uti} · `}{m}</div>
+                </div>
+                <span style={{ marginLeft: 8, color: '#ccc', fontSize: 20 }}>›</span>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
       <div style={{ ...S.card, marginTop: 16 }}>
         {pacientes.length === 0
           ? <div style={S.emptyState}><div style={{ fontSize: 48 }}>🏥</div><p>Nenhum paciente</p></div>
-          : pacientes.map(p => (
+          : [...UTIs, ''].filter(u => pacientes.some(p => (p.uti || '') === u)).map(u => (
+            <div key={u || 'sem-uti'}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', background: '#f7f7f4', borderBottom: '1px solid #eee' }}>
+                <span style={{ width: 12, height: 12, borderRadius: '50%', background: CORES_UTI[u] || '#bbb', border: '1px solid rgba(0,0,0,0.25)', display: 'inline-block' }}></span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#555' }}>{u ? `UTI ${u}` : 'Sem UTI'}</span>
+              </div>
+              {pacientes.filter(p => (p.uti || '') === u).map(p => (
             <div key={p.id} style={S.patientItem} onClick={() => abrirPaciente(p)}>
               <div style={{ flex: 1 }}>
                 <div style={S.patientName}>{p.nome}</div>
                 <div style={S.patientMeta}>
-                  {p.uti && `UTI ${p.uti}`}{p.leito && ` · Leito ${p.leito}`}{p.status && ` · ${p.status}`}
+                  {p.leito && `Leito ${p.leito} · `}{p.status || ''}
                 </div>
               </div>
               <Badge conduta={p.ultimaAvaliacao?.conduta} />
               <span style={{ marginLeft: 8, color: '#ccc', fontSize: 20 }}>›</span>
+            </div>
+              ))}
             </div>
           ))
         }
@@ -1436,7 +1484,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v50</p>
+<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v52</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
