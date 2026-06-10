@@ -599,7 +599,7 @@ function NefroApp() {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v52</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v53</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -1446,7 +1446,7 @@ function NefroApp() {
 .sheet { padding: 0.15cm; width: 19.6cm; transform: scale(2); transform-origin: top left; }
 @media print {
   html, body { margin: 0; padding: 0; height: 1cm; overflow: visible; }
-  .page { width: 27.5cm; height: 39.2cm; position: absolute; top: 0; left: 0; }
+  .page { width: 27.5cm; height: 1cm; position: absolute; top: 0; left: 0; overflow: visible; }
   .sheet { position: absolute; top: 0; left: 0; transform: translateX(27.5cm) rotate(90deg) scale(2); transform-origin: top left; }
   }
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
@@ -1459,17 +1459,17 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 .secao { background: #ddd; font-weight: bold; font-size: 4.75pt; padding: 1px 2.5px; }
 .campo { font-weight: bold; }
 .urg { color: #c0392b; font-weight: bold; }
-.layout { display: table; width: 100%; border-collapse: separate; border-spacing: 2.5px 0; table-layout: fixed; }
+.layout { display: table; width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
 .col-presc { display: table-cell; vertical-align: top; }
 .col-vol { display: table-cell; vertical-align: top; }
 .col-graf { display: table-cell; vertical-align: top; width: 8.9cm; }
 .matgrande td { }
 .matg-label { background: #eee; font-weight: bold; font-size: 4pt; width: 22%; padding: 1.5px 3px; }
 .matg-val { height: 0.575cm; }
-.corpo { display: table; width: 100%; border-collapse: separate; border-spacing: 2.5px 0; table-layout: fixed; }
+.corpo { display: table; width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
 .c-esq { display: table-cell; vertical-align: top; width: 13.45cm; }
 .c-dir { display: table-cell; vertical-align: top; }
-.matv2 { height: 0.58cm; }
+.matv2 { height: 0.793cm; }
 .graf5 { table-layout: fixed; width: auto; margin-left: auto; }
 .graf5 td { padding: 0; width: 3.5mm; height: 3.5mm; }
 .graf5 .cinza { height: auto; padding: 0.5px 0; }
@@ -1484,7 +1484,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v52</p>
+<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v53</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
@@ -1527,6 +1527,11 @@ ${pressoes.map(pr => `<tr><td class="pl5">${pr}</td>${Array(24).fill('<td></td>'
 </table>
 </div>
 </div>
+<table style="margin-top:-1px;">
+<tr><td class="cinza" colspan="2">EVOLUÇÃO DE ENFERMAGEM</td></tr>
+${Array(4).fill('<tr><td colspan="2" style="height:0.556cm;"></td></tr>').join('')}
+<tr><td class="lin" style="width:50%;">Enfermeiro(a) / COREN:</td><td class="lin">Assinatura:</td></tr>
+</table>
 </div>
 <div class="c-dir">
 <table style="width:4.36cm;">
@@ -1534,11 +1539,7 @@ ${pressoes.map(pr => `<tr><td class="pl5">${pr}</td>${Array(24).fill('<td></td>'
 ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HEPARINA', 'SERINGAS', 'AGULHAS', 'LUVAS', 'ÁLCOOL 70%', 'OUTROS'].map(m => `<tr><td class="mat">${m}</td></tr><tr><td class="matv2"></td></tr>`).join('')}
 </table>
 </div></div>
-<table style="margin-top:3px;width:17.56cm;">
-<tr><td class="cinza" colspan="2">EVOLUÇÃO DE ENFERMAGEM</td></tr>
-${Array(4).fill('<tr><td colspan="2" style="height:0.556cm;"></td></tr>').join('')}
-<tr><td class="lin" style="width:50%;">Enfermeiro(a) / COREN:</td><td class="lin">Assinatura:</td></tr>
-</table>
+
 <div style="margin-top:2px;display:flex;align-items:center;gap:3px;">
 <div style="width:5cm;height:0.12cm;border:1px solid #000;background:repeating-linear-gradient(90deg,#000 0,#000 0.5cm,#fff 0.5cm,#fff 1cm);"></div>
 <span style="font-size:3.25pt;">RÉGUA: barra nominal de 10,0 cm — informe a medida real.</span>
