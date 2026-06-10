@@ -590,7 +590,7 @@ function NefroApp() {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v48</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v49</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -1427,7 +1427,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v48</p>
+<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v49</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
@@ -1477,7 +1477,7 @@ ${pressoes.map(pr => `<tr><td class="pl5">${pr}</td>${Array(24).fill('<td></td>'
 ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HEPARINA', 'SERINGAS', 'AGULHAS', 'LUVAS', 'ÁLCOOL 70%', 'OUTROS'].map(m => `<tr><td class="mat">${m}</td></tr><tr><td class="matv2"></td></tr>`).join('')}
 </table>
 </div></div>
-<table style="margin-top:3px;">
+<table style="margin-top:3px;width:17.56cm;">
 <tr><td class="cinza" colspan="2">EVOLUÇÃO DE ENFERMAGEM</td></tr>
 ${Array(4).fill('<tr><td colspan="2" style="height:0.556cm;"></td></tr>').join('')}
 <tr><td class="lin" style="width:50%;">Enfermeiro(a) / COREN:</td><td class="lin">Assinatura:</td></tr>
