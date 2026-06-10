@@ -259,6 +259,8 @@ function NefroApp() {
   const [filtroHD, setFiltroHD] = useState(false);
   const [verAmanha, setVerAmanha] = useState(false);
   const [verArquivados, setVerArquivados] = useState(false);
+  const [verDados, setVerDados] = useState(false);
+  const [mesStats, setMesStats] = useState(null);
 
   const dicaLab = (rotulo, chave, unid) => () => {
     const v = avAtual?.labs?.[chave];
@@ -561,24 +563,93 @@ function NefroApp() {
     return m;
   })();
 
+  if (view === 'stats') {
+    const mesesDisp = [];
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(); d.setMonth(d.getMonth() - i);
+      mesesDisp.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+    const mes = mesStats || mesesDisp[0];
+    const noMes = ts => { const d = new Date(ts); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` === mes; };
+    const todasAvs = Object.entries(avaliacoes).flatMap(([pid, avs]) => (avs || []).map(a => ({ ...a, pid })));
+    const avsMes = todasAvs.filter(a => noMes(a.data));
+    const pacsUnicos = [...new Set(avsMes.map(a => a.pid))];
+    const novos = pacientes.filter(p => noMes(parseInt((p.id || '').split('_')[1]) || p.updatedAt || 0)).length;
+    const hds = avsMes.filter(a => a.conduta === 'hd_hoje');
+    const urgentes = hds.filter(a => a.prioridade === 'sim');
+    const diasComAv = [...new Set(avsMes.map(a => new Date(a.data).toISOString().slice(0, 10)))].length;
+    const desf = { alta_nefro: 0, alta_hosp: 0, paliativo: 0, obito: 0 };
+    pacsUnicos.forEach(pid => {
+      const ult = (avaliacoes[pid] || [])[0];
+      if (ult && noMes(ult.data) && desf[ult.conclusao] != null) desf[ult.conclusao]++;
+    });
+    const concluidos = desf.alta_nefro + desf.alta_hosp + desf.paliativo + desf.obito;
+    const mort = concluidos ? Math.round(100 * desf.obito / concluidos) : null;
+    const rotMes = m => { const [a, mm] = m.split('-'); return ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'][parseInt(mm)-1] + '/' + a; };
+    const copiar = () => {
+      const L = [];
+      L.push(`RELATÓRIO NEFROLOGIA UTI — ${rotMes(mes)}`);
+      L.push('');
+      L.push(`Avaliações: ${avsMes.length}`);
+      L.push(`Pacientes acompanhados: ${pacsUnicos.length}`);
+      L.push(`Pacientes novos: ${novos}`);
+      L.push(`Dias com atividade: ${diasComAv}`);
+      L.push('');
+      L.push(`Sessões de HD prescritas: ${hds.length}`);
+      L.push(`HD urgentes: ${urgentes.length}`);
+      L.push('');
+      L.push(`Desfechos no mês — alta da nefrologia: ${desf.alta_nefro} · alta hospitalar: ${desf.alta_hosp} · paliativos: ${desf.paliativo} · óbitos: ${desf.obito}`);
+      if (mort != null) L.push(`Mortalidade entre concluídos: ${mort}%`);
+      L.push('');
+      L.push('Fonte: registros do NefroApp (atividade do nefrologista).');
+      navigator.clipboard?.writeText(L.join('\n')).then(() => alert('Relatório copiado.'), () => alert('Não foi possível copiar.'));
+    };
+    const Cartao = ({ n, l }) => (
+      <div style={{ flex: '1 1 28%', background: 'white', borderRadius: 12, padding: '14px 10px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.07)' }}>
+        <div style={{ fontSize: 26, fontWeight: 800, color: '#1a3a5c' }}>{n}</div>
+        <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{l}</div>
+      </div>
+    );
+    return (
+      <div style={S.app}>
+        <div style={S.header}>
+          <button style={S.backBtn} onClick={() => setView('lista')}>‹</button>
+          <h1 style={S.h1}>📊 Relatório do serviço</h1>
+        </div>
+        <div style={{ padding: 16 }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+            {mesesDisp.map(m => (
+              <span key={m} style={{ ...S.checkItem, fontSize: 12, ...(m === mes ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}
+                onClick={() => setMesStats(m)}>{rotMes(m)}</span>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <Cartao n={avsMes.length} l="avaliações" />
+            <Cartao n={pacsUnicos.length} l="pacientes" />
+            <Cartao n={novos} l="novos" />
+            <Cartao n={hds.length} l="HD prescritas" />
+            <Cartao n={urgentes.length} l="HD urgentes" />
+            <Cartao n={diasComAv} l="dias ativos" />
+            <Cartao n={desf.alta_nefro + desf.alta_hosp} l="altas" />
+            <Cartao n={desf.obito} l="óbitos" />
+            <Cartao n={mort != null ? mort + '%' : '—'} l="mortalidade*" />
+          </div>
+          <div style={{ fontSize: 11, color: '#999', marginTop: 12, lineHeight: 1.5 }}>
+            * entre pacientes com desfecho registrado no mês. Os números refletem a atividade registrada no app — produtividade é exata; desfechos são do recorte acompanhado pela nefrologia, não da UTI inteira.
+          </div>
+          <button onClick={copiar} style={{ ...S.btn, background: '#1a3a5c', color: 'white', width: '100%', marginTop: 14 }}>📋 Copiar relatório em texto</button>
+        </div>
+      </div>
+    );
+  }
+
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v76</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v78</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, padding: '12px 16px 0', justifyContent: 'flex-end' }}>
-        <button onClick={exportarDados}
-          style={{ fontSize: 12, padding: '6px 12px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer' }}>
-          ⬆ Exportar backup
-        </button>
-        <label style={{ fontSize: 12, padding: '6px 12px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer' }}>
-          ⬇ Importar
-          <input type="file" accept="application/json,.json" style={{ display: 'none' }}
-            onChange={e => { if (e.target.files[0]) importarDados(e.target.files[0]); e.target.value = ''; }} />
-        </label>
-      </div>
 
       {(() => {
         const hojeISO = new Date().toISOString().slice(0, 10);
@@ -599,9 +670,13 @@ function NefroApp() {
         const ativos = pacientes.filter(p => !infoHD[p.id]?.arquivado);
         const todosVistos = ativos.length > 0 && ativos.every(p => infoHD[p.id]?.vistoHoje);
         const hojeISO = new Date().toISOString().slice(0, 10);
-        let ultBkp = '';
-        try { ultBkp = localStorage.getItem('nefroapp_last_backup') || ''; } catch {}
-        if (!todosVistos || ultBkp === hojeISO) return null;
+        let ultBkp = '', devido = '';
+        try {
+          ultBkp = localStorage.getItem('nefroapp_last_backup') || '';
+          devido = localStorage.getItem('nefroapp_bkp_devido') || '';
+          if (todosVistos && devido !== hojeISO) { localStorage.setItem('nefroapp_bkp_devido', hojeISO); devido = hojeISO; }
+        } catch {}
+        if (devido !== hojeISO || ultBkp === hojeISO) return null;
         return (
           <div style={{ margin: '10px 16px 0', padding: '12px 14px', borderRadius: 10, background: '#eafaf1', border: '1.5px solid #27ae60', display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ flex: 1, fontSize: 13, color: '#1d7a45', fontWeight: 600 }}>✅ Todos os pacientes vistos. Faça o backup de hoje.</span>
@@ -690,6 +765,28 @@ function NefroApp() {
           </div>
         );
       })()}
+      <div style={{ marginTop: 18, padding: '0 16px 30px' }}>
+        <div onClick={() => setVerDados(v => !v)} style={{ fontSize: 12, color: '#999', cursor: 'pointer', textAlign: 'center', padding: 8 }}>
+          ⚙ Backup e dados {verDados ? '▲' : '▼'}
+        </div>
+        {verDados && (
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+            <button onClick={exportarDados}
+              style={{ fontSize: 12, padding: '8px 14px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer' }}>
+              ⬆ Exportar backup
+            </button>
+            <label style={{ fontSize: 12, padding: '8px 14px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer' }}>
+              ⬇ Importar
+              <input type="file" accept="application/json,.json" style={{ display: 'none' }}
+                onChange={e => { if (e.target.files[0]) importarDados(e.target.files[0]); e.target.value = ''; }} />
+            </label>
+            <button onClick={() => setView('stats')}
+              style={{ fontSize: 12, padding: '8px 14px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer' }}>
+              📊 Relatório
+            </button>
+          </div>
+        )}
+      </div>
 
       {modalPaciente}
     </div>
@@ -1895,7 +1992,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v76</p>
+<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v78</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
