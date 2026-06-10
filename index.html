@@ -590,7 +590,7 @@ function NefroApp() {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v31</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v33</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -1385,33 +1385,35 @@ function NefroApp() {
 <title>Prescrição HD - ${p.nome}</title>
 <style>
 @page { size: A4; margin: 0; }
-.sheet { padding: 0.6cm; width: 29.7cm; background: #fff; }
+.sheet { padding: 0.5cm; width: 27cm; background: #fff; }
+@media print {
+  html, body { margin: 0; padding: 0; }
+  .page { position: relative; width: 19.2cm; height: 27cm; overflow: hidden; page-break-after: avoid; page-break-inside: avoid; }
+  .sheet { position: absolute; top: 0; left: 0; width: 27cm; height: 19.2cm; transform: rotate(90deg) translateY(-19.2cm); transform-origin: top left; }
+}
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
-body { font-size: 9pt; }
-h1 { text-align: center; font-size: 13pt; margin-bottom: 2px; }
-.sub { text-align: center; font-size: 9pt; margin-bottom: 6px; }
+body { font-size: 7.5pt; }
+h1 { text-align: center; font-size: 11pt; margin-bottom: 1px; }
+.sub { text-align: center; font-size: 7.5pt; margin-bottom: 4px; }
 table { width: 100%; border-collapse: collapse; }
-td, th { border: 1px solid #000; padding: 2px 4px; vertical-align: middle; }
-.cinza { background: #ddd; font-weight: bold; text-align: center; font-size: 8pt; }
-.secao { background: #ddd; font-weight: bold; font-size: 8.5pt; padding: 3px 4px; }
+td, th { border: 1px solid #000; padding: 1px 3px; vertical-align: middle; }
+.cinza { background: #ddd; font-weight: bold; text-align: center; font-size: 7pt; }
+.secao { background: #ddd; font-weight: bold; font-size: 7.5pt; padding: 2px 3px; }
 .campo { font-weight: bold; }
 .urg { color: #c0392b; font-weight: bold; }
 .layout { display: flex; gap: 5px; align-items: flex-start; }
-.col-presc { flex: 0 0 56%; }
-.col-graf { flex: 0 0 30%; }
-.col-mat { flex: 0 0 14%; }
-.graf td { padding: 0; text-align: center; font-size: 7pt; height: 15px; }
+.col-presc { flex: 0 0 40%; }
+.col-graf { flex: 0 0 42%; }
+.col-mat { flex: 0 0 18%; }
+.graf td { padding: 0; text-align: center; font-size: 7pt; height: 24px; }
 .pl { background: #eee; font-weight: bold; width: 24px; font-size: 7pt; }
 .mat { font-size: 7.5pt; font-weight: bold; padding: 3px 4px; }
-.matv { height: 22px; }
-.lin { font-size: 8pt; padding: 2px 4px; }
-@media print {
-  html, body { width: 21cm; height: 29.7cm; margin: 0; overflow: hidden; }
-  .sheet { position: absolute; top: 0; left: 0; width: 29.7cm; height: 21cm; transform: rotate(90deg) translateY(-21cm); transform-origin: top left; }
-}
-</style></head><body><div class="sheet">
+.matv { height: 30px; }
+.lin { font-size: 7pt; padding: 1px 3px; }
+
+</style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">Data: <b>${hoje}</b></p>
+<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v33</p>
 <div class="layout">
 <div class="col-presc">
 <table>
@@ -1456,7 +1458,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
 </table>
 </div>
 </div>
-</div></body></html>`;
+</div></div></body></html>`;
 
       setPdfHtml(html);
     };
