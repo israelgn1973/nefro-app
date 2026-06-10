@@ -366,10 +366,33 @@ function NefroApp() {
         const d = JSON.parse(e.target.result);
         if (!d.pacientes) { alert('Arquivo inválido.'); return; }
         const qtd = d.pacientes.length;
-        if (confirm(`Importar ${qtd} paciente(s)? Isso substituirá os dados atuais do app.`)) {
-          setPacientes(d.pacientes);
-          setAvaliacoes(d.avaliacoes || {});
-          alert('Dados importados com sucesso.');
+        if (confirm(`Importar ${qtd} paciente(s) mesclando com os atuais? Pacientes existentes são mantidos; em coincidências vale o registro mais recente.`)) {
+          // vencedor por paciente: o lado com updatedAt mais recente
+          const recencia = p => p.updatedAt || 0;
+          const novosVence = {};
+          const mapaPac = {};
+          pacientes.forEach(p => { mapaPac[p.id] = p; });
+          d.pacientes.forEach(p => {
+            if (!mapaPac[p.id] || recencia(p) >= recencia(mapaPac[p.id])) { mapaPac[p.id] = p; novosVence[p.id] = true; }
+          });
+          const pacMerged = Object.values(mapaPac);
+
+          const avMerged = { ...avaliacoes };
+          const dia = a => { try { return new Date(a.data).toISOString().slice(0, 10); } catch { return String(a.data); } };
+          Object.entries(d.avaliacoes || {}).forEach(([pid, avsImp]) => {
+            const atuais = avMerged[pid] || [];
+            const porDia = {};
+            atuais.forEach(a => { porDia[dia(a)] = a; });
+            (avsImp || []).forEach(a => {
+              const k = dia(a);
+              if (!porDia[k] || novosVence[pid]) porDia[k] = a; // coincidência de dia: vale o lado do paciente mais recente
+            });
+            avMerged[pid] = Object.values(porDia).sort((x, y) => new Date(y.data) - new Date(x.data));
+          });
+
+          setPacientes(pacMerged);
+          setAvaliacoes(avMerged);
+          alert(`Importação concluída: ${pacMerged.length} paciente(s) no app.`);
         }
       } catch (err) { alert('Erro ao ler o arquivo.'); }
     };
@@ -645,7 +668,7 @@ function NefroApp() {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v63</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v64</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -1571,7 +1594,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v63</p>
+<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v64</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
