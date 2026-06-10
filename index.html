@@ -590,7 +590,7 @@ function NefroApp() {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v33</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v45</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -1385,78 +1385,106 @@ function NefroApp() {
 <title>Prescrição HD - ${p.nome}</title>
 <style>
 @page { size: A4; margin: 0; }
-.sheet { padding: 0.5cm; width: 27cm; background: #fff; }
+.page { width: 39.2cm; height: 27.5cm; overflow: hidden; position: relative; background: #fff; }
+.sheet { padding: 0.15cm; width: 19.6cm; transform: scale(2); transform-origin: top left; }
 @media print {
   html, body { margin: 0; padding: 0; }
-  .page { position: relative; width: 19.2cm; height: 27cm; overflow: hidden; page-break-after: avoid; page-break-inside: avoid; }
-  .sheet { position: absolute; top: 0; left: 0; width: 27cm; height: 19.2cm; transform: rotate(90deg) translateY(-19.2cm); transform-origin: top left; }
-}
+  .page { width: 27.5cm; height: 39.2cm; }
+  .sheet { position: absolute; top: 0; left: 0; transform: translateX(27.5cm) rotate(90deg) scale(2); transform-origin: top left; }
+  }
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
-body { font-size: 7.5pt; }
-h1 { text-align: center; font-size: 11pt; margin-bottom: 1px; }
-.sub { text-align: center; font-size: 7.5pt; margin-bottom: 4px; }
+body { font-size: 4.75pt; }
+h1 { text-align: center; font-size: 5.5pt; margin-bottom: 0.5px; }
+.sub { text-align: center; font-size: 3.75pt; margin-bottom: 2px; }
 table { width: 100%; border-collapse: collapse; }
-td, th { border: 1px solid #000; padding: 1px 3px; vertical-align: middle; }
-.cinza { background: #ddd; font-weight: bold; text-align: center; font-size: 7pt; }
-.secao { background: #ddd; font-weight: bold; font-size: 7.5pt; padding: 2px 3px; }
+td, th { border: 0.5px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
+.cinza { background: #ddd; font-weight: bold; text-align: center; font-size: 3.5pt; }
+.secao { background: #ddd; font-weight: bold; font-size: 4.75pt; padding: 1px 2.5px; }
 .campo { font-weight: bold; }
 .urg { color: #c0392b; font-weight: bold; }
-.layout { display: flex; gap: 5px; align-items: flex-start; }
-.col-presc { flex: 0 0 40%; }
-.col-graf { flex: 0 0 42%; }
-.col-mat { flex: 0 0 18%; }
-.graf td { padding: 0; text-align: center; font-size: 7pt; height: 24px; }
-.pl { background: #eee; font-weight: bold; width: 24px; font-size: 7pt; }
-.mat { font-size: 7.5pt; font-weight: bold; padding: 3px 4px; }
-.matv { height: 30px; }
-.lin { font-size: 7pt; padding: 1px 3px; }
+.layout { display: table; width: 100%; border-collapse: separate; border-spacing: 2.5px 0; table-layout: fixed; }
+.col-presc { display: table-cell; vertical-align: top; }
+.col-vol { display: table-cell; vertical-align: top; }
+.col-graf { display: table-cell; vertical-align: top; width: 8.9cm; }
+.matgrande td { }
+.matg-label { background: #eee; font-weight: bold; font-size: 4pt; width: 22%; padding: 1.5px 3px; }
+.matg-val { height: 0.575cm; }
+.corpo { display: table; width: 100%; border-collapse: separate; border-spacing: 2.5px 0; table-layout: fixed; }
+.c-esq { display: table-cell; vertical-align: top; width: 13.45cm; }
+.c-dir { display: table-cell; vertical-align: top; }
+.matv2 { height: 0.58cm; }
+.graf5 { table-layout: fixed; width: auto; margin-left: auto; }
+.graf5 td { padding: 0; width: 3.5mm; height: 3.5mm; }
+.graf5 .cinza { height: auto; padding: 0.5px 0; }
+.pl5 { background: #eee; font-weight: bold; font-size: 3.25pt; text-align: center; padding: 0; }
+.vol { table-layout: fixed; width: 100%; }
+.vol-label { background: #eee; font-weight: bold; font-size: 4pt; padding: 1px 2px; width: 18%; }
+.vol-val { height: 0.522cm; }
+.pl { background: #eee; font-weight: bold; width: 12px; font-size: 3.5pt; }
+.mat { font-size: 3.75pt; font-weight: bold; padding: 1.5px 2px; }
+.matv { height: 15px; }
+.lin { font-size: 4.5pt; padding: 1px 2.5px; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v33</p>
+<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v45</p>
+<div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
 <table>
 <tr><td class="cinza" colspan="3">PACIENTE</td><td class="cinza">CONVÊNIO</td></tr>
 <tr><td colspan="3" class="campo">${p.nome || ''}</td><td class="campo">${p.convenio || 'SUS'}</td></tr>
-<tr><td class="pl" style="width:auto;">UTI</td><td colspan="3" style="font-size:8pt;">${utis.map(c => `${p.uti === c ? '<b>(X)</b>' : '(  )'} ${c}`).join(' &nbsp; ')}${p.leito ? ` &nbsp;|&nbsp; <b>Leito: ${p.leito}</b>` : ''}</td></tr>
+<tr><td class="pl" style="width:auto;">UTI</td><td colspan="3" style="font-size:4pt;">${utis.map(c => `${p.uti === c ? '<b>(X)</b>' : '(  )'} ${c}`).join(' &nbsp; ')}${p.leito ? ` &nbsp;|&nbsp; <b>Leito: ${p.leito}</b>` : ''}</td></tr>
 <tr><td class="secao" colspan="4">PRESCRIÇÃO</td></tr>
 <tr><td colspan="4" class="lin"><b>1. Duração:</b> <b>${horas}</b> h</td></tr>
 <tr><td colspan="4" class="lin"><b>2. Fluxos:</b> Sangue <b>${d.fluxo_sangue || 200}</b> ml/min &nbsp;&nbsp; Banho <b>${d.fluxo_banho || 300}</b> ml/min</td></tr>
 <tr><td colspan="4" class="secao" style="background:#eee;">3. Perdas</td></tr>
 <tr><td class="lin">UF HD: <b>${num(d.uf_hd)}</b> ml</td><td class="lin">UF isolada: <b>${num(d.uf_isolada)}</b> ml</td><td class="lin" style="background:#eee;">UF efetiva: <b>${ufEf}</b> ml</td><td class="lin">Priming: <b>${priming}</b> ml</td></tr>
-<tr><td colspan="3" class="lin">Lavagens: <b>${lavagens}</b> ml &nbsp; <span style="font-size:7pt;">(100ml SF0,9% 15/15min)</span></td><td class="lin" style="background:#ddd;font-weight:bold;">UF total: <b>${ufTot}</b> ml</td></tr>
+<tr><td colspan="3" class="lin">Lavagens: <b>${lavagens}</b> ml &nbsp; <span style="font-size:3.5pt;">(100ml SF0,9% 15/15min)</span></td><td class="lin" style="background:#ddd;font-weight:bold;">UF total: <b>${ufTot}</b> ml</td></tr>
 <tr><td colspan="4" class="secao" style="background:#eee;">4. Anticoagulação</td></tr>
 <tr><td colspan="4" class="lin">${heparinaTxt}</td></tr>
-<tr><td colspan="4" class="lin" style="font-size:7.5pt;">Rinse: priming SF 500ml + 0,3ml heparina; antes de conectar, lavar sistema com 500ml SF sem heparina.</td></tr>
+<tr><td colspan="4" class="lin" style="font-size:3.75pt;">Rinse: priming SF 500ml + 0,3ml heparina; antes de conectar, lavar sistema com 500ml SF sem heparina.</td></tr>
 <tr><td colspan="4" class="secao" style="background:#eee;">5. Dialisato</td></tr>
 <tr><td colspan="2" class="lin">Sódio: <b>${d.dialisato_sodio || 142}</b> mEq/l</td><td class="lin">Temp: <b>${d.dialisato_temp || 35}</b> °C</td><td class="lin">Bic: <b>${d.dialisato_bic || 34}</b> mEq/l</td></tr>
 <tr><td colspan="4" class="lin">6. Em caso de <b>hipotensão</b>: correr <b>200ml de SF 0,9%</b> e chamar o plantonista.</td></tr>
 <tr><td colspan="4" class="secao" style="background:#eee;">7. Preenchimento do cateter</td></tr>
 <tr><td colspan="4" class="lin">Após a sessão, preencher o cateter com: <b>${catTxt}</b></td></tr>
-<tr><td colspan="4" class="lin" style="font-style:italic;font-size:7.5pt;">⚠ Nunca usar heparina pura para preenchimento do cateter.</td></tr>
-<tr><td colspan="4" class="lin" style="height:26px;">Assinatura / CRM:</td></tr>
-<tr><td class="secao" colspan="4">EVOLUÇÃO DE ENFERMAGEM</td></tr>
-${Array(5).fill('<tr><td colspan="4" style="height:22px;"></td></tr>').join('')}
-<tr><td colspan="4" class="lin">Enfermeiro(a) / COREN:</td></tr>
+<tr><td colspan="4" class="lin" style="font-style:italic;font-size:3.75pt;">⚠ Nunca usar heparina pura para preenchimento do cateter.</td></tr>
+<tr><td colspan="4" class="lin" style="height:13px;">Assinatura / CRM:</td></tr>
+
+</table>
+</div>
+</div>
+<div class="layout" style="margin-top:3px;">
+<div class="col-vol">
+<table class="vol">
+<tr><td class="cinza" colspan="6">CONTROLE DE VOLUME (ml)</td></tr>
+<tr><td class="vol-label" style="width:16%;"></td><td class="cinza">UF parcial</td><td class="cinza">Lavagens</td><td class="cinza">SF hipot.</td><td class="cinza">UF efetiva</td><td class="cinza">TOTAL</td></tr>
+${Array.from({ length: 6 }, (_, i) => `<tr><td class="vol-label">${i + 1}ªH</td>${Array(5).fill('<td class="vol-val"></td>').join('')}</tr>`).join('')}
 </table>
 </div>
 <div class="col-graf">
-<table class="graf">
-<tr><td class="cinza" style="width:24px;">PA</td>${horasArr.map(h => `<td class="cinza" colspan="${quadPorHora}">${h}</td>`).join('')}</tr>
-${pressoes.map(pr => `<tr><td class="pl">${pr}</td>${Array(totalQuad).fill(0).map((_, i) => `<td style="background:${i % 2 === 0 ? '#f5f5f5' : '#fff'};"></td>`).join('')}</tr>`).join('')}
-<tr><td class="cinza" colspan="${totalQuad + 1}">CONTROLE DE PESO</td></tr>
-<tr><td class="pl" style="font-size:6.5pt;">Pré</td><td colspan="${Math.floor(totalQuad / 2)}"></td><td class="pl" style="font-size:6.5pt;">Pós</td><td colspan="${totalQuad - Math.floor(totalQuad / 2) - 1}"></td></tr>
-<tr><td class="cinza" colspan="${totalQuad + 1}">CONTROLE DE VOLUME</td></tr>
-${['UF total', 'Lavagens', 'SF hipotensão', 'UF efetiva', 'TOTAL'].map(l => `<tr><td style="font-size:6.5pt;font-weight:bold;background:#eee;">${l}</td>${Array(totalQuad).fill('<td></td>').join('')}</tr>`).join('')}
+<table class="graf5">
+<tr><td class="cinza" style="width:0.45cm;">PA</td>${Array.from({ length: 6 }, (_, i) => `<td class="cinza" colspan="4">${i + 1}ªH</td>`).join('')}</tr>
+${pressoes.map(pr => `<tr><td class="pl5">${pr}</td>${Array(24).fill('<td></td>').join('')}</tr>`).join('')}
 </table>
 </div>
-<div class="col-mat">
+</div>
+</div>
+<div class="c-dir">
 <table>
 <tr><td class="cinza">MATERIAIS / 24H</td></tr>
-${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HEPARINA', 'SERINGAS', 'AGULHAS', 'LUVAS', 'ÁLCOOL 70%', 'OUTROS'].map(m => `<tr><td class="mat">${m}</td></tr><tr><td class="matv"></td></tr>`).join('')}
+${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HEPARINA', 'SERINGAS', 'AGULHAS', 'LUVAS', 'ÁLCOOL 70%', 'OUTROS'].map(m => `<tr><td class="mat">${m}</td></tr><tr><td class="matv2"></td></tr>`).join('')}
 </table>
-</div>
+</div></div>
+<table style="margin-top:3px;">
+<tr><td class="cinza" colspan="2">EVOLUÇÃO DE ENFERMAGEM</td></tr>
+${Array(5).fill('<tr><td colspan="2" style="height:0.556cm;"></td></tr>').join('')}
+<tr><td class="lin" style="width:50%;">Enfermeiro(a) / COREN:</td><td class="lin">Assinatura:</td></tr>
+</table>
+<div style="margin-top:2px;display:flex;align-items:center;gap:3px;">
+<div style="width:5cm;height:0.12cm;border:0.5px solid #000;background:repeating-linear-gradient(90deg,#000 0,#000 0.5cm,#fff 0.5cm,#fff 1cm);"></div>
+<span style="font-size:3.25pt;">RÉGUA: barra nominal de 10,0 cm — informe a medida real.</span>
 </div>
 </div></div></body></html>`;
 
