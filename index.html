@@ -51,7 +51,7 @@ const COMORBIDADES_GRUPOS = [
 ];
 
 const GATILHOS_GRUPOS = [
-  ['Hemodinâmico/isquêmico', ['Infecção','Sepse/choque séptico','Choque cardiogênico','Desidratação/hipovolemia','SCA','Taquiarritmia','Bradiarritmia','Síndrome cardiorrenal/baixo débito','EAP/hipervolemia','Pós-PCR','Pós-operatório/procedimento']],
+  ['Hemodinâmico/isquêmico', ['Infecção','Sepse/choque séptico','Choque cardiogênico','Desidratação/hipovolemia','SCA','Taquiarritmia','Bradiarritmia','Síndrome cardiorrenal/baixo débito','EAP/hipervolemia','Pós-PCR','Pré-operatório','Pós-operatório/procedimento']],
   ['Nefrotóxico', ['Contraste','Nefrotoxicidade','Rabdomiólise']],
   ['Obstrutivo', ['Nefropatia obstrutiva']],
   ['Outros', ['NIA','Causa glomerular/GNRP','Síndrome hepatorrenal']],
@@ -599,7 +599,7 @@ function NefroApp() {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v53</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v54</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -1484,7 +1484,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v53</p>
+<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v54</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
@@ -1667,7 +1667,14 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
     const rotuloHerdado = { padrao_resp:'Padrão respiratório', resp:'Suporte respiratório', edema:'Edema', svd:'SVD', acesso:'Acesso', anticoag_hd:'Anticoagulação', diureticos:'Diuréticos', med_revisar:'Medicamentos a revisar' };
 
     const dvasTxt = Object.entries(avAtual.dvas || {}).map(([d, c]) => `${d} ${c.vazao || '?'}ml/h${c.dd ? ' (DD)' : ''}`).join(', ');
-    const diurTxt = (avAtual.diureticos || []).join(', ');
+    const diurTxt = (() => {
+      const d = avAtual; const det = [];
+      if ((d.diureticos || []).includes('Furosemida') && d.furo_manut !== 'sem') det.push(`Furosemida ${d.furo_dose_n || ''}${d.furo_manut === 'amp' ? 'amp' : 'cp'} ${d.furo_int || ''}`);
+      if (d.furo_bolus_n) det.push(`Furosemida bolus ${d.furo_bolus_amp || ''}amp x${d.furo_bolus_n}`);
+      if ((d.diureticos || []).includes('Espironolactona')) det.push(`Espironolactona ${(parseInt(d.espiro_cp) || 1) * 25}mg ${d.espiro_int || ''}`);
+      if ((d.diureticos || []).includes('Hidroclorotiazida')) det.push(`Hidroclorotiazida ${(parseInt(d.hctz_cp) || 1) * 25}mg ${d.hctz_int || ''}`);
+      return det.length ? det.join('; ') : (d.diureticos || []).join(', ');
+    })();
     const Bloco = ({ titulo, children }) => (
       <div style={{ ...S.card, marginBottom: 12 }}>
         <div style={S.cardHeader}>{titulo}</div>
@@ -1721,6 +1728,10 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
         add('Intercorrências', ic.length ? ic : '');
       }
 
+      if ((pacAtual.gatilhos || []).includes('Pré-operatório')) {
+        linhas.push(''); linhas.push('PARECER PRÉ-OPERATÓRIO');
+        linhas.push('Apesar do risco aumentado de complicações renais e sistêmicas, do ponto de vista nefrológico não há contraindicação absoluta à realização do procedimento proposto. Recomenda-se avaliação criteriosa da relação risco-benefício pela equipe assistente.');
+      }
       linhas.push(''); linhas.push('CONDUTA');
       add('Decisão', { hd_hoje: 'HD HOJE', hd_amanha: 'HD AMANHÃ', conservador: 'Conservador' }[d.conduta]);
       if (d.conduta === 'hd_hoje') {
@@ -1796,6 +1807,13 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
             </div>
           </Bloco>
 
+          {(pacAtual.gatilhos || []).includes('Pré-operatório') && (
+            <Bloco titulo="Parecer pré-operatório">
+              <div style={{ fontStyle: 'italic' }}>Apesar do risco aumentado de complicações renais e sistêmicas, do ponto de vista nefrológico não há contraindicação absoluta à realização do procedimento proposto. Recomenda-se avaliação criteriosa da relação risco-benefício pela equipe assistente.</div>
+            </Bloco>
+          )}
+
+          {(avAtual.ultima_hd_data || avAtual.tempo_obtido || avAtual.uf_obtida) && (
           <Bloco titulo="Última HD">
             <Item k="1ª HD" v={pacAtual.dataPrimeiraHD} />
             <Item k="Data da sessão" v={avAtual.ultima_hd_data} />
@@ -1805,6 +1823,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
             <Item k="Anticoagulação" v={avAtual.anticoag_hd} />
             <Item k="Intercorrências" v={(Array.isArray(avAtual.interc) ? avAtual.interc : []).join(', ')} />
           </Bloco>
+          )}
 
           {(avAtual.med_revisar || []).length > 0 && (
             <Bloco titulo="Medicamentos a revisar">
