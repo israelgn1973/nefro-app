@@ -66,6 +66,7 @@ const POP_TIPOS = ['RM com CEC','CATE/angioplastia','Troca valvar','MP definitiv
 const URGENCIAS_DIALITICAS = ['Hipercalemia refratária','Acidose metabólica grave','Hipervolemia/EAP refratário','Uremia (encefalopatia/pericardite/sangramento)','Intoxicação dialisável'];
 
 const COMORBIDADES = COMORBIDADES_GRUPOS.flatMap(g => g[1]);
+const nrmNome = s => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase().replace(/\s+/g, ' ');
 const FREQ_KEY = 'nefroapp_freq_v1';
 const lerFreq = () => { try { return JSON.parse(localStorage.getItem(FREQ_KEY)) || {}; } catch { return {}; } };
 const regFreq = (campo, opcao) => {
@@ -261,6 +262,8 @@ function NefroApp() {
   const [verArquivados, setVerArquivados] = useState(false);
   const [verDados, setVerDados] = useState(false);
   const [mesStats, setMesStats] = useState(null);
+  const [swipeId, setSwipeId] = useState(null);
+  const swipeRef = React.useRef({ x: 0, id: null });
 
   const dicaLab = (rotulo, chave, unid) => () => {
     const v = avAtual?.labs?.[chave];
@@ -380,6 +383,10 @@ function NefroApp() {
 
   function salvarNovoPaciente() {
     if (!novoPac.nome.trim()) return;
+    if (!editandoPacId) {
+      const hom = pacientes.find(p => nrmNome(p.nome) === nrmNome(novoPac.nome) && String(p.idade || '') === String(novoPac.idade || ''));
+      if (hom && !confirm(`Já existe "${hom.nome}" (${hom.idade || '?'} anos) cadastrado. Cadastrar mesmo assim cria um possível duplicado. Continuar?`)) return;
+    }
     const convenioFinal = novoPac.convenio === 'OUTROS' ? (novoPac.convenioOutro.trim() || 'OUTROS') : novoPac.convenio;
     const leitoFinal = novoPac.temLeito ? novoPac.leito : '';
     if (editandoPacId) {
@@ -457,7 +464,11 @@ function NefroApp() {
 
           setPacientes(pacMerged);
           setAvaliacoes(avMerged);
-          alert(`Importação concluída: ${pacMerged.length} paciente(s) no app.`);
+          const homs = [];
+          pacMerged.forEach((p, i) => pacMerged.slice(i + 1).forEach(q => {
+            if (nrmNome(p.nome) === nrmNome(q.nome) && String(p.idade || '') === String(q.idade || '')) homs.push(p.nome);
+          }));
+          alert(`Importação concluída: ${pacMerged.length} paciente(s) no app.` + (homs.length ? `\n\nAtenção — possíveis duplicados (homônimos com mesma idade): ${[...new Set(homs)].join(', ')}. Estão marcados na lista; arraste para a esquerda o registro que não quer manter e exclua.` : ''));
         }
       } catch (err) { alert('Erro ao ler o arquivo.'); }
     };
@@ -558,7 +569,8 @@ function NefroApp() {
       const ultAv = avsP[0];
       const TERMINAIS = ['alta_nefro', 'alta_hosp', 'paliativo', 'obito'];
       const arquivado = !!(ultAv && TERMINAIS.includes(ultAv.conclusao) && (!p.reativadoEm || p.reativadoEm < ultAv.data));
-      m[p.id] = { vistoHoje: !!avHoje, arquivado, conclusaoFinal: ultAv?.conclusao, motivo, amanha, prioridadeOntem: avOntem?.prioridade === 'sim' && avHoje?.conduta !== 'hd_hoje', suspensa: p.esquemaHD === 'susp' };
+      const homonimo = pacientes.some(q => q.id !== p.id && nrmNome(q.nome) === nrmNome(p.nome) && String(q.idade || '') === String(p.idade || ''));
+      m[p.id] = { homonimo, vistoHoje: !!avHoje, arquivado, conclusaoFinal: ultAv?.conclusao, motivo, amanha, prioridadeOntem: avOntem?.prioridade === 'sim' && avHoje?.conduta !== 'hd_hoje', suspensa: p.esquemaHD === 'susp' };
     });
     return m;
   })();
@@ -646,7 +658,7 @@ function NefroApp() {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v78</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v80</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -720,7 +732,26 @@ function NefroApp() {
                 <span style={{ fontSize: 13, fontWeight: 700, color: '#555' }}>{u ? `UTI ${u}` : 'Sem UTI'}</span>
               </div>
               {vis.filter(p => (p.uti || '') === u).map(p => (
-            <div key={p.id} style={{ ...S.patientItem, ...(infoHD[p.id]?.vistoHoje ? { background: '#f0f3ef', opacity: 0.7 } : {}) }} onClick={() => abrirPaciente(p)}>
+            <div key={p.id} style={{ position: 'relative', overflow: 'hidden' }}>
+              <div onClick={() => {
+                if (confirm(`Excluir ${p.nome} e todas as avaliações? Esta ação não pode ser desfeita.`)) {
+                  setPacientes(ps => ps.filter(x => x.id !== p.id));
+                  setAvaliacoes(av => { const novo = { ...av }; delete novo[p.id]; return novo; });
+                }
+                setSwipeId(null);
+              }}
+                style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 84, background: '#c0392b', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                Excluir
+              </div>
+            <div
+              onTouchStart={e => { swipeRef.current = { x: e.touches[0].clientX, id: p.id }; }}
+              onTouchEnd={e => {
+                const dx = e.changedTouches[0].clientX - swipeRef.current.x;
+                if (swipeRef.current.id === p.id && dx < -50) setSwipeId(p.id);
+                else if (swipeId === p.id && dx > 30) setSwipeId(null);
+              }}
+              style={{ ...S.patientItem, ...(infoHD[p.id]?.vistoHoje ? { background: '#f0f3ef', opacity: 0.7 } : { background: '#fff' }), transform: swipeId === p.id ? 'translateX(-84px)' : 'none', transition: 'transform 0.18s ease', position: 'relative' }}
+              onClick={() => { if (swipeId) { setSwipeId(null); return; } abrirPaciente(p); }}>
               <div style={{ flex: 1 }}>
                 <div style={S.patientName}>{infoHD[p.id]?.vistoHoje ? '✓ ' : ''}{p.nome}</div>
                 <div style={S.patientMeta}>
@@ -730,10 +761,12 @@ function NefroApp() {
                   {infoHD[p.id]?.prioridadeOntem && <span style={{ fontSize: 10.5, fontWeight: 700, color: 'white', background: '#c0392b', borderRadius: 6, padding: '2px 7px' }}>⚠ PRIORIDADE ONTEM</span>}
                   {infoHD[p.id]?.motivo && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#c0392b', background: '#fdf0ef', border: '1px solid #f0c2bd', borderRadius: 6, padding: '2px 7px' }}>💧 {infoHD[p.id].motivo}</span>}
                   {infoHD[p.id]?.suspensa && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#666', background: '#eee', borderRadius: 6, padding: '2px 7px' }}>HD SUSPENSA ATÉ 2ª ORDEM</span>}
+                  {infoHD[p.id]?.homonimo && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#7a4a1e', background: '#fdf6f0', border: '1px solid #ecd5c0', borderRadius: 6, padding: '2px 7px' }}>⚠ HOMÔNIMO — verificar duplicado</span>}
                 </div>
               </div>
               <Badge conduta={p.ultimaAvaliacao?.conduta} />
               <span style={{ marginLeft: 8, color: '#ccc', fontSize: 20 }}>›</span>
+            </div>
             </div>
               ))}
             </div>
@@ -886,15 +919,7 @@ function NefroApp() {
                 </div>
               </div>
             )}
-            <button onClick={() => {
-              if (confirm(`Excluir ${pacAtual.nome} e todas as avaliações? Esta ação não pode ser desfeita.`)) {
-                setPacientes(ps => ps.filter(p => p.id !== pacAtual.id));
-                setAvaliacoes(av => { const novo = { ...av }; delete novo[pacAtual.id]; return novo; });
-                setPacAtual(null); setAvAtual(null); setView('lista');
-              }
-            }} style={{ width: '100%', marginTop: 14, padding: 12, borderRadius: 10, border: '1.5px solid #c0392b', background: '#fff', color: '#c0392b', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
-              🗑 Excluir paciente
-            </button>
+            
           </>
         )}
 
@@ -1951,7 +1976,7 @@ function NefroApp() {
 <style>
 @page { size: A4; margin: 0; }
 .page { width: 39.2cm; height: 27.5cm; overflow: hidden; position: relative; background: #fff; }
-.sheet { padding: 0.15cm; width: 19.6cm; transform: scale(2); transform-origin: top left; }
+.sheet { padding: 0.15cm; width: 18.75cm; transform: scale(2); transform-origin: top left; }
 @media print {
   html, body { margin: 0; padding: 0; height: 1cm; overflow: visible; }
   .page { width: 27.5cm; height: 1cm; position: absolute; top: 0; left: 0; overflow: visible; }
@@ -1992,7 +2017,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v78</p>
+<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v80</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
