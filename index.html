@@ -590,7 +590,7 @@ function NefroApp() {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v49</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v50</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -722,6 +722,15 @@ function NefroApp() {
                 </div>
               </div>
             )}
+            <button onClick={() => {
+              if (confirm(`Excluir ${pacAtual.nome} e todas as avaliações? Esta ação não pode ser desfeita.`)) {
+                setPacientes(ps => ps.filter(p => p.id !== pacAtual.id));
+                setAvaliacoes(av => { const novo = { ...av }; delete novo[pacAtual.id]; return novo; });
+                setPacAtual(null); setAvAtual(null); setView('lista');
+              }
+            }} style={{ width: '100%', marginTop: 14, padding: 12, borderRadius: 10, border: '1.5px solid #c0392b', background: '#fff', color: '#c0392b', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+              🗑 Excluir paciente
+            </button>
           </>
         )}
 
@@ -1427,7 +1436,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v49</p>
+<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v50</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
