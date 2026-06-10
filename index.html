@@ -264,6 +264,7 @@ function NefroApp() {
   const [mesStats, setMesStats] = useState(null);
   const [modoExcluir, setModoExcluir] = useState(false);
   const [modalComExcluir, setModalComExcluir] = useState(false);
+  const [avSnapshot, setAvSnapshot] = useState(null);
   const [selExcluir, setSelExcluir] = useState([]);
 
   const dicaLab = (rotulo, chave, unid) => () => {
@@ -302,7 +303,7 @@ function NefroApp() {
   const TabBar = ({ atual }) => (
     <div style={{ display: 'flex', gap: 0, background: '#142e49', position: 'sticky', top: 0, zIndex: 50 }}>
       {[['eventos','Eventos'],['comorb','Comorb.'],['roteiro','Beira leito'],['conduta','Conduta'],['panorama','Resumo']].map(([v, l]) => (
-        <div key={v} onClick={() => { if (avAtual && pacAtual && (view === 'roteiro' || view === 'conduta' || view === 'prescricao')) salvarAvaliacao(); setView(v); }}
+        <div key={v} onClick={() => { if (avAtual && pacAtual && (view === 'roteiro' || view === 'conduta' || view === 'prescricao')) salvarAvaliacao(false); setView(v); }}
           style={{ flex: 1, textAlign: 'center', padding: '10px 2px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
             color: atual === v ? '#1a3a5c' : 'rgba(255,255,255,0.75)', background: atual === v ? '#f4f4f0' : 'transparent',
             borderRadius: '10px 10px 0 0' }}>{l}</div>
@@ -368,10 +369,21 @@ function NefroApp() {
       } : {})
     };
     setAvAtual(novo);
+    setAvSnapshot(null);
     setView('roteiro');
   }
 
-  function salvarAvaliacao() {
+  function salvarAvaliacao(final = true) {
+    if (avSnapshot) {
+      const mudou = JSON.stringify(avAtual) !== avSnapshot;
+      if (!mudou) return;
+      if (!final) return;
+      if (!confirm('Você alterou uma evolução já concluída. Salvar as alterações?')) {
+        setAvAtual(JSON.parse(avSnapshot));
+        return;
+      }
+      setAvSnapshot(JSON.stringify(avAtual));
+    }
     const avs = avaliacoes[pacAtual.id] || [];
     const novas = [avAtual, ...avs.filter(a => a.id !== avAtual.id)];
     setAvaliacoes({ ...avaliacoes, [pacAtual.id]: novas });
@@ -687,7 +699,7 @@ function NefroApp() {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v95</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v96</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -954,7 +966,7 @@ function NefroApp() {
             
 
             {ultimaAv && (
-            <div style={{ ...S.card, cursor: 'pointer' }} onClick={() => { setAvAtual(ultimaAv); setView('roteiro'); }}>
+            <div style={{ ...S.card, cursor: 'pointer' }} onClick={() => { setAvAtual(ultimaAv); setAvSnapshot(JSON.stringify(ultimaAv)); setView('roteiro'); }}>
               <div style={S.cardHeader}>Última evolução — toque para abrir · {new Date(ultimaAv.data).toLocaleDateString('pt-BR')}</div>
               <div style={{ padding: 14, fontSize: 14 }}>
                 <div style={{ marginBottom: 8 }}><b>Conduta:</b> {{hd_hoje:'HD HOJE',hd_amanha:'HD AMANHÃ',conservador:'CONSERVADOR'}[ultimaAv.conduta]}</div>
@@ -971,7 +983,7 @@ function NefroApp() {
             {(() => {
               const hojeISO = new Date().toISOString().slice(0, 10);
               const avHojeF = avs.find(a => new Date(a.data).toISOString().slice(0, 10) === hojeISO);
-              return <RodapeNav direita={avHojeF ? 'Continuar hoje ▸' : 'Evoluir hoje ▸'} onDireita={() => { if (avHojeF) { setAvAtual(avHojeF); setView('roteiro'); } else { novaAvaliacao(); } }} />;
+              return <RodapeNav direita={avHojeF ? 'Continuar hoje ▸' : 'Evoluir hoje ▸'} onDireita={() => { if (avHojeF) { setAvAtual(avHojeF); setAvSnapshot(JSON.stringify(avHojeF)); setView('roteiro'); } else { novaAvaliacao(); } }} />;
             })()}
           </>
         )}
@@ -983,7 +995,7 @@ function NefroApp() {
               ? <div style={S.emptyState}><p>Sem evoluções</p></div>
               : avs.map(av => (
                 <div key={av.id} style={{ padding: '12px 14px', borderBottom: '1px solid #f0f0f0', cursor: 'pointer' }}
-                  onClick={() => { setAvAtual(av); setView('roteiro'); }}>
+                  onClick={() => { setAvAtual(av); setAvSnapshot(JSON.stringify(av)); setView('roteiro'); }}>
                   <div style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>
                     {new Date(av.data).toLocaleDateString('pt-BR')} — <b>{{hd_hoje:'HD HOJE',hd_amanha:'HD AMANHÃ',conservador:'CONSERVADOR'}[av.conduta]}</b>
                   </div>
@@ -1624,7 +1636,7 @@ function NefroApp() {
         </div>
 
 
-        <RodapeNav direita="Avançar ▸" onDireita={() => { salvarAvaliacao(); setView('conduta'); }} onPacientes={() => { salvarAvaliacao(); setView('lista'); }} />
+        <RodapeNav direita="Avançar ▸" onDireita={() => { salvarAvaliacao(false); setView('conduta'); }} onPacientes={() => { salvarAvaliacao(); setView('lista'); }} />
       </div>
     );
   }
@@ -1742,7 +1754,7 @@ function NefroApp() {
 
             <div style={{ padding: '0 16px' }}>
               <button style={{ ...S.btn, background: '#c0392b', color: 'white', width: '100%' }}
-                onClick={() => { salvarAvaliacao(); setView('prescricao'); }}>📄 Prescrição HD — texto e impressão</button>
+                onClick={() => { salvarAvaliacao(false); setView('prescricao'); }}>📄 Prescrição HD — texto e impressão</button>
             </div>
             </>
           )}
@@ -1963,7 +1975,7 @@ function NefroApp() {
         </div>
 
 
-        <RodapeNav direita="Resumo ▸" onDireita={() => { salvarAvaliacao(); setView('panorama'); }} onPacientes={() => { salvarAvaliacao(); setView('lista'); }} />
+        <RodapeNav direita="Resumo ▸" onDireita={() => { salvarAvaliacao(false); setView('panorama'); }} onPacientes={() => { salvarAvaliacao(); setView('lista'); }} />
       </div>
     );
   }
@@ -2086,7 +2098,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v95</p>
+<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v96</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
@@ -2183,7 +2195,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           </button>
         </div>
 
-        <RodapeNav direita="Voltar à conduta ▸" onDireita={() => { salvarAvaliacao(); setView('conduta'); }} onPacientes={() => { salvarAvaliacao(); setView('lista'); }} />
+        <RodapeNav direita="Voltar à conduta ▸" onDireita={() => { salvarAvaliacao(false); setView('conduta'); }} onPacientes={() => { salvarAvaliacao(); setView('lista'); }} />
       </div>
     );
   }
