@@ -948,7 +948,7 @@ function NefroApp() {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v109</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v110</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -1208,26 +1208,26 @@ function NefroApp() {
           ⚙ Backup e dados {verDados ? '▲' : '▼'}
         </div>
         {verDados && (
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, maxWidth: 420, margin: '0 auto' }}>
             <button onClick={exportarDados}
-              style={{ fontSize: 12, padding: '8px 14px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer' }}>
+              style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer', textAlign: 'center' }}>
               ⬆ Exportar backup
             </button>
-            <label style={{ fontSize: 12, padding: '8px 14px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer' }}>
+            <label style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer', textAlign: 'center' }}>
               ⬇ Importar
               <input type="file" accept="application/json,.json" style={{ display: 'none' }}
                 onChange={e => { if (e.target.files[0]) importarDados(e.target.files[0]); e.target.value = ''; }} />
             </label>
             <button onClick={gerarColetivoDia}
-              style={{ fontSize: 12, padding: '8px 14px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer' }}>
+              style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer', textAlign: 'center' }}>
               Prescricoes do dia (PDF p/ assinar)
             </button>
             <button onClick={() => setView('stats')}
-              style={{ fontSize: 12, padding: '8px 14px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer' }}>
+              style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer', textAlign: 'center' }}>
               📊 Relatório
             </button>
             <button onClick={() => { setModoExcluir(true); setSelExcluir([]); setVerDados(false); }}
-              style={{ fontSize: 12, padding: '8px 14px', borderRadius: 8, border: '1px solid #e8c8c4', background: 'white', color: '#c0392b', cursor: 'pointer' }}>
+              style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #e8c8c4', background: 'white', color: '#c0392b', cursor: 'pointer', textAlign: 'center' }}>
               🗑 Excluir pacientes…
             </button>
           </div>
@@ -2663,7 +2663,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v109</p>
+<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v110</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
