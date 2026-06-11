@@ -1251,7 +1251,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v139</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v140</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -1549,7 +1549,19 @@ const ajRotulo = aj => {
                   <div style={{ ...S.patientName, color: '#888' }}>{p.nome}</div>
                   <div style={S.patientMeta}>{ROT[infoHD[p.id].conclusaoFinal] || ''}</div>
                 </div>
-                <span onClick={() => { setPacientes(ps => ps.map(x => x.id === p.id ? { ...x, reativadoEm: Date.now() } : x)); }}
+                <span onClick={() => {
+                    const ehObito = infoHD[p.id]?.conclusaoFinal === 'obito';
+                    if (!confirm(`Reativar o seguimento de ${p.nome}?`)) return;
+                    if (ehObito && !confirm('Este paciente está registrado como ÓBITO. Confirma que o registro estava errado e o seguimento deve ser reativado?')) return;
+                    setAvaliacoes(a => {
+                      const avsP = a[p.id] || [];
+                      if (!avsP.length) return a;
+                      const corr = avsP.map((av, i) => i === 0 ? { ...av, conclusao: 'acompanhamento' } : av);
+                      return { ...a, [p.id]: corr };
+                    });
+                    setPacientes(ps => ps.map(x => x.id === p.id ? { ...x, reativadoEm: Date.now(), updatedAt: Date.now() } : x));
+                    mostrarToast('Seguimento reativado');
+                  }}
                   style={{ ...S.checkItem, fontSize: 12, color: '#27ae60', borderColor: '#27ae60' }}>↩ Reativar</span>
               </div>
             ))}
@@ -3245,7 +3257,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v139</p>
+<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v140</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
