@@ -268,6 +268,17 @@ function NefroApp() {
   const [avSnapshot, setAvSnapshot] = useState(null);
   const [selExcluir, setSelExcluir] = useState([]);
 
+  const ChipLab = ({ rotulo, chave, unid, riscoAlto, riscoBaixo }) => {
+    const v = parseFloat(avAtual?.labs?.[chave]);
+    if (isNaN(v)) return <span style={{ fontSize: 11.5, color: '#bbb', marginLeft: 8 }}>({rotulo}: sem exame hoje)</span>;
+    const perigo = (riscoAlto != null && v > riscoAlto) || (riscoBaixo != null && v < riscoBaixo);
+    return (
+      <span style={{ fontSize: 12, fontWeight: 700, marginLeft: 8, padding: '2px 8px', borderRadius: 6,
+        background: perigo ? '#fdecea' : '#eafaf1', color: perigo ? '#c0392b' : '#1d7a45', border: `1px solid ${perigo ? '#c0392b' : '#27ae60'}` }}>
+        {rotulo}: {avAtual.labs[chave]} {unid}{perigo ? ' ⚠' : ''}
+      </span>
+    );
+  };
   const dicaLab = (rotulo, chave, unid) => () => {
     const v = avAtual?.labs?.[chave];
     return (v != null && v !== '') ? `${rotulo} de hoje: ${v} ${unid}` : null;
@@ -275,6 +286,39 @@ function NefroApp() {
   const calcUFEf = () => (parseFloat(avAtual?.uf_hd)||0) + (parseFloat(avAtual?.uf_isolada)||0);
   const calcLavAuto = () => Math.max(100, ((parseFloat(avAtual?.hd_dur||avAtual?.hd_horas)||4) * 2 - 1) * 100);
   const calcUFTot = () => calcUFEf() + (parseFloat(avAtual?.priming)||400) + (parseFloat(avAtual?.lavagens)||calcLavAuto());
+  const sugestoesConduta = () => {
+    if (!avAtual || !pacAtual) return [];
+    const S = [];
+    const interc = Array.isArray(avAtual.interc) ? avAtual.interc : [];
+    const dvas = avAtual.dvas || {};
+    const nora = dvas['Noradrenalina'];
+    const noraAlta = nora && parseFloat(nora.vazao) > (nora.dd ? 8 : 15);
+    const hipotenso = noraAlta || (avAtual.pa || '').toLowerCase().includes('hipotens');
+    const emVM = (avAtual.padrao_resp || '').toLowerCase().includes('ventilação') || (avAtual.padrao_resp || '').toLowerCase().includes('vm');
+    const ventilandoMal = emVM && (parseFloat(avAtual.fio2) >= 60 || parseFloat(avAtual.peep) >= 10);
+    const edemaImportante = ['acentuado', 'muito acentuado'].includes(avAtual.edema);
+    const hdPrevia = avs.some(a => a.id !== avAtual.id && a.conduta?.startsWith('hd'));
+    const primeiraSessao = !hdPrevia;
+    const cdlNovo = interc.includes('Implante de CDL pré-sessão') || (primeiraSessao && avAtual.acesso !== 'FAV');
+    const ehHD = avAtual.conduta === 'hd_hoje';
+
+    if (ehHD && interc.includes('Coagulação do circuito') && avAtual.anticoag !== 'com')
+      S.push({ n: 'vermelho', t: 'Circuito COAGULOU na última sessão e a prescrição está sem heparina — considerar heparinização (se não houver contraindicação) ou rinse rigoroso.' });
+    if (ehHD && cdlNovo)
+      S.push({ n: 'ambar', t: (primeiraSessao ? 'Primeira sessão' : 'CDL implantado hoje') + ' com CDL novo → HD SEM heparina e cateter preenchido com BICARBONATO 8,4%.' });
+    if (ehHD && avAtual.eg === 'estável' && hdPrevia && ['sqs', 'tqs'].includes(pacAtual.esquemaHD) && avAtual.cateter !== 'hep' && avAtual.acesso !== 'FAV')
+      S.push({ n: 'info', t: 'Estável em dias alternados → considerar fechar o CDL com heparina diluída (maior patência entre sessões).' });
+    if (ehHD && hipotenso)
+      S.push({ n: 'ambar', t: 'Hipotenso com DVA em dose alta → considerar sódio do dialisato entre 145–150 e UF conservadora.' + (noraAlta ? ' (Nora ' + nora.vazao + ' ml/h' + (nora.dd ? ' DD' : '') + ')' : '') });
+    if (ehHD && hipotenso && ventilandoMal && edemaImportante)
+      S.push({ n: 'ambar', t: 'Hipotenso + ventilando mal + edema importante → considerar ESTENDER a sessão (5–6h) com UF horária menor' + (parseInt(pacAtual.idade) < 50 ? ' — paciente jovem tolera sessão longa.' : '.') });
+    if ((pacAtual.gatilhos || []).includes('Pré-operatório'))
+      S.push({ n: 'info', t: 'Parecer pré-operatório: "Paciente avaliado pela nefrologia. ' + (avAtual.conduta === 'hd_hoje' ? 'Programada HD pré-operatória; liberar para o procedimento após a sessão, se estabilidade.' : 'Sem indicação de diálise pré-operatória no momento; liberado do ponto de vista nefrológico.') + ' Manter controle de eletrólitos e volemia no per/pós-operatório." (sai pronto no Resumo)' });
+    if (avAtual.conduta === 'conservador' && (pacAtual.gatilhos || []).length > 0)
+      S.push({ n: 'info', t: 'Bundle de prevenção de IRA: suspender/ajustar nefrotóxicos · evitar contraste · otimizar volemia e PAM · balanço e diurese rigorosos · creatinina diária · evitar hiperglicemia.' });
+    return S;
+  };
+
   const dicaUF = () => {
     const d = avAtual || {};
     const partes = [];
@@ -718,7 +762,7 @@ function NefroApp() {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v98</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v100</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -1424,6 +1468,12 @@ function NefroApp() {
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               <span style={{ ...S.checkItem, fontSize: 12, ...(avAtual.semFuro ? { background: '#27ae60', color: 'white', borderColor: '#27ae60' } : {}) }}
                 onClick={() => setAvAtual(a => ({ ...a, semFuro: !a.semFuro, diureticos: !a.semFuro ? (a.diureticos||[]).filter(x => x !== 'Furosemida') : (a.diureticos||[]), furo_manut: !a.semFuro ? 'sem' : a.furo_manut, furo_dose_n: !a.semFuro ? '' : a.furo_dose_n, furo_bolus_n: !a.semFuro ? '' : a.furo_bolus_n }))}>Sem furosemida</span>
+              {(avAtual.diureticos||[]).includes('Furosemida') && (
+                <div style={{ padding: '0 14px 4px' }}><ChipLab rotulo="K" chave="pot_hoje" unid="mEq/l" riscoBaixo={3.5} /></div>
+              )}
+              {(avAtual.diureticos||[]).includes('Hidroclorotiazida') && (
+                <div style={{ padding: '0 14px 4px' }}><ChipLab rotulo="Na" chave="sodio_hoje" unid="mEq/l" riscoBaixo={135} /><ChipLab rotulo="K" chave="pot_hoje" unid="mEq/l" riscoBaixo={3.5} /></div>
+              )}
               {['Furosemida','Espironolactona','Hidroclorotiazida'].map(d => (
                 <span key={d} style={{ ...S.checkItem, fontSize: 12, ...((avAtual.diureticos||[]).includes(d) ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}
                   onClick={() => setAvAtual(a => ({ ...a, diureticos: (a.diureticos||[]).includes(d) ? a.diureticos.filter(x => x!==d) : [...(a.diureticos||[]), d], semFuro: d === 'Furosemida' && !(a.diureticos||[]).includes(d) ? false : a.semFuro }))}>{d}</span>
@@ -1471,6 +1521,9 @@ function NefroApp() {
               </div>
             )}
 
+            {(avAtual.diureticos||[]).includes('Espironolactona') && (
+              <div style={{ padding: '4px 14px 0' }}><ChipLab rotulo="K" chave="pot_hoje" unid="mEq/l" riscoAlto={5.0} /></div>
+            )}
             {(avAtual.diureticos||[]).includes('Espironolactona') && (
               <div style={{ marginTop: 10, paddingLeft: 12, borderLeft: '2px solid #c8d4e0' }}>
                 <div style={{ fontSize: 10, color: '#999', textTransform: 'uppercase', marginBottom: 5 }}>Espironolactona (cp 25mg)</div>
@@ -1686,6 +1739,22 @@ function NefroApp() {
         </div>
         <TabBar atual="conduta" />
 
+        {(() => {
+          const sugs = sugestoesConduta();
+          if (!sugs.length) return null;
+          const cores = { vermelho: ['#fdecea', '#c0392b', '#c0392b'], ambar: ['#fdf6ec', '#e8cfa8', '#8a6d3b'], info: ['#eef4fb', '#b9d2ee', '#1a3a5c'] };
+          return (
+            <div style={{ margin: '10px 16px 0' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>💡 Sugestões do caso</div>
+              {sugs.map((s, i) => (
+                <div key={i} style={{ padding: '8px 12px', borderRadius: 8, marginBottom: 6, fontSize: 12.5, lineHeight: 1.5, background: cores[s.n][0], border: `1.5px solid ${cores[s.n][1]}`, color: cores[s.n][2], fontWeight: s.n === 'vermelho' ? 700 : 400 }}>
+                  {s.t}
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+
         {/* CONDUTA */}
         <div style={S.formSection}>
           <div style={S.formLabel}>☐ Conduta / Conclusão</div>
@@ -1838,6 +1907,15 @@ function NefroApp() {
                       <span key={v} style={{ ...S.checkItem, fontSize: 12, ...((avAtual.aj_diur||{}).droga === v ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}
                         onClick={() => upAv('aj_diur', (avAtual.aj_diur||{}).droga === v ? {} : { droga: v, n: '', int: '' })}>{l}</span>
                     ))}
+                  {(() => {
+                    const dg = (avAtual.aj_diur||{}).droga;
+                    if (!dg) return null;
+                    if (dg === 'espiro') return <div style={{ marginTop: 6 }}><ChipLab rotulo="K" chave="pot_hoje" unid="mEq/l" riscoAlto={5.0} /></div>;
+                    if (dg === 'furo_amp' || dg === 'furo_cp') return <div style={{ marginTop: 6 }}><ChipLab rotulo="K" chave="pot_hoje" unid="mEq/l" riscoBaixo={3.5} /><ChipLab rotulo="Creat" chave="creat_hoje" unid="mg/dl" /></div>;
+                    if (dg === 'hctz') return <div style={{ marginTop: 6 }}><ChipLab rotulo="Na" chave="sodio_hoje" unid="mEq/l" riscoBaixo={135} /><ChipLab rotulo="K" chave="pot_hoje" unid="mEq/l" riscoBaixo={3.5} /></div>;
+                    if (dg === 'susp_furo') return <div style={{ marginTop: 6 }}><ChipLab rotulo="K" chave="pot_hoje" unid="mEq/l" riscoAlto={5.0} /><ChipLab rotulo="Na" chave="sodio_hoje" unid="mEq/l" riscoBaixo={135} /></div>;
+                    return null;
+                  })()}
                   </div>
                   {['furo_amp','furo_cp','espiro','hctz'].includes((avAtual.aj_diur||{}).droga) && (
                     <div style={{ marginTop: 8 }}>
@@ -2139,7 +2217,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v98</p>
+<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v100</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
