@@ -1251,7 +1251,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v134</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v135</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -3225,7 +3225,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v134</p>
+<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v135</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
@@ -3367,6 +3367,14 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
     const copiarPanorama = () => {
       const txt = gerarTextoPanorama();
       const done = () => { setCopiado(true); setTimeout(() => setCopiado(false), 2000); };
+      if (navigator.share) {
+        navigator.share({ text: txt }).then(done).catch(err => {
+          if (err && err.name === 'AbortError') return;
+          if (navigator.clipboard?.writeText) navigator.clipboard.writeText(txt).then(done).catch(() => prompt('Copie o texto:', txt));
+          else prompt('Copie o texto:', txt);
+        });
+        return;
+      }
       if (navigator.clipboard?.writeText) navigator.clipboard.writeText(txt).then(done).catch(() => prompt('Copie o texto:', txt));
       else prompt('Copie o texto:', txt);
     };
@@ -3377,7 +3385,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           <button style={S.backBtn} onClick={() => { if (modoConsulta) { setView('paciente'); } else { const o = origemResumo || { v: 'roteiro', sub: 'beira' }; setSubRot(o.sub || 'beira'); setView(o.v || 'roteiro'); } }}>‹</button>
           <h1 style={S.h1}>Resumo</h1>
           <button onClick={copiarPanorama} style={{ marginLeft: 'auto', padding: '8px 14px', borderRadius: 9, border: 'none', background: copiado ? '#27ae60' : 'rgba(255,255,255,0.18)', color: 'white', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-            {copiado ? '✓ Salvo' : '💾 Salvar texto'}
+            {copiado ? '✓ Enviado' : '📤 Compartilhar'}
           </button>
         </div>
 
