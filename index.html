@@ -1251,7 +1251,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v135</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v138</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -2503,37 +2503,51 @@ const ajRotulo = aj => {
                   HD prescrita {dataLocalISO(prevHD.data) === dataLocalISO(Date.now() - 86400000) ? 'ontem' : 'em ' + new Date(prevHD.data).toLocaleDateString('pt-BR')} ({durP}h · UF {ufP || '—'} ml) — realizada conforme prescrito?
                 </div>
                 {(() => {
-                  const rel = (pacAtual.relEnf || []).find(r => !r.usadoEm);
+                  const rel = (pacAtual.relEnf || []).find(r => !r.usadoEm) || (pacAtual.relEnf || [])[0];
                   if (!rel) return null;
                   const rc = rel.campos || {};
-                  const mapa = mapRelParaRegistro(rc, rel.divergencia);
+                  const novoRel2 = !rel.usadoEm;
                   return (
-                    <div style={{ padding: '8px 12px', borderRadius: 8, background: '#eef4fb', border: '1.5px solid #b9d2ee', marginBottom: 8, fontSize: 12.5 }}>
-                      📬 <b>Relatório da enfermagem na caixa</b>: {rc.data || ''} · {rc.tempo || rc.durCalc || '?'}h · UF efetiva {rc.ufEfetiva || '?'} ml
-                      <div style={{ marginTop: 4, fontSize: 12, color: '#1a3a5c' }}>
-                        Ao usar, marco: <b>{mapa.destino === 'conforme' ? '✓ Conforme prescrito' : mapa.destino === 'parcial' ? 'Parcial' + (mapa.motivo ? ' — ' + mapa.motivo : '') : 'destino fica pra você (texto ambíguo)'}</b>
-                        {mapa.interc.length ? <> · Intercorrências: <b>{mapa.interc.join(', ')}</b></> : null} — confira e ajuste.
-                      </div>
+                    <div style={{ padding: '8px 12px', borderRadius: 8, background: '#f4f7fb', border: '1.5px solid #b9d2ee', marginBottom: 8, fontSize: 12.5 }}>
+                      📋 <b>Relatório da sessão</b> {rc.data ? 'de ' + rc.data : ''} (enfermagem) 🔒
+                      {(() => {
+                        const Lx = ({ k, v, alerta }) => (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderBottom: '1px solid #e8eef5', fontSize: 12 }}>
+                            <span style={{ color: '#7a8a9a' }}>{k}</span>
+                            <span style={{ fontWeight: 700, color: alerta ? '#c0392b' : '#1a3a5c', textAlign: 'right' }}>{v || '— não decodificado'}</span>
+                          </div>
+                        );
+                        const diverge = rc.tempo && rc.durCalc && rc.tempo !== rc.durCalc;
+                        const achados = mapRelParaRegistro(rc, rel.divergencia).interc;
+                        return (
+                          <div style={{ marginTop: 5, background: 'white', borderRadius: 6, padding: '4px 8px' }}>
+                            <Lx k="Data da sessão" v={rc.data} />
+                            <Lx k="Início → Final" v={rc.ini && rc.fim ? rc.ini + ' → ' + rc.fim : ''} />
+                            <Lx k="Tempo" v={(rc.durCalc || rc.tempo) ? (rc.durCalc || rc.tempo) + 'h' + (diverge ? ' (calculado; informado ' + rc.tempo + ')' : '') : ''} alerta={diverge} />
+                            <Lx k="UF efetiva" v={rc.ufEfetiva ? rc.ufEfetiva + ' ml' : ''} />
+                            <Lx k="UF total" v={rc.ufTotal ? rc.ufTotal + ' ml' : ''} />
+                            <Lx k="Achados no texto" v={achados.length ? achados.join(' · ') : 'nenhum'} />
+                            {rel.divergencia ? <Lx k="× prescrito" v={'⚠ ' + rel.divergencia} alerta /> : null}
+                          </div>
+                        );
+                      })()}
+                      <div style={{ marginTop: 4, fontSize: 11, color: '#999' }}>Registro da sessão — não edita a evolução. Marque o destino abaixo com base nele.</div>
                       <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-                        <span style={{ ...S.checkItem, fontSize: 12, background: '#27ae60', color: 'white', borderColor: '#27ae60' }}
-                          onClick={() => {
-                            setAvAtual(a => ({ ...a,
-                              tempo_obtido: rc.durCalc || rc.tempo || a.tempo_obtido,
-                              uf_obtida: rc.ufEfetiva || rc.ufTotal || a.uf_obtida,
-                              ultima_hd_data: rc.data ? rc.data.split('/').reverse().join('-') : a.ultima_hd_data,
-                              ...(mapa.destino ? { hd_destino: mapa.destino } : {}),
-                              ...(mapa.destino === 'parcial' && mapa.motivo ? { hd_parcial_motivo: mapa.motivo } : {}),
-                              ...(mapa.interc.length ? { interc: mapa.interc } : {}) }));
-                            const marcado = { ...pacAtual, relEnf: (pacAtual.relEnf || []).map(r => r.id === rel.id ? { ...r, usadoEm: Date.now() } : r), updatedAt: Date.now() };
-                            setPacientes(ps => ps.map(p => p.id === pacAtual.id ? marcado : p));
-                            setPacAtual(marcado);
-                          }}>✓ Usar estes dados</span>
-                        <span style={{ ...S.checkItem, fontSize: 12 }}
+                        {novoRel2 && <span style={{ ...S.checkItem, fontSize: 12 }}
                           onClick={() => {
                             const marcado = { ...pacAtual, relEnf: (pacAtual.relEnf || []).map(r => r.id === rel.id ? { ...r, usadoEm: Date.now() } : r), updatedAt: Date.now() };
                             setPacientes(ps => ps.map(p => p.id === pacAtual.id ? marcado : p));
                             setPacAtual(marcado);
-                          }}>Dispensar</span>
+                          }}>✓ Visto</span>}
+                        <span style={{ ...S.checkItem, fontSize: 12, color: '#c0392b', borderColor: '#e8c8c4' }}
+                          onClick={() => {
+                            if (!confirm('Este é o registro da sessão' + (rc.data ? ' de ' + rc.data : '') + '. Corrigir SOMENTE se houve erro de decodificação ou erro de registro do técnico. Continuar?')) return;
+                            if (!confirm('O registro atual será REMOVIDO. Depois, cole o relatório corrigido na caixa 📬 da tela inicial. Confirmar?')) return;
+                            const semEle = { ...pacAtual, relEnf: (pacAtual.relEnf || []).filter(r => r.id !== rel.id), updatedAt: Date.now() };
+                            setPacientes(ps => ps.map(p => p.id === pacAtual.id ? semEle : p));
+                            setPacAtual(semEle);
+                            mostrarToast('Registro removido — cole o corrigido na caixa 📬');
+                          }}>corrigir registro</span>
                       </div>
                     </div>
                   );
@@ -2760,6 +2774,12 @@ const ajRotulo = aj => {
           return (
             <div style={{ margin: '8px 16px 0', padding: '8px 12px', borderRadius: 8, background: '#f4f7fb', border: '1px solid #d7e3f0', fontSize: 12.5, color: '#1a3a5c' }}>
               <b>HD anterior</b> ({new Date(prevHD.data).toLocaleDateString('pt-BR')}): {prevHD.hd_dur || prevHD.hd_horas || '?'}h · UF efetiva {ufP || '—'} ml prescrita → {destinoTxt}
+              {(() => {
+                const rel = (pacAtual.relEnf || [])[0];
+                if (!rel || !rel.campos) return null;
+                const rc = rel.campos;
+                return <div style={{ marginTop: 4 }}>📋 <b>Relatório da enfermagem</b>{rc.data ? ' (' + rc.data + ')' : ''}: {rc.durCalc || rc.tempo || '?'}h · UF efetiva {rc.ufEfetiva || '?'} ml{rel.divergencia ? <span style={{ color: '#8a6d3b' }}> · ⚠ {rel.divergencia}</span> : null} 🔒</div>;
+              })()}
             </div>
           );
         })()}
@@ -3225,7 +3245,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v135</p>
+<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v138</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
@@ -3365,18 +3385,34 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
 ;
 
     const copiarPanorama = () => {
-      const txt = gerarTextoPanorama();
+      let txt = '';
+      try { txt = gerarTextoPanorama(); } catch (e) { alert('Erro ao gerar o texto: ' + (e && e.message)); return; }
       const done = () => { setCopiado(true); setTimeout(() => setCopiado(false), 2000); };
-      if (navigator.share) {
-        navigator.share({ text: txt }).then(done).catch(err => {
-          if (err && err.name === 'AbortError') return;
-          if (navigator.clipboard?.writeText) navigator.clipboard.writeText(txt).then(done).catch(() => prompt('Copie o texto:', txt));
-          else prompt('Copie o texto:', txt);
-        });
-        return;
+      const fallback = () => {
+        const ta = document.createElement('textarea');
+        ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        let okCopy = false;
+        try { okCopy = document.execCommand('copy'); } catch (e) {}
+        document.body.removeChild(ta);
+        if (okCopy) { done(); alert('Texto copiado — cole no WhatsApp.'); }
+        else prompt('Copie o texto:', txt);
+      };
+      try {
+        if (navigator.share) {
+          navigator.share({ title: 'Evolução — NefroApp', text: txt }).then(done).catch(err => {
+            if (err && err.name === 'AbortError') return;
+            alert('Compartilhar nativo falhou (' + (err && err.name) + '): ' + (err && err.message) + ' — usando cópia.');
+            fallback();
+          });
+          return;
+        }
+        alert('Este navegador não expõe o compartilhar nativo aqui — usando cópia.');
+        fallback();
+      } catch (e) {
+        alert('Erro no compartilhar: ' + (e && e.message));
+        fallback();
       }
-      if (navigator.clipboard?.writeText) navigator.clipboard.writeText(txt).then(done).catch(() => prompt('Copie o texto:', txt));
-      else prompt('Copie o texto:', txt);
     };
 
     return (
@@ -3384,11 +3420,13 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
         <div style={S.header}>
           <button style={S.backBtn} onClick={() => { if (modoConsulta) { setView('paciente'); } else { const o = origemResumo || { v: 'roteiro', sub: 'beira' }; setSubRot(o.sub || 'beira'); setView(o.v || 'roteiro'); } }}>‹</button>
           <h1 style={S.h1}>Resumo</h1>
-          <button onClick={copiarPanorama} style={{ marginLeft: 'auto', padding: '8px 14px', borderRadius: 9, border: 'none', background: copiado ? '#27ae60' : 'rgba(255,255,255,0.18)', color: 'white', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-            {copiado ? '✓ Enviado' : '📤 Compartilhar'}
-          </button>
+
         </div>
 
+        <button onClick={copiarPanorama}
+          style={{ position: 'fixed', right: 16, bottom: 'calc(84px + env(safe-area-inset-bottom, 0px))', zIndex: 400, padding: '14px 18px', borderRadius: 28, border: 'none', background: copiado ? '#27ae60' : '#1a3a5c', color: 'white', fontWeight: 700, fontSize: 14.5, cursor: 'pointer', boxShadow: '0 4px 14px rgba(0,0,0,0.35)' }}>
+          {copiado ? '✓ Enviado' : '📤 Compartilhar'}
+        </button>
         <div style={{ padding: 16, paddingBottom: 90 }}>
           <div style={{ marginBottom: 12, padding: '12px 14px', background: '#1a3a5c', color: 'white', borderRadius: 10 }}>
             <div style={{ fontSize: 18, fontWeight: 700 }}>{pacAtual.nome}</div>
