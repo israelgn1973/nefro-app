@@ -66,6 +66,7 @@ const POP_TIPOS = ['RM com CEC','CATE/angioplastia','Troca valvar','MP definitiv
 const URGENCIAS_DIALITICAS = ['Hipercalemia refratária','Acidose metabólica grave','Hipervolemia/EAP refratário','Uremia (encefalopatia/pericardite/sangramento)','Intoxicação dialisável'];
 
 const COMORBIDADES = COMORBIDADES_GRUPOS.flatMap(g => g[1]);
+const dataLocalISO = (ts) => { const d = ts == null ? new Date() : new Date(ts); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
 const nrmNome = s => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase().replace(/\s+/g, ' ');
 const FREQ_KEY = 'nefroapp_freq_v1';
 const lerFreq = () => { try { return JSON.parse(localStorage.getItem(FREQ_KEY)) || {}; } catch { return {}; } };
@@ -442,8 +443,8 @@ function NefroApp() {
   }
 
   function exportarDados() {
-    try { localStorage.setItem('nefroapp_last_backup', new Date().toISOString().slice(0, 10)); } catch {}
-    const dt = new Date().toISOString().slice(0, 10);
+    try { localStorage.setItem('nefroapp_last_backup', dataLocalISO()); } catch {}
+    const dt = dataLocalISO();
     const nome = `nefroapp_backup_${dt}.json`;
     const blob = new Blob([JSON.stringify({ pacientes, avaliacoes, exportadoEm: new Date().toISOString() }, null, 2)], { type: 'application/json' });
     const file = new File([blob], nome, { type: 'application/json' });
@@ -477,7 +478,7 @@ function NefroApp() {
           const pacMerged = Object.values(mapaPac);
 
           const avMerged = { ...avaliacoes };
-          const dia = a => { try { return new Date(a.data).toISOString().slice(0, 10); } catch { return String(a.data); } };
+          const dia = a => { try { return dataLocalISO(a.data); } catch { return String(a.data); } };
           Object.entries(d.avaliacoes || {}).forEach(([pid, avsImp]) => {
             const atuais = avMerged[pid] || [];
             const porDia = {};
@@ -580,13 +581,13 @@ function NefroApp() {
   ) : null;
 
   const infoHD = (() => {
-    const hojeISO = new Date().toISOString().slice(0, 10);
-    const ontemISO = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const hojeISO = dataLocalISO();
+    const ontemISO = dataLocalISO(Date.now() - 86400000);
     const ds = new Date().getDay();
     const m = {};
     pacientes.forEach(p => {
       const avsP = avaliacoes[p.id] || [];
-      const diaDe = a => new Date(a.data).toISOString().slice(0, 10);
+      const diaDe = a => dataLocalISO(a.data);
       const avHoje = avsP.find(a => diaDe(a) === hojeISO);
       const avOntem = avsP.find(a => diaDe(a) === ontemISO);
       const temPrescricao = avsP.some(a => a.conduta === 'hd_hoje');
@@ -630,7 +631,7 @@ function NefroApp() {
     const novos = pacientes.filter(p => noMes(parseInt((p.id || '').split('_')[1]) || p.updatedAt || 0)).length;
     const hds = avsMes.filter(a => a.conduta === 'hd_hoje');
     const urgentes = hds.filter(a => a.prioridade === 'sim');
-    const diasComAv = [...new Set(avsMes.map(a => new Date(a.data).toISOString().slice(0, 10)))].length;
+    const diasComAv = [...new Set(avsMes.map(a => dataLocalISO(a.data)))].length;
     const desf = { alta_nefro: 0, alta_hosp: 0, paliativo: 0, obito: 0 };
     pacsUnicos.forEach(pid => {
       const ult = (avaliacoes[pid] || [])[0];
@@ -699,14 +700,14 @@ function NefroApp() {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v96</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v97</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
 
       {(() => {
-        const hojeISO = new Date().toISOString().slice(0, 10);
-        const ontemISO = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+        const hojeISO = dataLocalISO();
+        const ontemISO = dataLocalISO(Date.now() - 86400000);
         const n = pacientes.filter(p => infoHD[p.id]?.motivo || infoHD[p.id]?.prioridadeOntem).length;
         if (!n && !filtroHD) return null;
         return (
@@ -722,7 +723,7 @@ function NefroApp() {
       {(() => {
         const ativos = pacientes.filter(p => !infoHD[p.id]?.arquivado);
         const todosVistos = ativos.length > 0 && ativos.every(p => infoHD[p.id]?.vistoHoje);
-        const hojeISO = new Date().toISOString().slice(0, 10);
+        const hojeISO = dataLocalISO();
         let ultBkp = '', devido = '';
         try {
           ultBkp = localStorage.getItem('nefroapp_last_backup') || '';
@@ -981,8 +982,8 @@ function NefroApp() {
             </div>
             )}
             {(() => {
-              const hojeISO = new Date().toISOString().slice(0, 10);
-              const avHojeF = avs.find(a => new Date(a.data).toISOString().slice(0, 10) === hojeISO);
+              const hojeISO = dataLocalISO();
+              const avHojeF = avs.find(a => dataLocalISO(a.data) === hojeISO);
               return <RodapeNav direita={avHojeF ? 'Continuar hoje ▸' : 'Evoluir hoje ▸'} onDireita={() => { if (avHojeF) { setAvAtual(avHojeF); setAvSnapshot(JSON.stringify(avHojeF)); setView('roteiro'); } else { novaAvaliacao(); } }} />;
             })()}
           </>
@@ -1546,7 +1547,7 @@ function NefroApp() {
           {(() => {
             if (!avAtual.ultima_hd_data) return null;
             const avsPac = (avaliacoes[pacAtual?.id] || []).filter(a => a.id !== avAtual.id);
-            const presc = avsPac.find(a => a.conduta?.startsWith('hd') && new Date(a.data).toISOString().slice(0, 10) === avAtual.ultima_hd_data);
+            const presc = avsPac.find(a => a.conduta?.startsWith('hd') && dataLocalISO(a.data) === avAtual.ultima_hd_data);
             if (!presc) return null;
             const num = x => parseFloat(String(x ?? '').replace(',', '.'));
             const tPresc = num(presc.hd_horas || presc.hd_dur);
@@ -2098,7 +2099,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v96</p>
+<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v97</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
