@@ -361,7 +361,7 @@ function NefroApp() {
   const [tab, setTab] = useState('info');
   const [showModal, setShowModal] = useState(false);
   const [editandoPacId, setEditandoPacId] = useState(null);
-  const [novoPac, setNovoPac] = useState({ nome:'', idade:'', sexo:'', leito:'', temLeito:false, convenio:'SUS', convenioOutro:'', diag:'IRA', trat:'tratamento conservador', filaHD:'', uti:'', esquemaHD:'', preopTipos:[], preopOutro:'', creatBasal:'', comorbidades:[], perfilHemo:'', fe:'', comorbidades_outras:'', gatilhos:[], sepseFocos:[], sepseOutro:'', gatilhos_outros:'', urgenciaAdm:false, urgencias:[] });
+  const [novoPac, setNovoPac] = useState({ nome:'', idade:'', sexo:'', leito:'', temLeito:false, externo:false, externoLocal:'', convenio:'SUS', convenioOutro:'', diag:'IRA', trat:'tratamento conservador', filaHD:'', uti:'', esquemaHD:'', preopTipos:[], preopOutro:'', creatBasal:'', comorbidades:[], perfilHemo:'', fe:'', comorbidades_outras:'', gatilhos:[], sepseFocos:[], sepseOutro:'', gatilhos_outros:'', urgenciaAdm:false, urgencias:[] });
   const [editandoNome, setEditandoNome] = useState(false);
   const [nomeTemp, setNomeTemp] = useState('');
   const [copiado, setCopiado] = useState(false);
@@ -378,6 +378,7 @@ function NefroApp() {
   const [relEnf, setRelEnf] = useState(null);
   const [caixaRel, setCaixaRel] = useState(null);
   const [coletivoHtml, setColetivoHtml] = useState(null);
+  const [diaPep, setDiaPep] = useState(null);
   const [selExcluir, setSelExcluir] = useState([]);
 
   const ChipLab = ({ rotulo, chave, unid, riscoAlto, riscoBaixo }) => {
@@ -398,6 +399,103 @@ function NefroApp() {
   const calcUFEf = () => (parseFloat(avAtual?.uf_hd)||0) + (parseFloat(avAtual?.uf_isolada)||0);
   const calcLavAuto = () => Math.max(100, ((durHoras(avAtual?.hd_dur||avAtual?.hd_horas)||4) * 2 - 1) * 100);
   const calcUFTot = () => calcUFEf() + (parseFloat(avAtual?.priming)||400) + (parseFloat(avAtual?.lavagens)||calcLavAuto());
+  const gerarTextoPanorama = (avX, pacX) => {
+      const d = avX || avAtual; const pacRef = pacX || pacRef;
+      const linhas = [];
+      const add = (k, v) => { if (v != null && v !== '' && v !== 'ausente' && !(Array.isArray(v) && v.length === 0)) linhas.push(`${k}: ${Array.isArray(v) ? v.join(', ') : v}`); };
+
+      linhas.push('PELA NEFROLOGIA');
+      linhas.push('');
+      const comorb = [...(pacRef.comorbidades || []), pacRef.comorbidades_outras].filter(Boolean).join(', ');
+      const gatil = [...(pacRef.gatilhos || []), pacRef.gatilhos_outros].filter(Boolean).join(', ');
+      if (comorb || gatil) {
+        linhas.push('CONTEXTO CLÍNICO');
+        if (comorb) linhas.push('Comorbidades: ' + comorb);
+        if (gatil) linhas.push('Eventos agudos: ' + gatil);
+        linhas.push('');
+      }
+      linhas.push('BEIRA LEITO');
+      add('Estado geral', d.eg);
+      add('Consciência', d.consciencia);
+      const respDet = [d.padrao_resp, d.resp].filter(Boolean).join(', ') + (d.fio2 ? ` FiO2 ${d.fio2}%` : '') + (d.peep ? ` PEEP ${d.peep}` : '') + (d.fluxoO2 ? ` ${d.fluxoO2}L/min` : '');
+      add('Respiração', respDet);
+      add('SatO2', d.sat ? d.sat + '%' : '');
+      add(d.pai ? 'PAM' : 'PA', d.pai ? d.pam : d.pa);
+      if (d.semDvas) linhas.push('Drogas vasoativas: sem DVAs'); else add('Drogas vasoativas', dvasTxt);
+      add('Edema', d.edema);
+
+      linhas.push('');
+      linhas.push('BH / DIURÉTICO');
+      add('Diurese', d.diurese ? `${d.diurese} ml${d.bh_parcial && d.bh_horas ? ` (parcial ${d.bh_horas}h)` : ''}` : '');
+      add('SVD', d.svd);
+      if (d.semFuro && !(d.diureticos || []).length) add('Diuréticos', 'sem furosemida');
+      if ((d.diureticos || []).length) {
+        const det = [];
+        if (d.diureticos.includes('Furosemida') && d.furo_manut !== 'sem') det.push(`Furosemida ${d.furo_dose_n || ''}${d.furo_manut === 'amp' ? 'amp' : 'cp'} ${d.furo_int || ''}`);
+        if (d.furo_bolus_n) det.push(`Furosemida bolus ${d.furo_bolus_amp || ''}amp x${d.furo_bolus_n}`);
+        if (d.diureticos.includes('Espironolactona')) det.push(`Espironolactona ${(parseInt(d.espiro_cp) || 1) * 25}mg ${d.espiro_int || ''}`);
+        if (d.diureticos.includes('Hidroclorotiazida')) det.push(`Hidroclorotiazida ${(parseInt(d.hctz_cp) || 1) * 25}mg ${d.hctz_int || ''}`);
+        add('Diuréticos', [d.semFuro ? 'sem furosemida' : null, det.length ? det.join('; ') : d.diureticos.join(', ')].filter(Boolean).join('; '));
+      }
+
+      const labLinha = [['Ureia', 'ureia'], ['Creat', 'creat'], ['Na', 'sodio'], ['K', 'pot'], ['Bic', 'bic']]
+        .map(([lbl, key]) => { const v = L[`${key}_hoje`]; return (v != null && v !== '') ? `${lbl} ${v}` : null; }).filter(Boolean);
+      if (labLinha.length) { linhas.push(''); linhas.push('LABORATÓRIO'); linhas.push(labLinha.join(' / ')); }
+
+      if (d.ultima_hd_data || d.tempo_obtido || d.uf_obtida) {
+        linhas.push(''); linhas.push('ÚLTIMA HD');
+        add('Data', d.ultima_hd_data ? new Date(d.ultima_hd_data + 'T12:00').toLocaleDateString('pt-BR') : '');
+        add('Acesso', d.acesso);
+        if (d.hd_destino === 'conforme') add('Sessão', 'realizada conforme prescrito');
+        if (d.hd_destino === 'cancelada') add('Sessão', 'NÃO realizada' + (d.hd_canc_motivo ? ' — ' + d.hd_canc_motivo.toLowerCase() : ''));
+        if (d.hd_destino === 'parcial') add('Sessão', 'encerrada precocemente' + (d.hd_parcial_motivo ? ' — ' + d.hd_parcial_motivo.toLowerCase() : ''));
+        add('Tempo obtido', d.tempo_obtido ? d.tempo_obtido + 'h' : '');
+        add('UF obtida', d.uf_obtida ? d.uf_obtida + ' ml' : '');
+        add('Anticoagulação', d.anticoag_hd);
+        const ic = (Array.isArray(d.interc) ? d.interc : []).filter(x => x !== 'Nenhuma');
+        add('Intercorrências', ic.length ? ic : '');
+      }
+
+      const preopLista = (pacRef.preopTipos || []).map(t => t === 'Outro' ? (pacRef.preopOutro || 'Outro') : t).join(', ');
+      if ((pacRef.gatilhos || []).includes('Pré-operatório')) {
+        linhas.push(''); linhas.push('PARECER PRÉ-OPERATÓRIO');
+        if (preopLista) linhas.push('Cirurgia proposta: ' + preopLista);
+        linhas.push('Apesar do risco aumentado de complicações renais e sistêmicas, do ponto de vista nefrológico não há contraindicação absoluta à realização do procedimento proposto. Recomenda-se avaliação criteriosa da relação risco-benefício pela equipe assistente.');
+      }
+      linhas.push(''); linhas.push('CONDUTA');
+      add('Decisão', { hd_hoje: 'HD HOJE', hd_amanha: 'HD AMANHÃ', conservador: 'Conservador' }[d.conduta]);
+      if (d.conduta === 'hd_hoje') {
+        if (d.prioridade === 'sim') linhas.push('** SESSÃO URGENTE **');
+        const ufEf = num(d.uf_hd) + num(d.uf_isolada);
+        add('HD', `${d.hd_dur || d.hd_horas || '?'}h, UF efetiva ${ufEf} ml`);
+      }
+const ajRotulo = aj => {
+        if (!aj || !aj.droga) return '';
+        const nome = { furo_amp: 'Furosemida', furo_cp: 'Furosemida', espiro: 'Espironolactona', hctz: 'Hidroclorotiazida', susp_furo: '' }[aj.droga];
+        if (aj.droga === 'susp_furo') return 'suspender furosemida';
+        const un = aj.droga === 'furo_amp' ? 'amp' : aj.droga === 'furo_cp' ? 'cp' : 'cp';
+        return `${nome} ${aj.n || '?'}${un} ${aj.int || ''}`.trim();
+      };
+      if ((d.cond_vol || []).length) {
+        const vol = d.cond_vol.map(c => {
+          if (c === 'Ajustar diurético' && (d.aj_diur||{}).droga) {
+            return `Ajustar diurético — dose atual: ${diurTxt || 'sem diurético'}; ajustar para: ${ajRotulo(d.aj_diur)}`;
+          }
+          return c;
+        });
+        add('Volemia', vol);
+      }
+      if ((d.atbs || []).length) add('Antibióticos em uso', d.atbs);
+      (d.cond_alertas || []).forEach(c => linhas.push('- ' + c));
+      if ((d.cond_eletr || []).length) add('Eletrólitos', d.cond_eletr);
+      if ((d.med_revisar || []).length) add('Revisar/suspender', d.med_revisar);
+      if ((d.cond_outras_sel || []).length) add('Outras', d.cond_outras_sel);
+      add('Conclusão', { acompanhamento: 'Segue em acompanhamento', alta_nefro: 'Alta da nefrologia', alta_hosp: 'Alta hospitalar', paliativo: 'Cuidados paliativos', obito: 'Óbito' }[d.conclusao]);
+      if (d.observacoes) { linhas.push(''); add('Obs', d.observacoes); }
+
+      return linhas.join('\n');
+    }
+
   const sugestoesConduta = () => {
     if (!avAtual || !pacAtual) return [];
     const S = [];
@@ -458,6 +556,7 @@ function NefroApp() {
     const hojeISO = dataLocalISO();
     const itens = [];
     pacientes.forEach(p => {
+      if (p.externo) return;
       const av = (avaliacoes[p.id] || []).find(a => a.conduta === 'hd_hoje' && dataLocalISO(a.data) === hojeISO);
       if (av) itens.push({ p, av });
     });
@@ -785,7 +884,15 @@ function NefroApp() {
                 </FormRow>
               )}
               </div>
-            <div style={S.formLabel}>UTI</div>
+            <div style={{ padding: '8px 14px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ ...S.checkItem, fontSize: 12, ...(novoPac.externo ? { background: '#7d6608', color: 'white', borderColor: '#7d6608' } : {}) }}
+                onClick={() => setNovoPac(n => ({ ...n, externo: !n.externo, ...(n.externo ? {} : { uti: '' }) }))}>🏥 Fora do HRA</span>
+              {novoPac.externo && (
+                <input style={{ ...S.input, textAlign: 'left', fontSize: 13, flex: 1 }} type="text" value={novoPac.externoLocal || ''}
+                  onChange={e => setNovoPac(n => ({ ...n, externoLocal: e.target.value }))} placeholder="Hospital / local" />
+              )}
+            </div>
+            {!novoPac.externo && <div style={S.formLabel}>UTI</div>}
             <div style={{ ...S.formGroup, marginBottom: 12 }}>
               <div style={S.utiGrid}>
                 {UTIs.map(u => (
@@ -865,6 +972,52 @@ function NefroApp() {
     return m;
   })();
 
+  if (view === 'pep') {
+    const diasDisp = [];
+    for (let i = 0; i < 7; i++) diasDisp.push(dataLocalISO(Date.now() - i * 86400000));
+    const dia = diaPep || diasDisp[0];
+    const itens = [];
+    pacientes.forEach(p => {
+      const av = (avaliacoes[p.id] || []).find(a => dataLocalISO(a.data) === dia);
+      if (av) itens.push({ p, av });
+    });
+    const rotDia = d => d.split('-').reverse().slice(0, 2).join('/');
+    const copiarUm = (p, av) => {
+      const txt = p.nome + ' — ' + new Date(av.data).toLocaleDateString('pt-BR') + '\n\n' + gerarTextoPanorama(av, p);
+      navigator.clipboard?.writeText(txt).then(() => alert('Evolução de ' + p.nome + ' copiada — cole no PEP.'), () => alert('Não foi possível copiar.'));
+    };
+    return (
+      <div style={S.app}>
+        <div style={S.header}>
+          <button style={S.backBtn} onClick={() => setView('lista')}>‹</button>
+          <h1 style={S.h1}>📄 Evoluções p/ PEP</h1>
+        </div>
+        <div style={{ padding: 16 }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+            {diasDisp.map(d => (
+              <span key={d} style={{ ...S.checkItem, fontSize: 12, ...(d === dia ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}
+                onClick={() => setDiaPep(d)}>{d === diasDisp[0] ? 'hoje' : rotDia(d)}</span>
+            ))}
+          </div>
+          {!itens.length
+            ? <div style={{ color: '#888', fontSize: 13, padding: 20, textAlign: 'center' }}>Nenhuma evolução neste dia.</div>
+            : itens.map(({ p, av }) => (
+              <div key={p.id} style={{ ...S.card, marginBottom: 10 }}>
+                <div style={{ ...S.cardHeader, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>{p.nome}{p.uti ? ' · UTI ' + p.uti : ''}</span>
+                  <span onClick={() => copiarUm(p, av)} style={{ ...S.checkItem, fontSize: 12, background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' }}>📋 Copiar</span>
+                </div>
+                <div style={{ padding: '8px 14px', fontSize: 11.5, color: '#777', whiteSpace: 'pre-wrap', maxHeight: 120, overflow: 'hidden', lineHeight: 1.5 }}>
+                  {gerarTextoPanorama(av, p).slice(0, 400)}…
+                </div>
+              </div>
+            ))}
+          <div style={{ fontSize: 11.5, color: '#999', marginTop: 6 }}>Um toque em Copiar por paciente → colar no PEP. A prévia é truncada; o texto copiado é completo.</div>
+        </div>
+      </div>
+    );
+  }
+
   if (view === 'stats') {
     const mesesDisp = [];
     for (let i = 0; i < 6; i++) {
@@ -873,7 +1026,8 @@ function NefroApp() {
     }
     const mes = mesStats || mesesDisp[0];
     const noMes = ts => { const d = new Date(ts); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` === mes; };
-    const todasAvs = Object.entries(avaliacoes).flatMap(([pid, avs]) => (avs || []).map(a => ({ ...a, pid })));
+    const idsExternos = new Set(pacientes.filter(p => p.externo).map(p => p.id));
+    const todasAvs = Object.entries(avaliacoes).filter(([pid]) => !idsExternos.has(pid)).flatMap(([pid, avs]) => (avs || []).map(a => ({ ...a, pid })));
     const avsMes = todasAvs.filter(a => noMes(a.data));
     const pacsUnicos = [...new Set(avsMes.map(a => a.pid))];
     const novos = pacientes.filter(p => noMes(parseInt((p.id || '').split('_')[1]) || p.updatedAt || 0)).length;
@@ -948,7 +1102,7 @@ function NefroApp() {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v111</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v113</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -969,7 +1123,7 @@ function NefroApp() {
       })()}
 
       {(() => {
-        const ativos = pacientes.filter(p => !infoHD[p.id]?.arquivado);
+        const ativos = pacientes.filter(p => !infoHD[p.id]?.arquivado && !p.externo);
         const todosVistos = ativos.length > 0 && ativos.every(p => infoHD[p.id]?.vistoHoje);
         const hojeISO = dataLocalISO();
         let ultBkp = '', devido = '';
@@ -1011,7 +1165,7 @@ function NefroApp() {
       })()}
 
       {(() => {
-        const ativos = pacientes.filter(p => !infoHD[p.id]?.arquivado);
+        const ativos = pacientes.filter(p => !infoHD[p.id]?.arquivado && !p.externo);
         if (!ativos.length) return null;
         const vistos = ativos.filter(p => infoHD[p.id]?.vistoHoje).length;
         const provaveis = ativos.filter(p => infoHD[p.id]?.motivo).length;
@@ -1144,13 +1298,14 @@ function NefroApp() {
           ? <div style={S.emptyState}><div style={{ fontSize: 48 }}>🏥</div><p>Nenhum paciente</p></div>
           : (() => { const ativos = pacientes.filter(p => modoExcluir || !infoHD[p.id]?.arquivado);
             const vis = filtroHD ? ativos.filter(p => infoHD[p.id]?.motivo || infoHD[p.id]?.prioridadeOntem) : ativos;
-            return [...UTIs, ''].filter(u => vis.some(p => (p.uti || '') === u)).map(u => (
+            const pert = (p, u) => u === '__EXT__' ? !!p.externo : (!p.externo && (p.uti || '') === u);
+            return [...UTIs, '', '__EXT__'].filter(u => vis.some(p => pert(p, u))).map(u => (
             <div key={u || 'sem-uti'}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', background: '#f7f7f4', borderBottom: '1px solid #eee' }}>
                 <span style={{ width: 12, height: 12, borderRadius: '50%', background: CORES_UTI[u] || '#bbb', border: '1px solid rgba(0,0,0,0.25)', display: 'inline-block' }}></span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#555' }}>{u ? `UTI ${u}` : 'Sem UTI'}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#555' }}>{u === '__EXT__' ? '🏥 Fora do HRA' : u ? `UTI ${u}` : 'Sem UTI'}</span>
               </div>
-              {vis.filter(p => (p.uti || '') === u).map(p => (
+              {vis.filter(p => pert(p, u)).map(p => (
             <div key={p.id}
               style={{ ...S.patientItem, ...(infoHD[p.id]?.vistoHoje ? { background: '#f0f3ef', opacity: 0.7 } : {}), ...(modoExcluir && selExcluir.includes(p.id) ? { background: '#fdecea' } : {}) }}
               onClick={() => modoExcluir ? setSelExcluir(s => s.includes(p.id) ? s.filter(x => x !== p.id) : [...s, p.id]) : abrirPaciente(p)}>
@@ -1158,7 +1313,7 @@ function NefroApp() {
               <div style={{ flex: 1 }}>
                 <div style={S.patientName}>{infoHD[p.id]?.vistoHoje ? '✓ ' : ''}{p.nome}</div>
                 <div style={S.patientMeta}>
-                  {p.leito && `Leito ${p.leito} · `}{p.status || ''}
+                  {p.externo && p.externoLocal ? `${p.externoLocal} · ` : ''}{p.leito && `Leito ${p.leito} · `}{p.status || ''}
                 </div>
                 <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 3 }}>
                   {infoHD[p.id]?.prioridadeOntem && <span style={{ fontSize: 10.5, fontWeight: 700, color: 'white', background: '#c0392b', borderRadius: 6, padding: '2px 7px' }}>⚠ PRIORIDADE ONTEM</span>}
@@ -1218,6 +1373,10 @@ function NefroApp() {
               <input type="file" accept="application/json,.json" style={{ display: 'none' }}
                 onChange={e => { if (e.target.files[0]) importarDados(e.target.files[0]); e.target.value = ''; }} />
             </label>
+            <button onClick={() => setView('pep')}
+              style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer', textAlign: 'center' }}>
+              📄 Evoluções p/ PEP
+            </button>
             <button onClick={gerarColetivoDia}
               style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer', textAlign: 'center' }}>
               Prescricoes do dia (PDF p/ assinar)
@@ -2663,7 +2822,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v111</p>
+<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v113</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
@@ -2792,102 +2951,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
     );
     const Item = ({ k, v }) => v ? <div><span style={{ color: '#888' }}>{k}:</span> <b>{v}</b></div> : null;
 
-    const gerarTextoPanorama = () => {
-      const d = avAtual;
-      const linhas = [];
-      const add = (k, v) => { if (v != null && v !== '' && v !== 'ausente' && !(Array.isArray(v) && v.length === 0)) linhas.push(`${k}: ${Array.isArray(v) ? v.join(', ') : v}`); };
-
-      linhas.push('PELA NEFROLOGIA');
-      linhas.push('');
-      const comorb = [...(pacAtual.comorbidades || []), pacAtual.comorbidades_outras].filter(Boolean).join(', ');
-      const gatil = [...(pacAtual.gatilhos || []), pacAtual.gatilhos_outros].filter(Boolean).join(', ');
-      if (comorb || gatil) {
-        linhas.push('CONTEXTO CLÍNICO');
-        if (comorb) linhas.push('Comorbidades: ' + comorb);
-        if (gatil) linhas.push('Eventos agudos: ' + gatil);
-        linhas.push('');
-      }
-      linhas.push('BEIRA LEITO');
-      add('Estado geral', d.eg);
-      add('Consciência', d.consciencia);
-      const respDet = [d.padrao_resp, d.resp].filter(Boolean).join(', ') + (d.fio2 ? ` FiO2 ${d.fio2}%` : '') + (d.peep ? ` PEEP ${d.peep}` : '') + (d.fluxoO2 ? ` ${d.fluxoO2}L/min` : '');
-      add('Respiração', respDet);
-      add('SatO2', d.sat ? d.sat + '%' : '');
-      add(d.pai ? 'PAM' : 'PA', d.pai ? d.pam : d.pa);
-      if (d.semDvas) linhas.push('Drogas vasoativas: sem DVAs'); else add('Drogas vasoativas', dvasTxt);
-      add('Edema', d.edema);
-
-      linhas.push('');
-      linhas.push('BH / DIURÉTICO');
-      add('Diurese', d.diurese ? `${d.diurese} ml${d.bh_parcial && d.bh_horas ? ` (parcial ${d.bh_horas}h)` : ''}` : '');
-      add('SVD', d.svd);
-      if (d.semFuro && !(d.diureticos || []).length) add('Diuréticos', 'sem furosemida');
-      if ((d.diureticos || []).length) {
-        const det = [];
-        if (d.diureticos.includes('Furosemida') && d.furo_manut !== 'sem') det.push(`Furosemida ${d.furo_dose_n || ''}${d.furo_manut === 'amp' ? 'amp' : 'cp'} ${d.furo_int || ''}`);
-        if (d.furo_bolus_n) det.push(`Furosemida bolus ${d.furo_bolus_amp || ''}amp x${d.furo_bolus_n}`);
-        if (d.diureticos.includes('Espironolactona')) det.push(`Espironolactona ${(parseInt(d.espiro_cp) || 1) * 25}mg ${d.espiro_int || ''}`);
-        if (d.diureticos.includes('Hidroclorotiazida')) det.push(`Hidroclorotiazida ${(parseInt(d.hctz_cp) || 1) * 25}mg ${d.hctz_int || ''}`);
-        add('Diuréticos', [d.semFuro ? 'sem furosemida' : null, det.length ? det.join('; ') : d.diureticos.join(', ')].filter(Boolean).join('; '));
-      }
-
-      const labLinha = [['Ureia', 'ureia'], ['Creat', 'creat'], ['Na', 'sodio'], ['K', 'pot'], ['Bic', 'bic']]
-        .map(([lbl, key]) => { const v = L[`${key}_hoje`]; return (v != null && v !== '') ? `${lbl} ${v}` : null; }).filter(Boolean);
-      if (labLinha.length) { linhas.push(''); linhas.push('LABORATÓRIO'); linhas.push(labLinha.join(' / ')); }
-
-      if (d.ultima_hd_data || d.tempo_obtido || d.uf_obtida) {
-        linhas.push(''); linhas.push('ÚLTIMA HD');
-        add('Data', d.ultima_hd_data ? new Date(d.ultima_hd_data + 'T12:00').toLocaleDateString('pt-BR') : '');
-        add('Acesso', d.acesso);
-        if (d.hd_destino === 'conforme') add('Sessão', 'realizada conforme prescrito');
-        if (d.hd_destino === 'cancelada') add('Sessão', 'NÃO realizada' + (d.hd_canc_motivo ? ' — ' + d.hd_canc_motivo.toLowerCase() : ''));
-        if (d.hd_destino === 'parcial') add('Sessão', 'encerrada precocemente' + (d.hd_parcial_motivo ? ' — ' + d.hd_parcial_motivo.toLowerCase() : ''));
-        add('Tempo obtido', d.tempo_obtido ? d.tempo_obtido + 'h' : '');
-        add('UF obtida', d.uf_obtida ? d.uf_obtida + ' ml' : '');
-        add('Anticoagulação', d.anticoag_hd);
-        const ic = (Array.isArray(d.interc) ? d.interc : []).filter(x => x !== 'Nenhuma');
-        add('Intercorrências', ic.length ? ic : '');
-      }
-
-      const preopLista = (pacAtual.preopTipos || []).map(t => t === 'Outro' ? (pacAtual.preopOutro || 'Outro') : t).join(', ');
-      if ((pacAtual.gatilhos || []).includes('Pré-operatório')) {
-        linhas.push(''); linhas.push('PARECER PRÉ-OPERATÓRIO');
-        if (preopLista) linhas.push('Cirurgia proposta: ' + preopLista);
-        linhas.push('Apesar do risco aumentado de complicações renais e sistêmicas, do ponto de vista nefrológico não há contraindicação absoluta à realização do procedimento proposto. Recomenda-se avaliação criteriosa da relação risco-benefício pela equipe assistente.');
-      }
-      linhas.push(''); linhas.push('CONDUTA');
-      add('Decisão', { hd_hoje: 'HD HOJE', hd_amanha: 'HD AMANHÃ', conservador: 'Conservador' }[d.conduta]);
-      if (d.conduta === 'hd_hoje') {
-        if (d.prioridade === 'sim') linhas.push('** SESSÃO URGENTE **');
-        const ufEf = num(d.uf_hd) + num(d.uf_isolada);
-        add('HD', `${d.hd_dur || d.hd_horas || '?'}h, UF efetiva ${ufEf} ml`);
-      }
-const ajRotulo = aj => {
-        if (!aj || !aj.droga) return '';
-        const nome = { furo_amp: 'Furosemida', furo_cp: 'Furosemida', espiro: 'Espironolactona', hctz: 'Hidroclorotiazida', susp_furo: '' }[aj.droga];
-        if (aj.droga === 'susp_furo') return 'suspender furosemida';
-        const un = aj.droga === 'furo_amp' ? 'amp' : aj.droga === 'furo_cp' ? 'cp' : 'cp';
-        return `${nome} ${aj.n || '?'}${un} ${aj.int || ''}`.trim();
-      };
-      if ((d.cond_vol || []).length) {
-        const vol = d.cond_vol.map(c => {
-          if (c === 'Ajustar diurético' && (d.aj_diur||{}).droga) {
-            return `Ajustar diurético — dose atual: ${diurTxt || 'sem diurético'}; ajustar para: ${ajRotulo(d.aj_diur)}`;
-          }
-          return c;
-        });
-        add('Volemia', vol);
-      }
-      if ((d.atbs || []).length) add('Antibióticos em uso', d.atbs);
-      (d.cond_alertas || []).forEach(c => linhas.push('- ' + c));
-      if ((d.cond_eletr || []).length) add('Eletrólitos', d.cond_eletr);
-      if ((d.med_revisar || []).length) add('Revisar/suspender', d.med_revisar);
-      if ((d.cond_outras_sel || []).length) add('Outras', d.cond_outras_sel);
-      add('Conclusão', { acompanhamento: 'Segue em acompanhamento', alta_nefro: 'Alta da nefrologia', alta_hosp: 'Alta hospitalar', paliativo: 'Cuidados paliativos', obito: 'Óbito' }[d.conclusao]);
-      if (d.observacoes) { linhas.push(''); add('Obs', d.observacoes); }
-
-      return linhas.join('\n');
-    };
+;
 
     const copiarPanorama = () => {
       const txt = gerarTextoPanorama();
