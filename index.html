@@ -496,7 +496,7 @@ function NefroApp() {
         </div>
       </div>`;
     };
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Prescricoes_HD_${dataLocalISO()}_Dr_Israel_CRM8243</title><style>
       @page { size: A4 portrait; margin: 18mm 16mm; }
       body { font-family: -apple-system, Helvetica, Arial, sans-serif; color: #111; margin: 0; }
       .pg { page-break-after: always; }
@@ -948,7 +948,7 @@ function NefroApp() {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v110</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v111</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -2617,7 +2617,7 @@ function NefroApp() {
       const quadPorHora = 4;
       const totalQuad = nCols * quadPorHora;
 
-      const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+      const html = `<!DOCTYPE html><html lang="pt-BR"><head><title>HD_${(pacAtual.nome||'paciente').replace(/\s+/g,'_')}_${dataLocalISO()}</title><meta charset="UTF-8">
 <title>Prescrição HD - ${p.nome}</title>
 <style>
 @page { size: A4; margin: 0; }
@@ -2663,7 +2663,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v110</p>
+<p class="sub">Data: <b>${hoje}</b> &nbsp;·&nbsp; v111</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
