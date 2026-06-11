@@ -27,6 +27,7 @@ const { useState, useEffect } = React;
 
 // ── DADOS INICIAIS ──
 const UTIs = ['Azul','Amarela','Branca','Cinza','Laranja','Verde','Lilás','Rosa','Dourada','Prata'];
+const TINTAS_UTI = { 'Azul':'#e3eefb', 'Amarela':'#fdf7dc', 'Branca':'#fcfcfb', 'Cinza':'#eef1f1', 'Laranja':'#fdeede', 'Verde':'#e4f6ec', 'Lilás':'#f1e8f7', 'Rosa':'#fce4f0', 'Dourada':'#f9f1dc', 'Prata':'#eff1f4' };
 const CORES_UTI = { 'Azul':'#2980d9', 'Amarela':'#f1c40f', 'Branca':'#ffffff', 'Cinza':'#95a5a6', 'Laranja':'#e67e22', 'Verde':'#27ae60', 'Lilás':'#9b59b6', 'Rosa':'#e91e8c', 'Dourada':'#d4a017', 'Prata':'#aab2bd' };
 
 const CONVENIOS = ['IPASGO','UNIMED','IMAS','PARTICULAR','OUTROS'];
@@ -411,6 +412,7 @@ function NefroApp() {
   const [escolhaPac, setEscolhaPac] = useState(null);
   const [buscaData, setBuscaData] = useState('');
   const [extAberto, setExtAberto] = useState(false);
+  const [bkpHoje, setBkpHoje] = useState(() => { try { return localStorage.getItem('nefroapp_last_backup') || ''; } catch { return ''; } });
   const [verDiluicoes, setVerDiluicoes] = useState(false);
   const [diluicoes, setDiluicoes] = useState(() => { try { return JSON.parse(localStorage.getItem('nefroapp_diluicoes_v1') || '{}'); } catch { return {}; } });
   const setDiluicao = (d, campo, v) => setDiluicoes(prev => {
@@ -1209,7 +1211,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v126</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v128</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -1239,11 +1241,12 @@ const ajRotulo = aj => {
           devido = localStorage.getItem('nefroapp_bkp_devido') || '';
           if (todosVistos && devido !== hojeISO) { localStorage.setItem('nefroapp_bkp_devido', hojeISO); devido = hojeISO; }
         } catch {}
-        if (devido !== hojeISO || ultBkp === hojeISO) return null;
+        if (devido !== hojeISO || ultBkp === hojeISO || bkpHoje === hojeISO) return null;
         return (
           <div style={{ margin: '10px 16px 0', padding: '12px 14px', borderRadius: 10, background: '#eafaf1', border: '1.5px solid #27ae60', display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ flex: 1, fontSize: 13, color: '#1d7a45', fontWeight: 600 }}>✅ Todos os pacientes vistos. Faça o backup de hoje.</span>
-            <span onClick={exportarDados} style={{ ...S.checkItem, fontSize: 12, background: '#27ae60', color: 'white', borderColor: '#27ae60' }}>⬆ Backup</span>
+            <span onClick={() => { exportarDados(); setBkpHoje(dataLocalISO()); }} style={{ ...S.checkItem, fontSize: 12, background: '#27ae60', color: 'white', borderColor: '#27ae60' }}>⬆ Backup</span>
+            <span onClick={() => { try { localStorage.setItem('nefroapp_last_backup', dataLocalISO()); } catch {} setBkpHoje(dataLocalISO()); }} style={{ fontSize: 15, color: '#1d7a45', padding: '0 4px', cursor: 'pointer' }}>✕</span>
           </div>
         );
       })()}
@@ -1455,7 +1458,7 @@ const ajRotulo = aj => {
               </div>
               {(u !== '__EXT__' || extAberto) && vis.filter(p => pert(p, u)).map(p => (
             <div key={p.id}
-              style={{ ...S.patientItem, ...(infoHD[p.id]?.vistoHoje ? { background: '#f0f3ef', opacity: 0.7 } : {}), ...(modoExcluir && selExcluir.includes(p.id) ? { background: '#fdecea' } : {}) }}
+              style={{ ...S.patientItem, background: TINTAS_UTI[p.uti] || '#f7f7f4', ...(infoHD[p.id]?.vistoHoje ? { background: '#e4e4e0', opacity: 0.75 } : {}), ...(modoExcluir && selExcluir.includes(p.id) ? { background: '#fdecea' } : {}) }}
               onClick={() => modoExcluir ? setSelExcluir(s => s.includes(p.id) ? s.filter(x => x !== p.id) : [...s, p.id]) : setEscolhaPac(p)}>
               {modoExcluir && <span style={{ marginRight: 10, fontSize: 18, color: selExcluir.includes(p.id) ? '#c0392b' : '#ccc' }}>{selExcluir.includes(p.id) ? '☑' : '☐'}</span>}
               <div style={{ flex: 1 }}>
@@ -3145,7 +3148,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v126</p>
+<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v128</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
