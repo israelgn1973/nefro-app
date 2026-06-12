@@ -374,11 +374,17 @@ function NumPadOverlay({ pad, onChange, onClose }) {
   const disp = pad.mode === 'pa' ? fmtPA(pad.value) : pad.mode === 'dur' ? (fmtDur(pad.value) || pad.value) : pad.value;
   const hintEl = pad.hint ? <div style={{ background: '#fef5e7', border: '1px solid #f0d9b5', borderRadius: 8, padding: '7px 10px', fontSize: 12.5, color: '#7a5c1e', marginBottom: 8 }}>💡 {pad.hint}</div> : null;
   const press = (k) => {
-    if (k === 'back') onChange(pad.value.slice(0, -1));
-    else if (k === ',') { if (pad.allowComma && !pad.value.includes(',')) onChange(pad.value + ','); }
-    else onChange((pad.value + k).slice(0, pad.mode === 'pa' ? 6 : 8));
+    if (k === 'back') { onChange(pad.value.slice(0, -1)); return; }
+    if (k === ',') { if (pad.allowComma && !pad.value.includes(',')) onChange(pad.value + ','); return; }
+    let nv = (pad.value + k).slice(0, pad.mode === 'pa' ? 6 : 8);
+    if (pad.bicAuto && /^\d{3}$/.test(nv)) nv = nv.slice(0, 2) + ',' + nv[2];
+    onChange(nv);
+    if (pad.autoLen && nv.replace(/\D/g, '').length >= pad.autoLen) {
+      pad.onSet(nv);
+      if (pad.onNext) pad.onNext(); else onClose();
+    }
   };
-  const ok = () => { const limpo = pad.mode === 'pa' ? fmtPA(pad.value) : pad.value.replace(/^0+(?=\d)/, ''); pad.onSet(limpo); onClose(); };
+  const ok = () => { const limpo = pad.mode === 'pa' ? fmtPA(pad.value) : pad.value.replace(/^0+(?=\d)/, ''); pad.onSet(limpo); if (pad.onNext) pad.onNext(); else onClose(); };
   return (
     <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: 'white', boxShadow: '0 -4px 20px rgba(0,0,0,0.18)', borderRadius: '16px 16px 0 0', padding: '12px 16px 20px', zIndex: 1000, maxWidth: 480, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -532,16 +538,16 @@ function NefroApp() {
       const estruturada = d === 'Furosemida' ? (av.furo_dose_n || av.furo_bolus_n) : d === 'Espironolactona' ? av.espiro_cp : d === 'Hidroclorotiazida' ? av.hctz_cp : '';
       if (!generica && !estruturada) R('dose_' + d, d + ' sem dose em uso', 'roteiro', 'bh');
     });
-    if (!av.conduta) R('conduta', 'CONDUTA não definida', 'conduta', null, null, true);
+    if (!av.conduta) R('conduta', 'CONDUTA não definida', 'hdview', null, null, true);
     if (av.conduta === 'hd_hoje') {
-      if (!(av.hd_dur || av.hd_horas) || !(av.uf_hd || av.hd_uf)) R('hd_presc', 'HD HOJE sem duração ou UF', 'conduta', null, null, true);
-      if (!av.anticoag) R('anticoag', 'HD HOJE sem definição de anticoagulação', 'conduta', null, null, true);
-      if (!av.acesso) R('acesso', 'HD HOJE sem acesso vascular', 'conduta', null);
+      if (!(av.hd_dur || av.hd_horas) || !(av.uf_hd || av.hd_uf)) R('hd_presc', 'HD HOJE sem duração ou UF', 'hdview', null, null, true);
+      if (!av.anticoag) R('anticoag', 'HD HOJE sem definição de anticoagulação', 'hdview', null, null, true);
+      if (!av.acesso) R('acesso', 'HD HOJE sem acesso vascular', 'hdview', null);
     }
     const ehHoje = dataLocalISO(av.data) === dataLocalISO();
     if (ehHoje) {
       const prev = ((avaliacoes[pac.id] || []).filter(a => a.id !== av.id && dataLocalISO(a.data) !== dataLocalISO(av.data)))[0];
-      if (prev && prev.conduta === 'hd_hoje' && !av.hd_destino) R('destino_ant', 'Destino da sessão anterior não marcado', 'roteiro', 'hd');
+      if (prev && prev.conduta === 'hd_hoje' && !av.hd_destino) R('destino_ant', 'Destino da sessão anterior não marcado', 'hdview', null);
     }
     const temLab = Object.values(av.labs || {}).some(v => v != null && v !== '');
     if (!temLab && !av.sem_exames_hoje) A('labs', 'Sem exames lançados hoje', 'roteiro', 'exames');
@@ -764,10 +770,10 @@ const ajRotulo = aj => {
     if (d.edema) partes.push(`Edema: ${d.edema}`);
     return partes.length ? partes.join(' · ') : null;
   };
-  const NumInput = ({ value, onSet, placeholder, label, style: st, allowComma, mode, hint }) => (
+  const NumInput = ({ value, onSet, placeholder, label, style: st, allowComma, mode, hint, next, autoLen, bicAuto }) => (
     <input readOnly inputMode="none" value={value || ''} placeholder={placeholder}
       style={st || S.input}
-      onClick={() => setNumpad({ label: label || placeholder || 'Número', value: mode === 'pa' ? String(value || '').replace(/[^0-9]/g, '') : String(value || ''), onSet, allowComma: !!allowComma, mode: mode || 'num', hint: typeof hint === 'function' ? hint() : hint })} />
+      onClick={() => setNumpad({ label: label || placeholder || 'Número', value: mode === 'pa' ? String(value || '').replace(/[^0-9]/g, '') : String(value || ''), onSet, allowComma: !!allowComma, mode: mode || 'num', hint: typeof hint === 'function' ? hint() : hint, onNext: next || null, autoLen: autoLen || null, bicAuto: !!bicAuto })} />
   );
 
   const gerarResumoExternos = () => {
@@ -865,8 +871,8 @@ const ajRotulo = aj => {
 
   const TabBar = ({ atual }) => (
     <div style={{ display: 'flex', gap: 0, background: '#142e49', position: 'sticky', top: 0, zIndex: 50 }}>
-      {[['eventos','Contexto'],['roteiro','Avaliação'],['conduta','Conduta']].map(([v, l]) => (
-        <div key={v} onClick={() => { if (avAtual && pacAtual && (view === 'roteiro' || view === 'conduta' || view === 'prescricao')) salvarAvaliacao(false); setView(v); }}
+      {[['eventos','Contexto'],['roteiro','Avaliação'],['hdview','HD'],['conduta','+ Condutas']].map(([v, l]) => (
+        <div key={v} onClick={() => { if (avAtual && pacAtual && (view === 'roteiro' || view === 'conduta' || view === 'hdview' || view === 'prescricao')) salvarAvaliacao(false); setView(v); }}
           style={{ flex: 1, textAlign: 'center', padding: '10px 2px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
             color: atual === v ? '#1a3a5c' : 'rgba(255,255,255,0.75)', background: atual === v ? '#f4f4f0' : 'transparent',
             borderRadius: '10px 10px 0 0' }}>{l}</div>
@@ -1373,7 +1379,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v168</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v169</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -2345,7 +2351,7 @@ const ajRotulo = aj => {
         </div>
         <TabBar atual="roteiro" />
         <div style={{ display: 'flex', gap: 6, padding: '10px 16px 0', overflowX: 'auto' }}>
-          {[['estado','🛏 Estado'],['resp','🫁 Respiração'],['pa','💉 PA & DVAs'],['bh','💧 Balanço'],['exames','🧪 Exames'],['hd','🩸 Última HD']].map(([k, l]) => (
+          {[['estado','🛏 Estado'],['resp','🫁 Respiração'],['pa','💉 PA & DVAs'],['bh','💧 Balanço'],['exames','🧪 Exames']].map(([k, l]) => (
             <span key={k} onClick={() => setSubRot(k)}
               style={{ ...S.checkItem, fontSize: 12.5, whiteSpace: 'nowrap', ...(subRot === k ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}>{l}</span>
           ))}
@@ -2366,13 +2372,10 @@ const ajRotulo = aj => {
               return upd;
             })} />
           <ChipSelect label="Nível de consciência" options={['consciente e orientado','sonolento','torporoso','comatoso','confuso/agitado','sedado','sedação suspensa','rebaixado'].map(fx)} value={avAtual.consciencia} onSelect={v => upAv('consciencia', v)} />
-          <ChipSelect herdado={(avAtual._herdados||[]).includes('edema')} label="Edema" options={['ausente','discreto','moderado','acentuado','muito acentuado']} value={avAtual.edema} onSelect={v => upAv('edema', v)} />
           </>)}
           {subRot === 'resp' && (<>
-          {!['COT/VM','TQT/VM'].includes(avAtual.resp) && (
-            <ChipSelect herdado={(avAtual._herdados||[]).includes('padrao_resp')} label="Padrão respiratório" options={['eupneico','dispneico','taquipneico'].map(fx)} value={avAtual.padrao_resp} onSelect={v => upAv('padrao_resp', v)} />
-          )}
-          <ChipSelect herdado={(avAtual._herdados||[]).includes('resp')} label="Suporte / via" options={['ar ambiente','cateter de O2','máscara de O2','VNI','COT/VM','TQT/VM']} value={avAtual.resp}
+          <ChipSelect herdado={(avAtual._herdados||[]).includes('padrao_resp')} label="Padrão respiratório" options={(String(avAtual.eg || '').includes('grav') ? ['dispneico'] : ['eupneico','dispneico']).map(fx)} value={avAtual.padrao_resp} onSelect={v => upAv('padrao_resp', v)} />
+          <ChipSelect herdado={(avAtual._herdados||[]).includes('resp')} label="Suporte / via" options={['ar ambiente','cateter de O2','máscara de O2','máscara não reinalante','VNI','COT/VM','TQT/VM']} value={avAtual.resp}
             onSelect={v => upAv('resp', v)} />
           {(avAtual.resp === 'COT/VM' || avAtual.resp === 'TQT/VM') && (
             <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0', display: 'flex', gap: 16, alignItems: 'center', background: '#fafbfc' }}>
@@ -2382,10 +2385,10 @@ const ajRotulo = aj => {
               <NumInput style={{ ...S.input, width: 70 }} value={avAtual.peep} onSet={v => upAv('peep', v)} placeholder="5" label="PEEP" />
             </div>
           )}
-          {['cateter de O2','máscara de O2','VNI'].includes(avAtual.resp) && (
+          {['cateter de O2','máscara de O2','máscara não reinalante','VNI'].includes(avAtual.resp) && (
             <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0', display: 'flex', gap: 16, alignItems: 'center', background: '#fafbfc' }}>
               <span style={{ fontSize: 13, color: '#555' }}>Fluxo (L/min)</span>
-              <NumInput style={{ ...S.input, width: 70 }} value={avAtual.fluxoO2} onSet={v => upAv('fluxoO2', v)} placeholder="2" label="Fluxo (L/min)" />
+              <NumInput style={{ ...S.input, width: 70 }} value={avAtual.fluxoO2} onSet={v => upAv('fluxoO2', v)} placeholder={avAtual.resp === 'cateter de O2' ? '1–5' : avAtual.resp === 'máscara de O2' ? '5–10' : avAtual.resp === 'máscara não reinalante' ? '10–15' : '—'} label="Fluxo (L/min)" />
             </div>
           )}
           <FormRow label="SatO2">
@@ -2481,14 +2484,28 @@ const ajRotulo = aj => {
               <span style={{ fontSize: 12, color: '#888' }}>h de registro</span>
             </>)}
           </div>
-          <FormRow label="Ganhos ml"><NumInput value={avAtual.ganhos} onSet={v => upAv('ganhos', v)} placeholder="2000" label="Ganhos (ml)" /></FormRow>
-          <FormRow label="Diurese ml"><NumInput value={avAtual.diurese} onSet={v => setAvAtual(a => ({ ...a, diurese: v, diurese_qual: v ? '' : a.diurese_qual }))} placeholder="1500" label="Diurese (ml)" /></FormRow>
+          <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0', display: 'flex', gap: 12, alignItems: 'flex-end' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, color: '#888', marginBottom: 3 }}>Ganhos (ml)</div>
+              <NumInput style={{ ...S.input, width: '100%', boxSizing: 'border-box' }} value={avAtual.ganhos}
+                onSet={v => upAv('ganhos', v)} placeholder="2000" label="Ganhos (ml)" autoLen={4}
+                next={() => setNumpad({ label: 'Diurese (ml)', value: '', onSet: v => setAvAtual(a => ({ ...a, diurese: v, diurese_qual: v ? '' : a.diurese_qual })), allowComma: false, mode: 'num' })} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, color: '#888', marginBottom: 3 }}>Diurese (ml)</div>
+              <NumInput style={{ ...S.input, width: '100%', boxSizing: 'border-box' }} value={avAtual.diurese}
+                onSet={v => setAvAtual(a => ({ ...a, diurese: v, diurese_qual: v ? '' : a.diurese_qual }))} placeholder="1500" label="Diurese (ml)" />
+            </div>
+          </div>
+          {avAtual.svd !== 'com SVD' && (
           <div style={{ padding: '4px 14px 10px', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {['preservada, não quantificada', 'reduzida, não quantificada', 'oligoanúrico'].map(q => (
+            {['preservada', 'oligúria', 'anúria'].map(q => (
               <span key={q} style={{ ...S.checkItem, fontSize: 12, ...(avAtual.diurese_qual === q ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}
                 onClick={() => setAvAtual(a => ({ ...a, diurese_qual: a.diurese_qual === q ? '' : q, diurese: a.diurese_qual === q ? a.diurese : '' }))}>{q}</span>
             ))}
           </div>
+          )}
+          <ChipSelect herdado={(avAtual._herdados||[]).includes('edema')} label="Edema" options={['ausente','discreto','moderado','acentuado']} value={avAtual.edema} onSelect={v => upAv('edema', v)} />
           <ChipSelect herdado={(avAtual._herdados||[]).includes('svd')} label="SVD" options={['com SVD','sem SVD']} value={avAtual.svd} onSelect={v => upAv('svd', v)} />
           {(() => {
             const A = [];
@@ -2727,10 +2744,21 @@ const ajRotulo = aj => {
                 <div key={i} style={{ ...S.labCell, background: '#f4f4f0', fontWeight: 700, fontSize: 11, color: '#888', textAlign: 'center' }}>{h}</div>
               ))}
             </div>
-            {[['Ureia','ureia','mg/dL'], ['Creatinina','creat','mg/dL'], ['Sódio','sodio','mEq/L'], ['Potássio','pot','mEq/L'], ['Bicarbonato','bic','mEq/L'], ['Ca iônico','ca','mmol/L'], ['Magnésio','mg','mg/dL'], ['Fósforo','p','mg/dL']].concat((avAtual.exames_extras || []).map(k => { for (const [, its] of CAT_EXAMES) { const it = its.find(x => x[1] === k); if (it) return [it[0] + (it[2] ? ' (' + it[2] + ')' : ''), it[1], it[2]]; } return [k, k, '']; })).map(([lbl, key]) => (
+            {(() => {
+            const LINHAS = [['Ureia','ureia','mg/dL'], ['Creatinina','creat','mg/dL'], ['Sódio','sodio','mEq/L'], ['Potássio','pot','mEq/L'], ['Bicarbonato','bic','mEq/L'], ['Ca iônico','ca','mmol/L'], ['Magnésio','mg','mg/dL'], ['Fósforo','p','mg/dL']].concat((avAtual.exames_extras || []).map(k => { for (const [, its] of CAT_EXAMES) { const it = its.find(x => x[1] === k); if (it) return [it[0] + (it[2] ? ' (' + it[2] + ')' : ''), it[1], it[2]]; } return [k, k, '']; }));
+            const SEQ = LINHAS.flatMap(([l2, k2]) => ['basal','ant','hoje'].map(t2 => [l2, k2, t2]));
+            const abrirCel = (ix) => {
+              if (ix >= SEQ.length) return;
+              const [l3, k3, t3] = SEQ[ix];
+              setNumpad({ label: l3 + ' — ' + t3, value: String(avAtual.labs?.[`${k3}_${t3}`] ?? ''), allowComma: true, mode: 'num',
+                bicAuto: k3 === 'bic',
+                onSet: v => upLab(`${k3}_${t3}`, ['pot','ca','mg','creat','p'].includes(k3) ? fmtDec(v) : v),
+                onNext: ix + 1 < SEQ.length ? () => abrirCel(ix + 1) : null });
+            };
+            return LINHAS.map(([lbl, key], li) => (
               <div key={key} style={S.labsGrid}>
                 <div style={{ ...S.labCell, fontSize: 12, color: '#666' }}>{lbl}</div>
-                {['basal','ant','hoje'].map(t => {
+                {['basal','ant','hoje'].map((t, ti) => {
                   const val = avAtual.labs?.[`${key}_${t}`];
                   const n = parseFloat(String(val ?? '').replace(',', '.'));
                   const critico = !isNaN(n) && (
@@ -2742,13 +2770,13 @@ const ajRotulo = aj => {
                   );
                   return (
                     <div key={t} style={{ ...S.labCell, padding: 4, background: critico ? '#fdecea' : 'transparent' }}>
-                      <NumInput value={val} onSet={v => upLab(`${key}_${t}`, ['pot','ca','mg','creat','p'].includes(key) ? fmtDec(v) : v)} allowComma label={key + ' (' + t + ')'}
+                      <NumInput value={val} onSet={v => upLab(`${key}_${t}`, ['pot','ca','mg','creat','p'].includes(key) ? fmtDec(v) : v)} allowComma label={lbl + ' — ' + t} bicAuto={key === 'bic'} next={(li * 3 + ti + 1) < SEQ.length ? () => abrirCel(li * 3 + ti + 1) : null}
                         style={{ width: '100%', border: 'none', outline: 'none', fontSize: 13, fontWeight: critico ? 700 : 400, color: critico ? '#c0392b' : '#333', textAlign: 'center', fontFamily: 'monospace', background: critico ? 'transparent' : (t === 'hoje' ? '#f4f4f0' : 'transparent') }} />
                     </div>
                   );
                 })}
               </div>
-            ))}
+            )); })()}
           </div>
           {potHoje > 5.5 && (
             <div style={S.alerta}>⚠ K+ elevado — checar: IECA, BRA, Entresto, Aldactone, Finerenona</div>
@@ -2756,7 +2784,28 @@ const ajRotulo = aj => {
         </div>
 
         </>)}
-        {subRot === 'hd' && (<>
+
+        </div>
+<RodapeNav direita={modoConsulta ? null : "Resumo ▸"} onDireita={() => irResumo('roteiro')} onPacientes={sairPerguntando} />
+      </div>
+    );
+  }
+
+  if (view === 'hdview' && avAtual) {
+    const dULT = avAtual.ultima_hd_data;
+    let intervaloTxt = '';
+    if (dULT) {
+      const dias = Math.round((new Date(dataLocalISO() + 'T12:00') - new Date(dULT + 'T12:00')) / 86400000);
+      intervaloTxt = dias === 0 ? 'hoje' : dias === 1 ? 'há 1 dia' : `há ${dias} dias`;
+    }
+    return (
+      <div style={S.page}>
+        <TabBar atual="hdview" />
+        <div style={{ pointerEvents: modoConsulta ? 'none' : 'auto' }}>
+        <div style={{ margin: '10px 16px 0', padding: '10px 14px', borderRadius: 10, background: '#eef4fb', border: '1px solid #b9d2ee', fontSize: 14, fontWeight: 800, color: '#1a3a5c' }}>
+          🩸 Última HD: {dULT ? dULT.split('-').reverse().join('/') : '— sem data —'}{intervaloTxt ? <span style={{ fontWeight: 900 }}> — {intervaloTxt}</span> : null}
+        </div>
+
         {(() => {
           const temHDInterna = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!pacAtual.dataPrimeiraHD || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido;
           if (!temHDInterna && !avAtual.hd_externa) return (
@@ -3044,81 +3093,7 @@ const ajRotulo = aj => {
           );
         })()}
 
-        </>)}
-        </div>
-<RodapeNav direita={modoConsulta ? null : "Resumo ▸"} onDireita={() => irResumo('roteiro')} onPacientes={sairPerguntando} />
-      </div>
-    );
-  }
 
-  if (view === 'conduta' && avAtual) {
-    return (
-      <div style={S.app}>{numPadEl}
-        <div style={S.header}>
-          <h1 style={S.h1}>{pacAtual.nome}</h1>
-        </div>
-        <TabBar atual="conduta" />
-        <div style={{ display: 'flex', gap: 6, padding: '10px 16px 0', overflowX: 'auto' }}>
-          {[['dec','🎯 Decisão'],['presc','💧 Prescrição HD'],['med','💊 Medicamentos'],['fech','✅ Fechamento']].map(([k, l]) => (
-            <span key={k} onClick={() => setSubCond(k)}
-              style={{ ...S.checkItem, fontSize: 12.5, whiteSpace: 'nowrap', ...(subCond === k ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}>{l}</span>
-          ))}
-        </div>
-        <div style={{ pointerEvents: modoConsulta ? 'none' : 'auto' }}>
-
-        {subCond === 'med' && (<>
-        <div style={{ margin: '12px 16px 0' }}>
-          <div style={{ ...S.card }}>
-            <div style={S.cardHeader}>💊 Diurético — em uso (ontem → hoje)</div>
-            <div style={{ padding: '10px 14px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              <span style={{ ...S.checkItem, fontSize: 12, ...(avAtual.semFuro ? { background: '#27ae60', color: 'white', borderColor: '#27ae60' } : {}) }}
-                onClick={() => setAvAtual(a => ({ ...a, semFuro: !a.semFuro, diureticos: !a.semFuro ? (a.diureticos||[]).filter(x => x !== 'Furosemida') : (a.diureticos||[]) }))}>Sem furosemida</span>
-              <span style={{ fontSize: 12.5, color: '#333', width: '100%' }}>
-                {avAtual.semFuro ? 'Sem furosemida. ' : ''}
-                {(avAtual.diureticos||[]).length
-                  ? (avAtual.diureticos||[]).map(d => d + ((avAtual.diur_doses||{})[d] ? ' ' + avAtual.diur_doses[d] : ' (dose não registrada)')).join(' · ')
-                  : (avAtual.semFuro ? '' : 'Nenhum diurético registrado hoje.')}
-              </span>
-              <span onClick={() => { salvarAvaliacao(false); setView('roteiro'); }} style={{ ...S.checkItem, fontSize: 12, color: '#1a3a5c', borderColor: '#1a3a5c' }}>✎ registrar em uso/dose (Beira leito)</span>
-            </div>
-          </div>
-          <div style={{ ...S.card, marginTop: 8 }}>
-            <div style={S.cardHeader}>💊 Diurético — ajuste para hoje/amanhã</div>
-            <div style={{ padding: '10px 14px' }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-                {['manter','aumentar','reduzir','suspender','iniciar'].map(aj => (
-                  <span key={aj} style={{ ...S.checkItem, fontSize: 12, ...(avAtual.diur_ajuste === aj ? { background: '#e67e22', color: 'white', borderColor: '#e67e22' } : {}) }}
-                    onClick={() => upAv('diur_ajuste', avAtual.diur_ajuste === aj ? '' : aj)}>{aj}</span>
-                ))}
-              </div>
-              {avAtual.diur_ajuste && (
-                <input style={{ ...S.input, textAlign: 'left', fontSize: 13, width: '100%', boxSizing: 'border-box' }} type="text"
-                  value={avAtual.diur_ajuste_obs || ''} onChange={e => upAv('diur_ajuste_obs', e.target.value)}
-                  placeholder="qual droga / dose (ex.: furosemida 40mg 12/12h)" />
-              )}
-            </div>
-          </div>
-        </div>
-
-        {(() => {
-          const sugs = sugestoesConduta();
-          if (!sugs.length) return null;
-          const cores = { vermelho: ['#fdecea', '#c0392b', '#c0392b'], ambar: ['#fdf6ec', '#e8cfa8', '#8a6d3b'], info: ['#eef4fb', '#b9d2ee', '#1a3a5c'] };
-          return (
-            <div style={{ margin: '10px 16px 0' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>💡 Sugestões do caso</div>
-              {sugs.map((s, i) => (
-                <div key={i} style={{ padding: '8px 12px', borderRadius: 8, marginBottom: 6, fontSize: 12.5, lineHeight: 1.5, background: cores[s.n][0], border: `1.5px solid ${cores[s.n][1]}`, color: cores[s.n][2], fontWeight: s.n === 'vermelho' ? 700 : 400 }}>
-                  {s.t}
-                </div>
-              ))}
-            </div>
-          );
-        })()}
-
-        </>)}
-        {subCond === 'dec' && (<>
-        {/* CONDUTA */}
         <div style={S.formSection}>
           <div style={S.formLabel}>☐ Conduta / Conclusão</div>
           <div style={S.condutaRow}>
@@ -3144,33 +3119,9 @@ const ajRotulo = aj => {
               ⚙ HD HOJE pré-marcada ({avAtual.conduta_sugerida}) — confirme ou troque acima.
             </div>
           )}
-          {avAtual.conduta === 'hd_hoje' && (
-            <>
-        {(() => {
-          const avsC = avaliacoes[pacAtual.id] || [];
-          const prevHD = avsC.find(a => a.id !== avAtual.id && a.conduta === 'hd_hoje');
-          if (!prevHD) return null;
-          const ufP = (parseFloat(prevHD.uf_hd) || 0) + (parseFloat(prevHD.uf_isolada) || 0);
-          const destinoTxt = avAtual.hd_destino === 'conforme' ? '✓ realizada conforme'
-            : avAtual.hd_destino === 'parcial' ? 'parcial — ' + (avAtual.hd_parcial_motivo || 'motivo n/d') + (avAtual.tempo_obtido ? ' · obtido ' + avAtual.tempo_obtido + 'h' : '') + (avAtual.uf_obtida ? ' / ' + avAtual.uf_obtida + ' ml' : '')
-            : avAtual.hd_destino === 'cancelada' ? 'NÃO realizada — ' + (avAtual.hd_canc_motivo || 'motivo n/d')
-            : 'destino não registrado (Beira leito ▸ Última HD)';
-          return (
-            <div style={{ margin: '8px 16px 0', padding: '8px 12px', borderRadius: 8, background: '#f4f7fb', border: '1px solid #d7e3f0', fontSize: 12.5, color: '#1a3a5c' }}>
-              <b>HD anterior</b> ({new Date(prevHD.data).toLocaleDateString('pt-BR')}): {prevHD.hd_dur || prevHD.hd_horas || '?'}h · UF efetiva {ufP || '—'} ml prescrita → {destinoTxt}
-              {(() => {
-                const rel = (pacAtual.relEnf || [])[0];
-                if (!rel || !rel.campos) return null;
-                const rc = rel.campos;
-                return <div style={{ marginTop: 4 }}>📋 <b>Relatório da enfermagem</b>{rc.data ? ' (' + rc.data + ')' : ''}: {rc.durCalc || rc.tempo || '?'}h · UF efetiva {rc.ufEfetiva || '?'} ml{rel.divergencia ? <span style={{ color: '#8a6d3b' }}> · ⚠ {rel.divergencia}</span> : null} 🔒</div>;
-              })()}
-            </div>
-          );
-        })()}
-        </>)}
         </div>
-        </>)}
-        {subCond === 'presc' && avAtual.conduta === 'hd_hoje' && (<>
+
+        {avAtual.conduta === 'hd_hoje' && (<>
         <Section title="Modalidade">
           <FormRow label="Tipo">
             <select style={S.select} value={avAtual.modalidade||'hd'} onChange={e => upAv('modalidade', e.target.value)}>
@@ -3256,6 +3207,79 @@ const ajRotulo = aj => {
                 onClick={() => { salvarAvaliacao(false); setView('prescricao'); }}>📄 Prescrição HD — texto e impressão</button>
             </div>
         </>)}
+        </div>
+<RodapeNav direita={modoConsulta ? null : "Resumo ▸"} onDireita={() => irResumo()} />
+      </div>
+    );
+  }
+
+  if (view === 'conduta' && avAtual) {
+    return (
+      <div style={S.app}>{numPadEl}
+        <div style={S.header}>
+          <h1 style={S.h1}>{pacAtual.nome}</h1>
+        </div>
+        <TabBar atual="conduta" />
+        <div style={{ display: 'flex', gap: 6, padding: '10px 16px 0', overflowX: 'auto' }}>
+          {[['dec','💧 Vol & eletrólitos'],['med','💊 Medicamentos'],['fech','✅ Fechamento']].map(([k, l]) => (
+            <span key={k} onClick={() => setSubCond(k)}
+              style={{ ...S.checkItem, fontSize: 12.5, whiteSpace: 'nowrap', ...(subCond === k ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}>{l}</span>
+          ))}
+        </div>
+        <div style={{ pointerEvents: modoConsulta ? 'none' : 'auto' }}>
+
+        {subCond === 'med' && (<>
+        <div style={{ margin: '12px 16px 0' }}>
+          <div style={{ ...S.card }}>
+            <div style={S.cardHeader}>💊 Diurético — em uso (ontem → hoje)</div>
+            <div style={{ padding: '10px 14px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              <span style={{ ...S.checkItem, fontSize: 12, ...(avAtual.semFuro ? { background: '#27ae60', color: 'white', borderColor: '#27ae60' } : {}) }}
+                onClick={() => setAvAtual(a => ({ ...a, semFuro: !a.semFuro, diureticos: !a.semFuro ? (a.diureticos||[]).filter(x => x !== 'Furosemida') : (a.diureticos||[]) }))}>Sem furosemida</span>
+              <span style={{ fontSize: 12.5, color: '#333', width: '100%' }}>
+                {avAtual.semFuro ? 'Sem furosemida. ' : ''}
+                {(avAtual.diureticos||[]).length
+                  ? (avAtual.diureticos||[]).map(d => d + ((avAtual.diur_doses||{})[d] ? ' ' + avAtual.diur_doses[d] : ' (dose não registrada)')).join(' · ')
+                  : (avAtual.semFuro ? '' : 'Nenhum diurético registrado hoje.')}
+              </span>
+              <span onClick={() => { salvarAvaliacao(false); setView('roteiro'); }} style={{ ...S.checkItem, fontSize: 12, color: '#1a3a5c', borderColor: '#1a3a5c' }}>✎ registrar em uso/dose (Beira leito)</span>
+            </div>
+          </div>
+          <div style={{ ...S.card, marginTop: 8 }}>
+            <div style={S.cardHeader}>💊 Diurético — ajuste para hoje/amanhã</div>
+            <div style={{ padding: '10px 14px' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                {['manter','aumentar','reduzir','suspender','iniciar'].map(aj => (
+                  <span key={aj} style={{ ...S.checkItem, fontSize: 12, ...(avAtual.diur_ajuste === aj ? { background: '#e67e22', color: 'white', borderColor: '#e67e22' } : {}) }}
+                    onClick={() => upAv('diur_ajuste', avAtual.diur_ajuste === aj ? '' : aj)}>{aj}</span>
+                ))}
+              </div>
+              {avAtual.diur_ajuste && (
+                <input style={{ ...S.input, textAlign: 'left', fontSize: 13, width: '100%', boxSizing: 'border-box' }} type="text"
+                  value={avAtual.diur_ajuste_obs || ''} onChange={e => upAv('diur_ajuste_obs', e.target.value)}
+                  placeholder="qual droga / dose (ex.: furosemida 40mg 12/12h)" />
+              )}
+            </div>
+          </div>
+        </div>
+
+        {(() => {
+          const sugs = sugestoesConduta();
+          if (!sugs.length) return null;
+          const cores = { vermelho: ['#fdecea', '#c0392b', '#c0392b'], ambar: ['#fdf6ec', '#e8cfa8', '#8a6d3b'], info: ['#eef4fb', '#b9d2ee', '#1a3a5c'] };
+          return (
+            <div style={{ margin: '10px 16px 0' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>💡 Sugestões do caso</div>
+              {sugs.map((s, i) => (
+                <div key={i} style={{ padding: '8px 12px', borderRadius: 8, marginBottom: 6, fontSize: 12.5, lineHeight: 1.5, background: cores[s.n][0], border: `1.5px solid ${cores[s.n][1]}`, color: cores[s.n][2], fontWeight: s.n === 'vermelho' ? 700 : 400 }}>
+                  {s.t}
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+
+        </>)}
+
         {subCond === 'dec' && (<>
         <div style={S.formSection}>
           <div style={S.formGroup}>
@@ -3688,7 +3712,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v168</p>
+<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v169</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
