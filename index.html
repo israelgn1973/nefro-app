@@ -949,10 +949,10 @@ const ajRotulo = aj => {
         espiro_cp: prev.espiro_cp || '', espiro_int: prev.espiro_int || '', hctz_cp: prev.hctz_cp || '', hctz_int: prev.hctz_int || '',
         diur_doses: { ...(prev.diur_doses || {}) },
         acesso: prev.acesso || 'CDL', anticoag_hd: prev.anticoag_hd || 'sem heparina', cateter_pos: prev.cateter_pos || 'Bic. Na 8,4%',
-        med_revisar: [...(prev.med_revisar || [])],
+        med_revisar: [],
         // Marca de campos herdados (para destaque "de ontem" e checagem no panorama)
         intercorrencia: !!ehIntercorrencia,
-        _herdados: ['padrao_resp','resp','edema','svd','diureticos','acesso','anticoag_hd','med_revisar'].filter(k => {
+        _herdados: ['padrao_resp','resp','edema','svd','diureticos','acesso','anticoag_hd'].filter(k => {
           const v = prev[k]; return Array.isArray(v) ? v.length > 0 : (v !== '' && v != null && v !== 'ausente' && v !== 'sem');
         }),
         _confirmados: [],
@@ -1379,7 +1379,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v169</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v170</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -2364,7 +2364,7 @@ const ajRotulo = aj => {
           {subRot === 'estado' && (<>
           <ChipSelect label="Estado geral" options={['estável','grave','gravíssimo'].map(fx)} value={avAtual.eg}
             onSelect={v => setAvAtual(a => {
-              if (v === fx('estável')) return { ...a, eg:'estável', consciencia: fx('consciente e orientado'), padrao_resp: fx('eupneico'), resp: 'ar ambiente', pai:false, pani:false, pa:'', pam:'', normotenso:true, dvas:{}, edema:'ausente' };
+              if (v === fx('estável')) return { ...a, eg:'estável', consciencia: fx('consciente e orientado'), padrao_resp: fx('eupneico'), resp: 'ar ambiente', pai:false, pani:false, pa:'', pam:'', normotenso:false, dvas:{}, edema:'ausente' };
               const upd = { ...a, eg: v };
               if (v === fx('grave') || v === fx('gravíssimo')) {
                 upd.resp = 'COT/VM'; upd.consciencia = fx('sedado'); upd.padrao_resp = '';
@@ -3712,7 +3712,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v169</p>
+<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v170</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
