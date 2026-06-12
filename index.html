@@ -443,21 +443,41 @@ function NefroApp() {
     mostrarToast('✓ Registro concluído');
     setView('lista');
   };
-  const pendenciasAv = (av) => {
+  const pendenciasAv = (av, pacX) => {
     if (!av) return [];
+    const pac = pacX || pacAtual || {};
     const p = [];
-    const R = (rot, v, sub) => p.push({ rot, v, sub, grave: true });
-    const A = (rot, v, sub) => p.push({ rot, v, sub, grave: false });
-    if (!av.eg) R('Estado geral não informado', 'roteiro', 'beira');
-    if (!av.consciencia) R('Nível de consciência não informado', 'roteiro', 'beira');
-    if (!av.pa && !av.pam && !av.normotenso) R('PA sem valor e sem "normotenso"', 'roteiro', 'beira');
-    if (!av.sat && !av.sat_nd) R('SatO2 sem valor e sem ND', 'roteiro', 'beira');
-    if (!av.diurese && !av.diurese_qual) R('Diurese não informada', 'roteiro', 'bh');
-    (av.diureticos || []).forEach(d => { if (!(av.diur_doses || {})[d]) R(d + ' sem dose em uso', 'roteiro', 'bh'); });
-    if (!av.conduta) R('CONDUTA não definida', 'conduta', null);
-    if (av.conduta === 'hd_hoje' && (!av.hd_dur || !av.uf_hd)) R('HD HOJE sem duração ou UF', 'conduta', null);
+    const solta = (av.destravadas || {});
+    const R = (id, rot, v, sub, ctx, absoluta) => {
+      if (!absoluta && solta[id]) p.push({ id, rot: rot + ' · 🔓 destravada (dado não disponível)', v, sub, ctx, grave: false, carimbo: true });
+      else p.push({ id, rot, v, sub, ctx, grave: true, destravavel: !absoluta });
+    };
+    const A = (id, rot, v, sub, ctx) => p.push({ id, rot, v, sub, ctx, grave: false });
+    if (!(pac.gatilhos || []).length && !pac.gatilhos_outros) R('evento', 'Nenhum evento agudo marcado', 'eventos', null, 'eventos');
+    if (!av.eg) R('eg', 'Estado geral não informado', 'roteiro', 'beira');
+    if (!av.consciencia) R('consc', 'Nível de consciência não informado', 'roteiro', 'beira');
+    if (!av.pa && !av.pam && !av.normotenso) R('pa', 'PA sem valor e sem "normotenso"', 'roteiro', 'beira');
+    if (!av.sat && !av.sat_nd) R('sat', 'SatO2 sem valor e sem ND', 'roteiro', 'beira');
+    if (['COT/VM','TQT/VM'].includes(av.resp) && (!av.fio2 || !av.peep)) R('vm', 'Em VM sem FiO2 ou PEEP', 'roteiro', 'beira');
+    if (!av.diurese && !av.diurese_qual) R('diurese', 'Diurese não informada', 'roteiro', 'bh');
+    (av.diureticos || []).forEach(d => {
+      const generica = (av.diur_doses || {})[d];
+      const estruturada = d === 'Furosemida' ? (av.furo_dose_n || av.furo_bolus_n) : d === 'Espironolactona' ? av.espiro_cp : d === 'Hidroclorotiazida' ? av.hctz_cp : '';
+      if (!generica && !estruturada) R('dose_' + d, d + ' sem dose em uso', 'roteiro', 'bh');
+    });
+    if (!av.conduta) R('conduta', 'CONDUTA não definida', 'conduta', null, null, true);
+    if (av.conduta === 'hd_hoje') {
+      if (!av.hd_dur || !av.uf_hd) R('hd_presc', 'HD HOJE sem duração ou UF', 'conduta', null, null, true);
+      if (!av.anticoag) R('anticoag', 'HD HOJE sem definição de anticoagulação', 'conduta', null, null, true);
+      if (!av.acesso) R('acesso', 'HD HOJE sem acesso vascular', 'conduta', null);
+    }
+    const ehHoje = dataLocalISO(av.data) === dataLocalISO();
+    if (ehHoje) {
+      const prev = ((avaliacoes[pac.id] || []).filter(a => a.id !== av.id && dataLocalISO(a.data) !== dataLocalISO(av.data)))[0];
+      if (prev && prev.conduta === 'hd_hoje' && !av.hd_destino) R('destino_ant', 'Destino da sessão anterior não marcado', 'roteiro', 'hd');
+    }
     const temLab = Object.values(av.labs || {}).some(v => v != null && v !== '');
-    if (!temLab) A('Sem exames lançados hoje', 'roteiro', 'exames');
+    if (!temLab && !av.sem_exames_hoje) A('labs', 'Sem exames lançados hoje', 'roteiro', 'exames');
     return p;
   };
   const sairPerguntando = () => {
@@ -1274,7 +1294,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v151</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v153</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -3355,7 +3375,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v151</p>
+<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v153</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
@@ -3548,14 +3568,20 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                 </div>
                 <div style={{ padding: graves.length + avisos.length ? '6px 14px' : '10px 14px', fontSize: 13.5 }}>
                   {graves.map((x, i) => (
-                    <div key={'g' + i} onClick={() => { if (x.sub) setSubRot(x.sub); setView(x.v); }}
-                      style={{ padding: '8px 0', borderBottom: '1px solid #f5e3e0', color: '#c0392b', fontWeight: 700, cursor: 'pointer', display: 'flex', justifyContent: 'space-between' }}>
-                      <span>● {x.rot}</span><span style={{ color: '#999' }}>resolver ▸</span>
+                    <div key={'g' + i} style={{ padding: '8px 0', borderBottom: '1px solid #f5e3e0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                      <span onClick={() => { if (x.ctx) setSubCtx(x.ctx); if (x.sub) setSubRot(x.sub); setView(x.v); }}
+                        style={{ color: '#c0392b', fontWeight: 700, cursor: 'pointer', flex: 1 }}>● {x.rot} <span style={{ color: '#999', fontWeight: 400 }}>· resolver ▸</span></span>
+                      {x.destravavel && <span onClick={() => {
+                          const s = prompt('Destravar "' + x.rot + '" — dado não disponível. Senha:');
+                          if (s === null) return;
+                          if (s !== '8453') { alert('Senha incorreta.'); return; }
+                          setAvAtual(a => ({ ...a, destravadas: { ...(a.destravadas || {}), [x.id]: true } }));
+                        }} style={{ fontSize: 12, color: '#8a6d3b', border: '1px solid #e8cfa8', borderRadius: 6, padding: '3px 8px', whiteSpace: 'nowrap' }}>🔓 destravar</span>}
                     </div>
                   ))}
                   {avisos.map((x, i) => (
-                    <div key={'a' + i} onClick={() => { if (x.sub) setSubRot(x.sub); setView(x.v); }}
-                      style={{ padding: '8px 0', color: '#8a6d3b', cursor: 'pointer', display: 'flex', justifyContent: 'space-between' }}>
+                    <div key={'a' + i} onClick={() => { if (x.ctx) setSubCtx(x.ctx); if (x.sub) setSubRot(x.sub); setView(x.v); }}
+                      style={{ padding: '8px 0', color: '#8a6d3b', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', fontStyle: x.carimbo ? 'italic' : 'normal' }}>
                       <span>○ {x.rot}</span><span style={{ color: '#bbb' }}>ver ▸</span>
                     </div>
                   ))}
