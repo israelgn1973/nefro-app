@@ -1274,7 +1274,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v150</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v151</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -1633,8 +1633,10 @@ const ajRotulo = aj => {
           <>
             {(() => {
               const avHojeT = avs.find(a => dataLocalISO(a.data) === dataLocalISO());
+              const _diag = `v151 · evoluções: ${avs.length} · hoje: ${avHojeT ? 'sim' : 'não'} · concluída: ${avHojeT && avHojeT.concluidaEm ? 'sim' : 'não'}`;
               return (
                 <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 10.5, color: '#999', marginBottom: 4 }}>{_diag}</div>
                   {!avHojeT && (
                     <button style={{ ...S.btn, width: '100%', background: '#1a3a5c', color: 'white', padding: 14, fontSize: 15, fontWeight: 700 }}
                       onClick={() => novaAvaliacao()}>📝 Iniciar evolução do dia?</button>
@@ -1811,11 +1813,7 @@ const ajRotulo = aj => {
 
 
 
-        <div style={{ height: 80 }} />
-        <div style={S.bottomActions}>
-          <button style={{ ...S.btn, background: '#f0f0f0' }} onClick={() => setView('lista')}>Voltar</button>
-          <button style={{ ...S.btn, background: '#1a3a5c', color: 'white' }} onClick={novaAvaliacao}>Nova Avaliação</button>
-        </div>
+
       </div>
     );
   }
@@ -3357,7 +3355,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v150</p>
+<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v151</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
