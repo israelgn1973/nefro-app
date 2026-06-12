@@ -41,6 +41,15 @@ const CONVENIOS = ['IPASGO','UNIMED','IMAS','PARTICULAR','OUTROS'];
 const DIAG_OPCOES = ['IRA', 'IRA / DRC com IRA sobreposta', 'DRC com IRA sobreposta', 'DRC', 'IRA revertida', 'Função renal normal'];
 const TRAT_OPCOES = ['tratamento conservador', 'HD aguda', 'HD crônica', 'início de HD definitiva'];
 const FILA_HD = ['Aguardando exames', 'Emitir TRS', 'Aguardando vaga'];
+const AMPOLAS_DVA = { 'Noradrenalina': ['4', '4'], 'Adrenalina': ['1', '1'], 'Vasopressina': ['20', '1'], 'Dobutamina': ['250', '20'], 'Dopamina': ['50', '10'], 'Nitroglicerina': ['50', '10'], 'Nitroprussiato': ['50', '2'], 'Azul de metileno': ['50', '5'] };
+const CAT_EXAMES = [
+  ['Gasometria', [['pH', 'ph', '', true], ['pCO2', 'pco2', 'mmHg', false], ['pO2', 'po2', 'mmHg', false], ['Lactato', 'lact', 'mmol/L', true], ['BE', 'be', '', true]]],
+  ['Hematologia', [['Hb', 'hb', 'g/dL', true], ['Ht', 'ht', '%', false], ['Leucócitos', 'leuco', '/mm³', false], ['Plaquetas', 'plaq', 'mil/mm³', false], ['INR', 'inr', '', true]]],
+  ['Hepático', [['TGO', 'tgo', 'U/L', false], ['TGP', 'tgp', 'U/L', false], ['BT', 'bt', 'mg/dL', true], ['Albumina', 'alb', 'g/dL', true]]],
+  ['Cardio / inflamação', [['Troponina', 'tropo', '', true], ['BNP', 'bnp', 'pg/mL', false], ['PCR', 'pcr', 'mg/dL', true], ['CPK', 'cpk', 'U/L', false]]],
+  ['Outros', [['Glicemia', 'glic', 'mg/dL', false], ['Ácido úrico', 'aur', 'mg/dL', true], ['PTH', 'pth', 'pg/mL', false], ['Vit D', 'vitd', 'ng/mL', false]]],
+];
+const CANC_LISTA = ['Cancelada pelo plantonista — sem informação adicional', 'Piora hemodinâmica', 'Família não autorizou', 'Paliativação', 'Recuperação de diurese', 'SVD desobstruída / débito recuperado', 'Instabilidade / arritmia', 'Acesso perdido / disfuncional', 'Recusa do paciente', 'Transferência / exame fora da unidade', 'Óbito antes da sessão', 'Falta de insumo / máquina', 'Falta de vaga / logística'];
 const montarStatus = (diag, trat) => {
   if (diag === 'IRA revertida' || diag === 'Função renal normal') return diag;
   if (!diag && !trat) return '';
@@ -213,6 +222,29 @@ const nomeContido = (parcial, completo) => {
   let i = 0;
   for (const tk of b) { if (tk === a[i]) i++; if (i === a.length) return true; }
   return false;
+};
+const distEd = (a, b) => {
+  if (a === b) return 0;
+  const m = a.length, n = b.length;
+  if (!m || !n) return Math.max(m, n);
+  let prev = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) {
+    const cur = [i];
+    for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[n];
+};
+const nomeSemelhante = (relNome, cadNome) => {
+  const A = nrmNome(relNome).split(' ').filter(t => t.length > 2);
+  const B = nrmNome(cadNome).split(' ').filter(t => t.length > 2);
+  if (!A.length || !B.length) return 0;
+  let casados = 0;
+  A.forEach(ta => {
+    const tol = ta.length >= 6 ? 2 : ta.length >= 4 ? 1 : 0;
+    if (B.some(tb => distEd(ta, tb) <= tol)) casados++;
+  });
+  return casados / A.length;
 };
 const nrmNome = s => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase().replace(/\s+/g, ' ');
 const FREQ_KEY = 'nefroapp_freq_v1';
@@ -593,7 +625,8 @@ function NefroApp() {
 
       const L = d.labs || {};
       const num = x => parseFloat(String(x == null ? '' : x).replace(',', '.')) || 0;
-      const labLinha = [['Ureia', 'ureia'], ['Creat', 'creat'], ['Na', 'sodio'], ['K', 'pot'], ['Bic', 'bic']]
+      const extrasG = (d.exames_extras || []).map(k => { for (const [, its] of CAT_EXAMES) { const it = its.find(x => x[1] === k); if (it) return [it[0], it[1]]; } return [k, k]; });
+      const labLinha = [['Ureia', 'ureia'], ['Creat', 'creat'], ['Na', 'sodio'], ['K', 'pot'], ['Bic', 'bic'], ['Ca', 'ca'], ['Mg', 'mg'], ['P', 'p']].concat(extrasG)
         .map(([lbl, key]) => { const v = L[`${key}_hoje`]; return (v != null && v !== '') ? `${lbl} ${v}` : null; }).filter(Boolean);
       if (labLinha.length) { linhas.push(''); linhas.push('LABORATÓRIO'); linhas.push(labLinha.join(' / ')); }
 
@@ -1340,7 +1373,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v165</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v168</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -1367,6 +1400,38 @@ const ajRotulo = aj => {
                     📋 Relatório das HDs do dia (conferência) 📤
                   </div>
                 )}
+                {prescritasHoje > 0 && (() => {
+                  const hojeISO = dataLocalISO();
+                  const hojeBR = hojeISO.split('-').reverse().join('/');
+                  const doDia = pacientes.filter(p => infoHD[p.id]?.hdHoje && !infoHD[p.id]?.arquivado);
+                  const avHj = (p) => (avaliacoes[p.id] || []).find(a => a.conduta === 'hd_hoje' && dataLocalISO(a.data) === hojeISO);
+                  const esperados = doDia.filter(p => { const a = avHj(p); return !(a && a.hd_destino === 'cancelada'); });
+                  const recebeu = (p) => (p.relEnf || []).some(r => (r.campos && r.campos.data === hojeBR) || dataLocalISO(r.criadoEm) === hojeISO);
+                  const faltam = esperados.filter(p => !recebeu(p));
+                  const naoRodou = (p) => {
+                    const a = avHj(p);
+                    if (!a) { alert('Sem prescrição de hoje encontrada.'); return; }
+                    const esc = prompt('HD não rodou — motivo:\n' + CANC_LISTA.map((mzz, izz) => (izz + 1) + '. ' + mzz).join('\n') + '\n\nDigite o número:');
+                    const nEsc = parseInt(esc, 10);
+                    if (!nEsc || nEsc < 1 || nEsc > CANC_LISTA.length) return;
+                    setAvaliacoes(prev => ({ ...prev, [p.id]: (prev[p.id] || []).map(ax => ax.id === a.id ? { ...ax, hd_destino: 'cancelada', hd_canc_motivo: CANC_LISTA[nEsc - 1] } : ax) }));
+                    mostrarToast('Registrado: HD não realizada — ' + CANC_LISTA[nEsc - 1]);
+                  };
+                  return faltam.length === 0 ? (
+                    <div style={{ marginTop: 6, fontSize: 12, fontWeight: 700, color: '#1d7a45' }}>✓ Relatórios do dia completos ({esperados.length}/{esperados.length})</div>
+                  ) : (
+                    <div style={{ marginTop: 6, fontSize: 12, color: '#1a3a5c' }}>
+                      <b>📬 Relatórios do dia: {esperados.length - faltam.length} de {esperados.length}</b> — faltam:
+                      {faltam.map(p => (
+                        <div key={'plc' + p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                          <span style={{ flex: 1 }}>{p.nome}{p.uti ? ' · ' + p.uti : ''}</span>
+                          <span onClick={e => { e.stopPropagation(); naoRodou(p); }}
+                            style={{ fontSize: 11, fontWeight: 700, color: '#c0392b', border: '1px solid #c0392b', borderRadius: 6, padding: '2px 7px' }}>✗ HD não rodou</span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
@@ -1474,8 +1539,14 @@ const ajRotulo = aj => {
                 <button style={{ ...S.btn, background: '#1a3a5c', color: 'white', width: '100%', marginTop: 8 }}
                   onClick={() => {
                     const c = parseRelEnf(caixaRel.raw);
-                    const match = pacientes.find(p => !infoHD[p.id]?.arquivado && c.nome && (nrmNome(p.nome) === nrmNome(c.nome) || nomeContido(p.nome, c.nome)));
-                    setCaixaRel({ ...caixaRel, campos: c, pacId: match ? match.id : null });
+                    const ativosCx = pacientes.filter(p => !infoHD[p.id]?.arquivado);
+                    let match = ativosCx.find(p => c.nome && (nrmNome(p.nome) === nrmNome(c.nome) || nomeContido(p.nome, c.nome)));
+                    let porSemelhanca = false;
+                    if (!match && c.nome) {
+                      const rank = ativosCx.map(p => [nomeSemelhante(c.nome, p.nome), p]).filter(([s]) => s >= 0.6).sort((a, b) => b[0] - a[0]);
+                      if (rank.length) { match = rank[0][1]; porSemelhanca = true; }
+                    }
+                    setCaixaRel({ ...caixaRel, campos: c, pacId: match ? match.id : null, porSemelhanca, confirmado: false });
                   }}>Analisar</button>
               </>
             ) : (() => {
@@ -1483,10 +1554,11 @@ const ajRotulo = aj => {
               const alertas = verificarRelEnf(c);
               const pac = pacientes.find(p => p.id === caixaRel.pacId);
               let divergencia = null;
+              let presc = null;
               if (pac) {
                 const avsP = avaliacoes[pac.id] || [];
                 const dataISO = c.data ? c.data.split('/').reverse().join('-') : null;
-                const presc = avsP.find(a => a.conduta === 'hd_hoje' && (!dataISO || dataLocalISO(a.data) === dataISO)) || avsP.find(a => a.conduta === 'hd_hoje');
+                presc = avsP.find(a => a.conduta === 'hd_hoje' && (!dataISO || dataLocalISO(a.data) === dataISO)) || avsP.find(a => a.conduta === 'hd_hoje');
                 if (presc) {
                   const ufPresc = (parseFloat(presc.uf_hd) || 0) + (parseFloat(presc.uf_isolada) || 0);
                   const ufObt = parseFloat(c.ufEfetiva);
@@ -1500,6 +1572,20 @@ const ajRotulo = aj => {
               }
               return (
                 <>
+                  {caixaRel.porSemelhanca && (
+                    <div style={{ fontSize: 12.5, color: '#8a6d3b', background: '#fdf6ec', border: '1.5px solid #e8cfa8', borderRadius: 10, padding: '8px 10px', marginBottom: 8 }}>
+                      ⚠ O relatório diz <b>"{(c.nome || '').trim()}"</b> — encontrei <b>{pac ? pac.nome : '?'}</b>{pac && pac.uti ? ' (UTI ' + pac.uti + ')' : ''} por semelhança. É ele?
+                      <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                        <span style={{ ...S.checkItem, fontSize: 12, ...(caixaRel.confirmado ? { background: '#27ae60', color: 'white', borderColor: '#27ae60' } : {}) }}
+                          onClick={() => setCaixaRel(cr => ({ ...cr, confirmado: true }))}>{caixaRel.confirmado ? '✓ Confirmado' : '✓ É ele'}</span>
+                        <select style={{ ...S.select, fontSize: 12, flex: 1, minWidth: 140 }} value={caixaRel.pacId || ''}
+                          onChange={e => setCaixaRel(cr => ({ ...cr, pacId: e.target.value || null, confirmado: !!e.target.value }))}>
+                          <option value="">— escolher outro —</option>
+                          {pacientes.filter(px => !infoHD[px.id]?.arquivado).map(px => <option key={px.id} value={px.id}>{px.nome}{px.uti ? ' · ' + px.uti : ''}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  )}
                   <div style={{ fontSize: 13.5, marginBottom: 8 }}>
                     <b>{c.nome || 'Paciente não identificado'}</b> · {c.data || 'sem data'} · {c.tempo || c.durCalc || '?'}h · UF efetiva {c.ufEfetiva || '?'} / total {c.ufTotal || '?'} ml
                   </div>
@@ -1528,7 +1614,27 @@ const ajRotulo = aj => {
                     <button style={{ ...S.btn, background: caixaRel.pacId ? '#27ae60' : '#cfd8cf', color: 'white', flex: 2 }}
                       onClick={() => {
                         if (!caixaRel.pacId) return;
+                        if (caixaRel.porSemelhanca && !caixaRel.confirmado) { alert('Confirme a grafia do nome antes de guardar (faixa âmbar acima).'); return; }
+                        const exist = (pac && pac.relEnf) || [];
+                        const rawN = (caixaRel.raw || '').replace(/\s+/g, ' ').trim().toLowerCase();
+                        if (exist.some(r => (r.raw || '').replace(/\s+/g, ' ').trim().toLowerCase() === rawN)) {
+                          alert('📭 Relatório IDÊNTICO já registrado para ' + (pac ? pac.nome : 'este paciente') + ' — ignorado.');
+                          setCaixaRel(null); return;
+                        }
+                        const dupSessao = exist.find(r => r.campos && c.data && r.campos.data === c.data);
+                        if (dupSessao) {
+                          const igual = String(dupSessao.campos.ufTotal || '') === String(c.ufTotal || '') && String(dupSessao.campos.tempo || '') === String(c.tempo || '');
+                          if (igual) { alert('📭 Relatório desta sessão (' + c.data + ') já registrado — ignorado.'); setCaixaRel(null); return; }
+                          alert('⚠ Já existe relatório desta sessão (' + c.data + ') com VALORES DIFERENTES. Mantive o original 🔒. Se o novo é a correção, remova o registro pela Última HD e cole de novo.');
+                          setCaixaRel(null); return;
+                        }
                         const novoRel = { id: 'rel_' + Date.now(), criadoEm: Date.now(), campos: c, raw: caixaRel.raw, usadoEm: null, divergencia: divergencia || null };
+                        const rawL = (caixaRel.raw || '').toLowerCase();
+                        const acessoDet = /\bfav\b|f\.a\.v/.test(rawL) ? 'FAV' : /\bcdl\b|cateter|catéter|permcath|shilley|duplo l[uú]men/.test(rawL) ? 'CDL' : null;
+                        if (acessoDet && presc && presc.acesso !== acessoDet) {
+                          setAvaliacoes(prev => ({ ...prev, [caixaRel.pacId]: (prev[caixaRel.pacId] || []).map(a => a.id === presc.id ? { ...a, acesso: acessoDet } : a) }));
+                          mostrarToast('Acesso atualizado pelo relatório: ' + acessoDet);
+                        }
                         let nomeNovo = null;
                         if (pac && c.nome && nomeContido(pac.nome, c.nome) && nrmNome(pac.nome) !== nrmNome(c.nome)
                           && confirm(`O cadastro está "${pac.nome}" e o relatório traz "${c.nome.trim()}". Completar o nome do cadastro?`)) nomeNovo = c.nome.trim();
@@ -1717,7 +1823,7 @@ const ajRotulo = aj => {
               const _diag = `v151 · evoluções: ${avs.length} · hoje: ${avHojeT ? 'sim' : 'não'} · concluída: ${avHojeT && avHojeT.concluidaEm ? 'sim' : 'não'}`;
               return (
                 <div style={{ marginBottom: 12 }}>
-                  <div style={{ fontSize: 10.5, color: '#999', marginBottom: 4 }}>{_diag}</div>
+
                   {!avHojeT && (
                     <button style={{ ...S.btn, width: '100%', background: '#1a3a5c', color: 'white', padding: 14, fontSize: 15, fontWeight: 700 }}
                       onClick={() => novaAvaliacao()}>📝 Iniciar evolução do dia?</button>
@@ -1916,6 +2022,23 @@ const ajRotulo = aj => {
         <TabBar atual={view} />
         <div style={{ paddingBottom: 30 }}>
           <div style={{ display: 'flex', gap: 6, padding: '10px 2px 0', overflowX: 'auto' }}>
+            {null}
+          </div>
+          <div style={{ padding: '8px 16px 0' }}>
+            <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', fontWeight: 700, letterSpacing: 0.5, marginBottom: 6 }}>Status renal</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {DIAG_OPCOES.map(dg => (
+                <span key={dg} style={{ ...S.checkItem, fontSize: 12, ...(pacAtual.diag === dg ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}
+                  onClick={() => {
+                    const atualizado = { ...pacAtual, diag: pacAtual.diag === dg ? '' : dg, updatedAt: Date.now() };
+                    atualizado.status = montarStatus(atualizado.diag, atualizado.trat);
+                    setPacientes(ps => ps.map(p => p.id === pacAtual.id ? atualizado : p));
+                    setPacAtual(atualizado);
+                  }}>{dg}</span>
+              ))}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 6, padding: '10px 16px 0', overflowX: 'auto' }}>
             {[['eventos','⚡ Eventos agudos'],['comorb','🩺 Comorbidades']].map(([k, l]) => (
               <span key={k} onClick={() => setSubCtx(k)}
                 style={{ ...S.checkItem, fontSize: 12.5, whiteSpace: 'nowrap', ...(subCtx === k ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}>{l}</span>
@@ -2324,9 +2447,9 @@ const ajRotulo = aj => {
                 {['Noradrenalina','Vasopressina','Adrenalina','Dobutamina','Nitroglicerina','Nitroprussiato','Azul de metileno'].map(d => (
                   <div key={d} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, fontSize: 12 }}>
                     <span style={{ flex: 1 }}>{d}</span>
-                    <NumInput style={{ ...S.input, width: 54 }} value={(diluicoes[d]||{}).q} onSet={vv => setDiluicao(d, 'q', vv)} placeholder={d === 'Vasopressina' ? 'U' : 'mg'} label={d} allowComma />
+                    <NumInput style={{ ...S.input, width: 54 }} value={(diluicoes[d]||{}).q} onSet={vv => setDiluicao(d, 'q', vv)} placeholder={(AMPOLAS_DVA[d] || [])[0] || (d === 'Vasopressina' ? 'U' : 'mg')} label={d} allowComma />
                     <span style={{ color: '#888' }}>{d === 'Vasopressina' ? 'U' : 'mg'} em</span>
-                    <NumInput style={{ ...S.input, width: 54 }} value={(diluicoes[d]||{}).v} onSet={vv => setDiluicao(d, 'v', vv)} placeholder="ml" label={d + ' volume'} />
+                    <NumInput style={{ ...S.input, width: 54 }} value={(diluicoes[d]||{}).v} onSet={vv => setDiluicao(d, 'v', vv)} placeholder={(AMPOLAS_DVA[d] || [])[1] || 'ml'} label={d + ' volume'} />
                     <span style={{ color: '#888' }}>ml</span>
                   </div>
                 ))}
@@ -2578,13 +2701,33 @@ const ajRotulo = aj => {
             <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0' }}>
               <span style={{ ...S.checkItem, fontSize: 12, ...(avAtual.semExames ? { background: '#888', color: 'white', borderColor: '#888' } : {}) }}
                 onClick={() => setAvAtual(a => ({ ...a, semExames: !a.semExames }))}>Sem exames hoje</span>
+              <span style={{ ...S.checkItem, fontSize: 12 }}
+                onClick={() => setAvAtual(a => ({ ...a, gavetaExames: !a.gavetaExames }))}>{avAtual.gavetaExames ? '− fechar' : '+ exame'}</span>
+            </div>
+            {avAtual.gavetaExames && (
+              <div style={{ padding: '8px 16px 0' }}>
+                {CAT_EXAMES.map(([grupo, its]) => (
+                  <div key={grupo} style={{ marginBottom: 6 }}>
+                    <div style={{ fontSize: 10.5, color: '#999', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 }}>{grupo}</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                      {its.map(([lbl, k]) => {
+                        const on = (avAtual.exames_extras || []).includes(k);
+                        return <span key={k} style={{ ...S.checkItem, fontSize: 11.5, ...(on ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}
+                          onClick={() => setAvAtual(a => ({ ...a, exames_extras: on ? (a.exames_extras || []).filter(x => x !== k) : [...(a.exames_extras || []), k] }))}>{lbl}</span>;
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ display: 'none' }}>
             </div>
             <div style={S.labsGrid}>
               {['', 'Basal', 'Ant.', 'Hoje'].map((h,i) => (
                 <div key={i} style={{ ...S.labCell, background: '#f4f4f0', fontWeight: 700, fontSize: 11, color: '#888', textAlign: 'center' }}>{h}</div>
               ))}
             </div>
-            {[['Ureia','ureia','mg/dL'], ['Creatinina','creat','mg/dL'], ['Sódio','sodio','mEq/L'], ['Potássio','pot','mEq/L'], ['Bicarbonato','bic','mEq/L'], ['Ca iônico','ca','mmol/L'], ['Magnésio','mg','mg/dL'], ['Fósforo','p','mg/dL']].map(([lbl, key]) => (
+            {[['Ureia','ureia','mg/dL'], ['Creatinina','creat','mg/dL'], ['Sódio','sodio','mEq/L'], ['Potássio','pot','mEq/L'], ['Bicarbonato','bic','mEq/L'], ['Ca iônico','ca','mmol/L'], ['Magnésio','mg','mg/dL'], ['Fósforo','p','mg/dL']].concat((avAtual.exames_extras || []).map(k => { for (const [, its] of CAT_EXAMES) { const it = its.find(x => x[1] === k); if (it) return [it[0] + (it[2] ? ' (' + it[2] + ')' : ''), it[1], it[2]]; } return [k, k, '']; })).map(([lbl, key]) => (
               <div key={key} style={S.labsGrid}>
                 <div style={{ ...S.labCell, fontSize: 12, color: '#666' }}>{lbl}</div>
                 {['basal','ant','hoje'].map(t => {
@@ -2712,7 +2855,7 @@ const ajRotulo = aj => {
             const durP = prevHD.hd_dur || prevHD.hd_horas || '4';
             const ufP = (parseFloat(prevHD.uf_hd) || 0) + (parseFloat(prevHD.uf_isolada) || 0);
             const dest = avAtual.hd_destino || '';
-            const CANC = ['Cancelada pelo plantonista — sem informação adicional', 'Piora hemodinâmica', 'Família não autorizou', 'Paliativação', 'Recuperação de diurese', 'SVD desobstruída / débito recuperado', 'Instabilidade / arritmia', 'Acesso perdido / disfuncional', 'Recusa do paciente', 'Transferência / exame fora da unidade', 'Óbito antes da sessão', 'Falta de insumo / máquina', 'Falta de vaga / logística'];
+            const CANC = CANC_LISTA;
             const PARC = ['Instabilidade hemodinâmica', 'Rebaixamento', 'PCR', 'Coagulação do circuito', 'Sangramento', 'CDL sem fluxo', 'Calafrios/reação', 'Agitação', 'Saída para exame/cirurgia'];
             return (
               <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0', background: '#f4f7fb' }}>
@@ -3545,7 +3688,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v165</p>
+<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v168</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
