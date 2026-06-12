@@ -38,7 +38,7 @@ const CORES_UTI = { 'Azul':'#2980d9', 'Amarela':'#f1c40f', 'Branca':'#ffffff', '
 
 const CONVENIOS = ['IPASGO','UNIMED','IMAS','PARTICULAR','OUTROS'];
 
-const DIAG_OPCOES = ['IRA', 'IRA / DRC com IRA sobreposta', 'DRC com IRA sobreposta', 'DRC', 'IRA revertida', 'Função renal normal'];
+const DIAG_OPCOES = ['IRA', 'IRA / DRC com IRA sobreposta', 'DRC com IRA sobreposta', 'DRC', 'DRC dialítica (5D)', 'IRA revertida', 'Função renal normal'];
 const TRAT_OPCOES = ['tratamento conservador', 'HD aguda', 'HD crônica', 'início de HD definitiva'];
 const FILA_HD = ['Aguardando exames', 'Emitir TRS', 'Aguardando vaga'];
 const AMPOLAS_DVA = { 'Noradrenalina': ['4', '4'], 'Adrenalina': ['1', '1'], 'Vasopressina': ['20', '1'], 'Dobutamina': ['250', '20'], 'Dopamina': ['50', '10'], 'Nitroglicerina': ['50', '10'], 'Nitroprussiato': ['50', '2'], 'Azul de metileno': ['50', '5'] };
@@ -592,6 +592,7 @@ function NefroApp() {
       const add = (k, v) => { if (v != null && v !== '' && v !== 'ausente' && !(Array.isArray(v) && v.length === 0)) linhas.push(`${k}: ${Array.isArray(v) ? v.join(', ') : v}`); };
 
       linhas.push('PELA NEFROLOGIA');
+      if (d.emerg_dial) linhas.push('🚨 EMERGÊNCIA DIALÍTICA');
       if (d.intercorrencia) linhas.push('REGISTRO ADICIONAL — INTERCORRÊNCIA (' + new Date(d.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + ')');
       linhas.push('');
       const comorb = [...(pacRef.comorbidades || []), pacRef.comorbidades_outras].filter(Boolean).join(', ');
@@ -1246,7 +1247,7 @@ const ajRotulo = aj => {
       const relDivergente = relAberto?.divergencia || null;
       const ultHDPrescrita = avsP.find(a => a.conduta === 'hd_hoje' && dataLocalISO(a.data) < dataLocalISO());
       const faltaRelatorio = !!(ultHDPrescrita && !(p.relEnf || []).some(r => r.criadoEm > ultHDPrescrita.data) && !avHoje?.hd_destino && (Date.now() - ultHDPrescrita.data) < 3 * 86400000);
-      m[p.id] = { concluidaHoje: !!avHoje?.concluidaEm, condutaHoje: !!avHoje?.conduta, hdHoje: avHoje?.conduta === 'hd_hoje', relPendente, relDivergente, faltaRelatorio, homonimo, vistoHoje: !!avHoje, arquivado, conclusaoFinal: ultAv?.conclusao, motivo: p.externo ? '' : motivo, amanha: p.externo ? '' : amanha, prioridadeOntem: !p.externo && avOntem?.prioridade === 'sim' && avHoje?.conduta !== 'hd_hoje', suspensa: p.esquemaHD === 'susp' };
+      m[p.id] = { concluidaHoje: !!avHoje?.concluidaEm, condutaHoje: !!avHoje?.conduta, hdHoje: avHoje?.conduta === 'hd_hoje', relPendente, relDivergente, faltaRelatorio, homonimo, vistoHoje: !!avHoje, arquivado, conclusaoFinal: ultAv?.conclusao, motivo: p.externo ? '' : motivo, amanha: p.externo ? '' : amanha, prioridadeOntem: !p.externo && avOntem?.prioridade === 'sim' && avHoje?.conduta !== 'hd_hoje', emergDial: !!avHoje?.emerg_dial, suspensa: p.esquemaHD === 'susp' };
     });
     return m;
   })();
@@ -1381,7 +1382,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v177</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v178</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -1694,7 +1695,7 @@ const ajRotulo = aj => {
                 <span style={{ width: 12, height: 12, borderRadius: '50%', background: CORES_UTI[u] || '#bbb', border: '1px solid rgba(0,0,0,0.25)', display: 'inline-block' }}></span>
                 <span style={{ fontSize: 13, fontWeight: 700, color: '#555' }} onClick={() => { if (u === '__EXT__') setExtAberto(x => !x); }}>{u === '__EXT__' ? `🏥 Fora do HRA (${vis.filter(p => pert(p, u)).length}) ${extAberto ? '▾' : '▸'}` : u ? `UTI ${u}` : 'Sem UTI'}</span>
               </div>
-              {(u !== '__EXT__' || extAberto) && vis.filter(p => pert(p, u)).map(p => (
+              {(u !== '__EXT__' || extAberto) && vis.filter(p => pert(p, u)).sort((a, b) => (infoHD[b.id]?.emergDial ? 1 : 0) - (infoHD[a.id]?.emergDial ? 1 : 0)).map(p => (
             <div key={p.id}
               style={{ ...S.patientItem, background: TINTAS_UTI[p.uti] || '#f7f7f4', ...(infoHD[p.id]?.concluidaHoje ? { opacity: 0.5 } : {}), ...(modoExcluir && selExcluir.includes(p.id) ? { background: '#fdecea' } : {}) }}
               onClick={() => modoExcluir ? setSelExcluir(s => s.includes(p.id) ? s.filter(x => x !== p.id) : [...s, p.id]) : abrirPaciente(p)}>
@@ -1706,6 +1707,7 @@ const ajRotulo = aj => {
                 </div>
                 <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 3 }}>
                   {infoHD[p.id]?.prioridadeOntem && <span style={{ fontSize: 10.5, fontWeight: 700, color: 'white', background: '#c0392b', borderRadius: 6, padding: '2px 7px' }}>⚠ PRIORIDADE ONTEM</span>}
+                  {infoHD[p.id]?.emergDial && <span style={{ fontSize: 10.5, fontWeight: 800, color: 'white', background: '#c0392b', borderRadius: 6, padding: '2px 7px' }}>🚨 EMERGÊNCIA DIALÍTICA</span>}
                   {infoHD[p.id]?.motivo && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#c0392b', background: '#fdf0ef', border: '1px solid #f0c2bd', borderRadius: 6, padding: '2px 7px' }}>💧 {infoHD[p.id].motivo}</span>}
                   {infoHD[p.id]?.suspensa && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#666', background: '#eee', borderRadius: 6, padding: '2px 7px' }}>HD SUSPENSA ATÉ 2ª ORDEM</span>}
                   {infoHD[p.id]?.homonimo && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#7a4a1e', background: '#fdf6f0', border: '1px solid #ecd5c0', borderRadius: 6, padding: '2px 7px' }}>⚠ HOMÔNIMO — verificar duplicado</span>}
@@ -2050,6 +2052,12 @@ const ajRotulo = aj => {
                   }}>{dg}</span>
               ))}
             </div>
+            {avAtual && (
+              <div style={{ marginTop: 8 }}>
+                <span style={{ ...S.checkItem, fontSize: 12.5, fontWeight: 700, ...(avAtual.emerg_dial ? { background: '#c0392b', color: 'white', borderColor: '#c0392b' } : { color: '#c0392b', borderColor: '#e0b4b0' }) }}
+                  onClick={() => upAv('emerg_dial', !avAtual.emerg_dial)}>🚨 Emergência dialítica{avAtual.emerg_dial ? ' — SINALIZADA' : ''}</span>
+              </div>
+            )}
           </div>
           <div style={{ display: 'flex', gap: 6, padding: '10px 16px 0', overflowX: 'auto' }}>
             {[['eventos','⚡ Eventos agudos'],['comorb','🩺 Comorbidades']].map(([k, l]) => (
@@ -2846,6 +2854,11 @@ const ajRotulo = aj => {
         <div style={{ margin: '10px 16px 0', padding: '10px 14px', borderRadius: 10, background: '#eef4fb', border: '1px solid #b9d2ee', fontSize: 14, fontWeight: 800, color: '#1a3a5c' }}>
           🩸 Última HD: {dULT ? dULT.split('-').reverse().join('/') : '— sem data —'}{intervaloTxt ? <span style={{ fontWeight: 900 }}> — {intervaloTxt}</span> : null}
         </div>
+        {avAtual.emerg_dial && (
+          <div style={{ margin: '8px 16px 0', padding: '8px 12px', borderRadius: 10, background: '#fdecea', border: '1.5px solid #c0392b', fontSize: 12.5, fontWeight: 700, color: '#c0392b' }}>
+            🚨 Emergência dialítica sinalizada — considerar HD imediata
+          </div>
+        )}
 
         {(() => {
           const temHDInterna = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!pacAtual.dataPrimeiraHD || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido;
@@ -3759,7 +3772,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v177</p>
+<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v178</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
