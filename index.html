@@ -693,6 +693,7 @@ const ajRotulo = aj => {
           : d.parecer_status === 'ressalvas' ? 'LIBERADO COM RESSALVAS' : 'NÃO LIBERADO no momento';
         add('Parecer pré-operatório', rotP + (d.parecer_ressalvas ? ' — ' + d.parecer_ressalvas : ''));
       }
+      if (d.ultima_hd_obs) add('Última HD — intercorrências', d.ultima_hd_obs);
       if ((d.atbs || []).length) add('Antibióticos em uso', d.atbs);
       (d.cond_alertas || []).forEach(c => linhas.push('- ' + c));
       if ((d.cond_eletr || []).length) add('Eletrólitos', d.cond_eletr);
@@ -1379,7 +1380,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v170</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v171</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -2050,7 +2051,20 @@ const ajRotulo = aj => {
                 style={{ ...S.checkItem, fontSize: 12.5, whiteSpace: 'nowrap', ...(subCtx === k ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}>{l}</span>
             ))}
           </div>
-          <div style={{ pointerEvents: modoConsulta ? 'none' : 'auto' }}>
+          {modoConsulta && (
+          <div onClick={() => {
+              const s = prompt('Editar este registro (correção) — digite a senha:');
+              if (s === null) return;
+              if (s !== '8453') { alert('Senha incorreta.'); return; }
+              if (avAtual && avAtual.concluidaEm) { const reaberta = { ...avAtual, concluidaEm: null }; setAvAtual(reaberta); setAvSnapshot(JSON.stringify(avAtual)); }
+              setModoConsulta(false);
+              mostrarToast('Edição liberada — registro reaberto como rascunho');
+            }}
+            style={{ margin: '8px 16px 0', padding: '9px 12px', borderRadius: 10, background: '#fdf6ec', border: '1.5px solid #e8cfa8', fontSize: 12.5, fontWeight: 700, color: '#8a6d3b', cursor: 'pointer' }}>
+            👁 Modo consulta (somente leitura) — toque para ✎ editar (senha)
+          </div>
+        )}
+        <div style={{ pointerEvents: modoConsulta ? 'none' : 'auto' }}>
           {false && (
             <>
             <div style={{ ...S.formGroup, marginTop: 12 }}>
@@ -2358,6 +2372,19 @@ const ajRotulo = aj => {
         </div>
 
         {/* BEIRA LEITO */}
+        {modoConsulta && (
+          <div onClick={() => {
+              const s = prompt('Editar este registro (correção) — digite a senha:');
+              if (s === null) return;
+              if (s !== '8453') { alert('Senha incorreta.'); return; }
+              if (avAtual && avAtual.concluidaEm) { const reaberta = { ...avAtual, concluidaEm: null }; setAvAtual(reaberta); setAvSnapshot(JSON.stringify(avAtual)); }
+              setModoConsulta(false);
+              mostrarToast('Edição liberada — registro reaberto como rascunho');
+            }}
+            style={{ margin: '8px 16px 0', padding: '9px 12px', borderRadius: 10, background: '#fdf6ec', border: '1.5px solid #e8cfa8', fontSize: 12.5, fontWeight: 700, color: '#8a6d3b', cursor: 'pointer' }}>
+            👁 Modo consulta (somente leitura) — toque para ✎ editar (senha)
+          </div>
+        )}
         <div style={{ pointerEvents: modoConsulta ? 'none' : 'auto' }}>
         {['estado','resp','pa'].includes(subRot) && (<>
         <Section title="☐ Beira Leito">
@@ -2801,6 +2828,19 @@ const ajRotulo = aj => {
     return (
       <div style={S.page}>
         <TabBar atual="hdview" />
+        {modoConsulta && (
+          <div onClick={() => {
+              const s = prompt('Editar este registro (correção) — digite a senha:');
+              if (s === null) return;
+              if (s !== '8453') { alert('Senha incorreta.'); return; }
+              if (avAtual && avAtual.concluidaEm) { const reaberta = { ...avAtual, concluidaEm: null }; setAvAtual(reaberta); setAvSnapshot(JSON.stringify(avAtual)); }
+              setModoConsulta(false);
+              mostrarToast('Edição liberada — registro reaberto como rascunho');
+            }}
+            style={{ margin: '8px 16px 0', padding: '9px 12px', borderRadius: 10, background: '#fdf6ec', border: '1.5px solid #e8cfa8', fontSize: 12.5, fontWeight: 700, color: '#8a6d3b', cursor: 'pointer' }}>
+            👁 Modo consulta (somente leitura) — toque para ✎ editar (senha)
+          </div>
+        )}
         <div style={{ pointerEvents: modoConsulta ? 'none' : 'auto' }}>
         <div style={{ margin: '10px 16px 0', padding: '10px 14px', borderRadius: 10, background: '#eef4fb', border: '1px solid #b9d2ee', fontSize: 14, fontWeight: 800, color: '#1a3a5c' }}>
           🩸 Última HD: {dULT ? dULT.split('-').reverse().join('/') : '— sem data —'}{intervaloTxt ? <span style={{ fontWeight: 900 }}> — {intervaloTxt}</span> : null}
@@ -2999,6 +3039,12 @@ const ajRotulo = aj => {
                     </div>
                   </div>
                 )}
+              <div style={{ marginTop: 10 }}>
+                  <div style={{ fontSize: 11, color: '#999', marginBottom: 4 }}>INTERCORRÊNCIAS / OBSERVAÇÕES DA SESSÃO (texto livre)</div>
+                  <textarea value={avAtual.ultima_hd_obs || ''} onChange={e => upAv('ultima_hd_obs', e.target.value)}
+                    placeholder="ex.: encerrada prematuramente; convulsionou durante a sessão; PCR revertida; dor torácica intensa…"
+                    style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d5dde5', borderRadius: 8, padding: 8, fontSize: 13, minHeight: 64, fontFamily: 'inherit' }} />
+                </div>
               </div>
             );
           })()}
@@ -3226,6 +3272,19 @@ const ajRotulo = aj => {
               style={{ ...S.checkItem, fontSize: 12.5, whiteSpace: 'nowrap', ...(subCond === k ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}>{l}</span>
           ))}
         </div>
+        {modoConsulta && (
+          <div onClick={() => {
+              const s = prompt('Editar este registro (correção) — digite a senha:');
+              if (s === null) return;
+              if (s !== '8453') { alert('Senha incorreta.'); return; }
+              if (avAtual && avAtual.concluidaEm) { const reaberta = { ...avAtual, concluidaEm: null }; setAvAtual(reaberta); setAvSnapshot(JSON.stringify(avAtual)); }
+              setModoConsulta(false);
+              mostrarToast('Edição liberada — registro reaberto como rascunho');
+            }}
+            style={{ margin: '8px 16px 0', padding: '9px 12px', borderRadius: 10, background: '#fdf6ec', border: '1.5px solid #e8cfa8', fontSize: 12.5, fontWeight: 700, color: '#8a6d3b', cursor: 'pointer' }}>
+            👁 Modo consulta (somente leitura) — toque para ✎ editar (senha)
+          </div>
+        )}
         <div style={{ pointerEvents: modoConsulta ? 'none' : 'auto' }}>
 
         {subCond === 'med' && (<>
@@ -3712,7 +3771,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v170</p>
+<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v171</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
