@@ -430,11 +430,16 @@ function NefroApp() {
   const [origemResumo, setOrigemResumo] = useState(null);
   const irResumo = (vOrigem) => { salvarAvaliacao(false); setOrigemResumo({ v: vOrigem, sub: subRot }); setView('panorama'); };
   const concluirRegistro = () => {
-    salvarAvaliacao(false);
     const u = { ...avAtual, concluidaEm: avAtual.concluidaEm || Date.now() };
     setAvAtual(u);
-    setAvaliacoes(a => ({ ...a, [pacAtual.id]: (a[pacAtual.id] || []).map(x => x.id === u.id ? u : x) }));
-    setPacientes(ps => ps.map(p => p.id === pacAtual.id ? { ...p, ultimaAvaliacao: p.ultimaAvaliacao && p.ultimaAvaliacao.id === u.id ? u : p.ultimaAvaliacao, updatedAt: Date.now() } : p));
+    setAvaliacoes(a => {
+      const lst = a[pacAtual.id] || [];
+      const tem = lst.some(x => x.id === u.id);
+      return { ...a, [pacAtual.id]: tem ? lst.map(x => x.id === u.id ? u : x) : [u, ...lst] };
+    });
+    setPacientes(ps => ps.map(p => p.id === pacAtual.id ? { ...p, ultimaAvaliacao: { conduta: u.conduta, data: u.data }, updatedAt: Date.now() } : p));
+    setAvSnapshot(null);
+    setModoConsulta(false);
     mostrarToast('✓ Registro concluído');
     setView('lista');
   };
@@ -1269,7 +1274,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v149</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v150</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -1750,7 +1755,10 @@ const ajRotulo = aj => {
             )}
             
 
-            {ultimaAv && dataLocalISO(ultimaAv.data) === dataLocalISO() && ultimaAv.concluidaEm && (
+            {(() => {
+              const ultimaAv = avs.find(a => dataLocalISO(a.data) === dataLocalISO() && a.concluidaEm);
+              if (!ultimaAv) return null;
+              return (
             <div style={{ ...S.card, cursor: 'pointer' }} onClick={() => { setAvAtual(ultimaAv); setModoConsulta(true); setView('panorama'); }}>
               <div style={{ ...S.cardHeader, background: '#1d7a45' }}>✓ Registro de hoje — concluído · toque para o Resumo</div>
               <div style={{ padding: 14, fontSize: 14 }}>
@@ -1770,7 +1778,8 @@ const ajRotulo = aj => {
                 {ultimaAv.observacoes && <div style={{ marginTop: 8, color: '#666' }}>{ultimaAv.observacoes}</div>}
               </div>
             </div>
-            )}
+              );
+            })()}
             {(() => {
               const hojeISO = dataLocalISO();
               const avHojeF = avs.find(a => dataLocalISO(a.data) === hojeISO);
@@ -3348,7 +3357,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v149</p>
+<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v150</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
