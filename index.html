@@ -1380,7 +1380,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v171</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v172</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -1840,9 +1840,9 @@ const ajRotulo = aj => {
                     return (
                       <>
                         <button style={{ ...S.btn, width: '100%', background: '#1a3a5c', color: 'white', padding: 14, fontSize: 15, fontWeight: 700 }}
-                          onClick={() => { setAvAtual(avHojeT); setAvSnapshot(JSON.stringify(avHojeT)); setView('roteiro'); }}>✎ Continuar registro de hoje</button>
+                          onClick={() => { setModoConsulta(false); setAvAtual(avHojeT); setAvSnapshot(JSON.stringify(avHojeT)); setView('roteiro'); }}>✎ Continuar registro de hoje</button>
                         {pend.length > 0 && (
-                          <div onClick={() => { setAvAtual(avHojeT); setAvSnapshot(JSON.stringify(avHojeT)); setOrigemResumo({ v: 'roteiro', sub: 'beira' }); setView('panorama'); }}
+                          <div onClick={() => { setModoConsulta(false); setAvAtual(avHojeT); setAvSnapshot(JSON.stringify(avHojeT)); setOrigemResumo({ v: 'roteiro', sub: 'beira' }); setView('panorama'); }}
                             style={{ marginTop: 6, padding: '8px 12px', borderRadius: 8, background: '#fdf6ec', border: '1.5px solid #e8cfa8', color: '#8a6d3b', fontSize: 13, fontWeight: 700, cursor: 'pointer', textAlign: 'center' }}>
                             ⚠ incompleto — {pend.length} pendência{pend.length > 1 ? 's' : ''} · toque para auditar
                           </div>
@@ -1857,6 +1857,7 @@ const ajRotulo = aj => {
                       <button style={{ ...S.btn, flex: 1, minWidth: 120, background: '#c0392b', color: 'white', padding: '10px 6px', fontSize: 12.5 }}
                         onClick={() => {
                           if (!confirm('Registrar INTERCORRÊNCIA? Cria um registro ADICIONAL de hoje — o registro da manhã permanece intacto.')) return;
+                          setModoConsulta(false);
                           novaAvaliacao(undefined, true);
                         }}>⚡ Intercorrência</button>
                       <button style={{ ...S.btn, flex: 1, minWidth: 120, background: 'white', color: '#8a6d3b', border: '1.5px solid #e8cfa8', padding: '10px 6px', fontSize: 12.5 }}
@@ -1865,7 +1866,7 @@ const ajRotulo = aj => {
                           if (s === null) return;
                           if (s !== '8453') { alert('Senha incorreta.'); return; }
                           const reaberta = { ...avHojeT, concluidaEm: null };
-                          setAvAtual(reaberta); setAvSnapshot(JSON.stringify(avHojeT)); setView('roteiro');
+                          setModoConsulta(false); setAvAtual(reaberta); setAvSnapshot(JSON.stringify(avHojeT)); setView('roteiro');
                         }}>✎ Corrigir registro?</button>
                     </div>
                   )}
@@ -3771,7 +3772,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v171</p>
+<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v172</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
@@ -3964,7 +3965,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                 <div style={{ padding: graves.length + avisos.length ? '6px 14px' : '10px 14px', fontSize: 13.5 }}>
                   {graves.map((x, i) => (
                     <div key={'g' + i} style={{ padding: '8px 0', borderBottom: '1px solid #f5e3e0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                      <span onClick={() => { if (x.ctx) setSubCtx(x.ctx); if (x.sub) setSubRot(x.sub); if (x.v === 'conduta') setSubCond(x.id === 'conduta' ? 'dec' : 'presc'); setView(x.v); }}
+                      <span onClick={() => { setModoConsulta(false); if (x.ctx) setSubCtx(x.ctx); if (x.sub) setSubRot(x.sub); if (x.v === 'conduta') setSubCond(x.id === 'conduta' ? 'dec' : 'presc'); setView(x.v); }}
                         style={{ color: '#c0392b', fontWeight: 700, cursor: 'pointer', flex: 1 }}>● {x.rot} <span style={{ color: '#999', fontWeight: 400 }}>· resolver ▸</span></span>
                       {x.destravavel && <span onClick={() => {
                           const s = prompt('Destravar "' + x.rot + '" — dado não disponível. Senha:');
@@ -3975,7 +3976,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                     </div>
                   ))}
                   {avisos.map((x, i) => (
-                    <div key={'a' + i} onClick={() => { if (x.ctx) setSubCtx(x.ctx); if (x.sub) setSubRot(x.sub); if (x.v === 'conduta') setSubCond(x.id === 'conduta' ? 'dec' : 'presc'); setView(x.v); }}
+                    <div key={'a' + i} onClick={() => { setModoConsulta(false); if (x.ctx) setSubCtx(x.ctx); if (x.sub) setSubRot(x.sub); if (x.v === 'conduta') setSubCond(x.id === 'conduta' ? 'dec' : 'presc'); setView(x.v); }}
                       style={{ padding: '8px 0', color: '#8a6d3b', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', fontStyle: x.carimbo ? 'italic' : 'normal' }}>
                       <span>○ {x.rot}</span><span style={{ color: '#bbb' }}>ver ▸</span>
                     </div>
@@ -3986,7 +3987,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
             );
           })()}
           {!modoConsulta && (
-            <div onClick={() => { const o = origemResumo || { v: 'roteiro', sub: 'estado' }; setSubRot(o.sub === 'beira' ? 'estado' : (o.sub || 'estado')); setView(o.v || 'roteiro'); }}
+            <div onClick={() => { setModoConsulta(false); const o = origemResumo || { v: 'roteiro', sub: 'estado' }; setSubRot(o.sub === 'beira' ? 'estado' : (o.sub || 'estado')); setView(o.v || 'roteiro'); }}
               style={{ textAlign: 'center', fontSize: 13, color: '#1a3a5c', fontWeight: 600, marginBottom: 12, cursor: 'pointer' }}>✎ continuar editando ▸</div>
           )}
           <div style={{ marginBottom: 12, padding: '12px 14px', background: '#1a3a5c', color: 'white', borderRadius: 10 }}>
