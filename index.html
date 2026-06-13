@@ -760,6 +760,15 @@ function NefroApp() {
   const calcUFTot = () => { const lv = parseFloat(avAtual?.lavagens); return calcUFEf() + (parseFloat(avAtual?.priming)||400) + (Number.isFinite(lv) ? lv : (avAtual?.anticoag === 'com' ? 0 : calcLavAuto())); };
   const gerarTextoPanorama = (avX, pacX) => {
       const d = avX || avAtual; const pacRef = pacX || pacAtual;
+      const diurTxt = (() => {
+        const det = [];
+        if ((d.diureticos || []).includes('Furosemida') && d.furo_manut !== 'sem') det.push(`Furosemida ${d.furo_dose_n || ''}${d.furo_manut === 'amp' ? 'amp' : 'cp'} ${d.furo_int || ''}`.trim());
+        if (d.furo_bolus_n) det.push(`Furosemida bolus ${d.furo_bolus_amp || ''}amp x${d.furo_bolus_n}`);
+        if ((d.diureticos || []).includes('Espironolactona')) det.push(`Espironolactona ${(parseInt(d.espiro_cp) || 1) * 25}mg ${d.espiro_int || ''}`);
+        if ((d.diureticos || []).includes('Hidroclorotiazida')) det.push(`Hidroclorotiazida ${(parseInt(d.hctz_cp) || 1) * 25}mg ${d.hctz_int || ''}`);
+        const base = det.length ? det.join('; ') : (d.diureticos || []).join(', ');
+        return d.semFuro ? ['sem furosemida', base].filter(Boolean).join('; ') : base;
+      })();
       const linhas = [];
       const add = (k, v) => { if (v != null && v !== '' && v !== 'ausente' && !(Array.isArray(v) && v.length === 0)) linhas.push(`${k}: ${Array.isArray(v) ? v.join(', ') : v}`); };
 
@@ -1557,7 +1566,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v190</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v191</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -4173,7 +4182,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v190</p>
+<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v191</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
@@ -4404,14 +4413,6 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
             <div style={{ fontSize: 13, opacity: 0.9, marginTop: 2 }}>{pacAtual.status}</div>
           </div>
 
-          {herdadosPend.length > 0 && (
-            <div style={{ marginBottom: 12, padding: '12px 14px', background: '#fef5e7', borderLeft: '3px solid #e67e22', borderRadius: 8 }}>
-              <div style={{ fontWeight: 700, color: '#e67e22', marginBottom: 4 }}>⚠ Dados de ontem não confirmados</div>
-              <div style={{ fontSize: 13, color: '#555' }}>
-                Estes campos foram trazidos da avaliação anterior e você ainda não revisou: <b>{herdadosPend.map(k => rotuloHerdado[k] || k).join(', ')}</b>. Toque neles na avaliação para confirmar ou atualizar.
-              </div>
-            </div>
-          )}
 
           {(((pacAtual.comorbidades || []).length > 0) || ((pacAtual.gatilhos || []).length > 0)) && (
             <Bloco ir="eventos" titulo="Contexto clínico">
