@@ -575,6 +575,17 @@ function NefroApp() {
   };
   const [pacientes, setPacientes] = useState(() => carregarDados().pacientes);
   const [avaliacoes, setAvaliacoes] = useState(() => carregarDados().avaliacoes);
+  React.useEffect(() => {
+    if (!avAtual || !pacAtual || modoConsulta) return;
+    const t = setTimeout(() => {
+      setAvaliacoes(prev => {
+        const avs = prev[pacAtual.id] || [];
+        if (avs.some(a => a.id === avAtual.id && JSON.stringify(a) === JSON.stringify(avAtual))) return prev;
+        return { ...prev, [pacAtual.id]: [avAtual, ...avs.filter(a => a.id !== avAtual.id)] };
+      });
+    }, 400);
+    return () => clearTimeout(t);
+  }, [avAtual, pacAtual, modoConsulta]);
   useEffect(() => { salvarDados(pacientes, avaliacoes); }, [pacientes, avaliacoes]);
   const [pacAtual, setPacAtual] = useState(null);
   const [avAtual, setAvAtual] = useState(null);
@@ -1183,17 +1194,6 @@ const ajRotulo = aj => {
     setView('roteiro');
   }
 
-  React.useEffect(() => {
-    if (!avAtual || !pacAtual || modoConsulta) return;
-    const t = setTimeout(() => {
-      setAvaliacoes(prev => {
-        const avs = prev[pacAtual.id] || [];
-        if (avs.some(a => a.id === avAtual.id && JSON.stringify(a) === JSON.stringify(avAtual))) return prev;
-        return { ...prev, [pacAtual.id]: [avAtual, ...avs.filter(a => a.id !== avAtual.id)] };
-      });
-    }, 400);
-    return () => clearTimeout(t);
-  }, [avAtual, pacAtual, modoConsulta]);
   function salvarAvaliacao(final = true) {
     if (modoConsulta) return;
     if (avSnapshot) {
@@ -1600,7 +1600,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v202</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v203</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -4245,7 +4245,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v202</p>
+<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v203</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
