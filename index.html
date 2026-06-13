@@ -1551,7 +1551,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v187</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v188</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -3129,7 +3129,7 @@ const ajRotulo = aj => {
             </div>
             {(() => {
             const LINHAS = [['Ureia','ureia','mg/dL'], ['Creatinina','creat','mg/dL'], ['Sódio','sodio','mEq/L'], ['Potássio','pot','mEq/L'], ['Bicarbonato','bic','mEq/L'], ['Ca iônico','ca','mmol/L'], ['Magnésio','mg','mg/dL'], ['Fósforo','p','mg/dL']].concat((avAtual.exames_extras || []).map(k => { for (const [, its] of CAT_EXAMES) { const it = its.find(x => x[1] === k); if (it) return [it[0] + (it[2] ? ' (' + it[2] + ')' : ''), it[1], it[2]]; } return [k, k, '']; }));
-            const SEQ = LINHAS.flatMap(([l2, k2]) => ['basal','ant','hoje'].map(t2 => [l2, k2, t2]));
+            const SEQ = LINHAS.map(([l2, k2]) => [l2, k2, 'hoje']);
             const abrirCel = (ix) => {
               if (ix >= SEQ.length) return;
               const [l3, k3, t3] = SEQ[ix];
@@ -3153,7 +3153,7 @@ const ajRotulo = aj => {
                   );
                   return (
                     <div key={t} style={{ ...S.labCell, padding: 4, background: critico ? '#fdecea' : 'transparent' }}>
-                      <NumInput value={val} onSet={v => upLab(`${key}_${t}`, ['pot','ca','mg','creat','p'].includes(key) ? fmtDec(v) : v)} allowComma label={lbl + ' — ' + t} bicAuto={key === 'bic'} next={(li * 3 + ti + 1) < SEQ.length ? () => abrirCel(li * 3 + ti + 1) : null}
+                      <NumInput value={val} onSet={v => upLab(`${key}_${t}`, ['pot','ca','mg','creat','p'].includes(key) ? fmtDec(v) : v)} allowComma label={lbl + ' — ' + t} bicAuto={key === 'bic'} next={t === 'hoje' && (li + 1) < SEQ.length ? () => abrirCel(li + 1) : null}
                         style={{ width: '100%', border: 'none', outline: 'none', fontSize: 13, fontWeight: critico ? 700 : 400, color: critico ? '#c0392b' : '#333', textAlign: 'center', fontFamily: 'monospace', background: critico ? 'transparent' : (t === 'hoje' ? '#f4f4f0' : 'transparent') }} />
                     </div>
                   );
@@ -4122,7 +4122,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v187</p>
+<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v188</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
