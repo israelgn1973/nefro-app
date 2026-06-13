@@ -773,6 +773,7 @@ function NefroApp() {
       const add = (k, v) => { if (v != null && v !== '' && v !== 'ausente' && !(Array.isArray(v) && v.length === 0)) linhas.push(`${k}: ${Array.isArray(v) ? v.join(', ') : v}`); };
 
       linhas.push('PELA NEFROLOGIA');
+      if (pacRef?.nome) linhas.push(pacRef.nome + (pacRef.leito ? ' — Leito ' + pacRef.leito : '') + (pacRef.uti ? ' (UTI ' + pacRef.uti + ')' : ''));
       if (d.emerg_dial) linhas.push('🚨 EMERGÊNCIA DIALÍTICA');
       if (d.intercorrencia) linhas.push('REGISTRO ADICIONAL — INTERCORRÊNCIA (' + new Date(d.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + ')');
       linhas.push('');
@@ -881,11 +882,22 @@ const ajRotulo = aj => {
       }
       if (d.ultima_hd_obs) add('Última HD — intercorrências', d.ultima_hd_obs);
       if ((d.atbs || []).length) add('Antibióticos em uso', d.atbs);
-      (d.cond_alertas || []).forEach(c => linhas.push('- ' + c));
-      if ((d.cond_eletr || []).length) add('Eletrólitos', d.cond_eletr);
+      // alertas genéricos NÃO entram no texto; condutas concretas vêm dos campos selecionados (med_revisar etc.)
+      if ((d.cond_eletr || []).length) {
+        const sel = d.cond_eletr || [];
+        const det = [];
+        if (sel.includes('Repor K')) { const k = num(d.labs?.pot_hoje); det.push('Repor K' + (isNaN(k) ? '' : ` (K ${k})`) + ': ' + (!isNaN(k) && k < 3.0 ? 'KCl 19,1% 2 amp (50 mEq) em SF 250 ml EV 4h (central; monitor). Repor Mg. Reavaliar 2–4h.' : 'KCl 6% 15 ml VO 8/8h ou 1 amp (25 mEq) em SF 250 ml EV 2h. Reavaliar 4–6h.')); }
+        if (sel.includes('Repor Ca')) { const ca = num(d.labs?.ca_hoje); det.push('Repor Ca' + (isNaN(ca) ? '' : ` (Cai ${ca})`) + ': ' + (!isNaN(ca) && ca < 0.9 ? 'Gluconato Ca 10% 1–2 amp em SG 100 ml EV 10–20 min; reavaliar 1–2h. Corrigir Mg. Cautela se P alto (Ca×P).' : 'Leve: carbonato Ca 1–2 g/dia VO ou gluconato 10% 1 amp EV lento. Corrigir Mg.')); }
+        if (sel.includes('Repor Mg')) { const mg = num(d.labs?.mg_hoje); det.push('Repor Mg' + (isNaN(mg) ? '' : ` (Mg ${mg})`) + ': ' + (!isNaN(mg) && mg < 1.0 ? 'MgSO4 50% 2 g em SF 100 ml EV 30–60 min (torsades: 10–15 min). DRC: reduzir ~50%.' : 'MgSO4 50% 1 g em SF 100 ml EV 1h, 1–2x/dia. DRC: reduzir ~50%.')); }
+        if (sel.includes('Repor P')) { const p = num(d.labs?.p_hoje); det.push('Repor P' + (isNaN(p) ? '' : ` (P ${p})`) + ': ' + (!isNaN(p) && p < 1.0 ? 'Fosfato K/Na 0,3–0,4 mmol/kg EV 6h; reavaliar. Monitorar Ca/K.' : 'VO: fosfato de sódio/potássio ou refeição rica em P. Reavaliar.')); }
+        if (sel.includes('Quelante de P')) { const p = num(d.labs?.p_hoje); det.push('Quelante de P' + (isNaN(p) ? '' : ` (P ${p})`) + ': Quelante às refeições (carbonato/acetato de Ca; sevelâmer se Ca alto). Restrição dietética de P.'); }
+        if (sel.includes('Bicarbonato')) { det.push('Bicarbonato de sódio' + (d.bic_ml ? ` ${d.bic_ml} ml${d.bic_h ? ` a cada ${d.bic_h}h` : ''}` : ' (definir volume/intervalo)') + '.'); }
+        if (sel.includes('Glicoinsulina')) { det.push('Glicoinsulina: Insulina regular 10 UI + glicose 50% 100 ml EV 15–30 min. HGT 1/1h por 4–6h.'); }
+        add('Eletrólitos', det.length ? det : sel);
+      }
       if (d.diur_ajuste) add('Diurético (ajuste)', d.diur_ajuste + (d.diur_ajuste_obs ? ' — ' + d.diur_ajuste_obs : ''));
       if ((d.med_revisar || []).length) add('Revisar/suspender', d.med_revisar);
-      if ((d.cond_outras_sel || []).length) add('Outras', d.cond_outras_sel);
+      if ((d.cond_outras_sel || []).length) add('Outras', d.cond_outras_sel.map(c => c === 'Troca de diluições' && d.troca_diluicoes ? `Troca de diluições → ${d.troca_diluicoes}` : c));
       add('Conclusão', { acompanhamento: 'Segue em acompanhamento', alta_nefro: 'Alta da nefrologia', alta_hosp: 'Alta hospitalar', paliativo: 'Cuidados paliativos', obito: 'Óbito' }[d.conclusao]);
       if (d.observacoes) { linhas.push(''); add('Obs', d.observacoes); }
 
@@ -1566,7 +1578,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v191</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v193</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -3756,7 +3768,7 @@ const ajRotulo = aj => {
                   );
                 })}
               </div>
-              {(avAtual.cond_vol||[]).includes('Reposição volêmica') || (avAtual.cond_vol||[]).includes('Expansão com fluidos') && (
+              {((avAtual.cond_vol||[]).includes('Reposição volêmica') || (avAtual.cond_vol||[]).includes('Expansão com fluidos')) && (
                 <div style={{ marginTop: 8, paddingLeft: 12, borderLeft: '2px solid #c8d4e0', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <NumInput style={{ ...S.input, width: 72 }} value={avAtual.fluido_ml} onSet={v => upAv('fluido_ml', v)} placeholder="500" label="Volume (ml)" />
                   <span style={{ fontSize: 12, color: '#888' }}>ml de</span>
@@ -4182,7 +4194,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v191</p>
+<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v193</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
