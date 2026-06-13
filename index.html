@@ -71,6 +71,55 @@ const farejarDiagnosticos = (texto) => {
   });
   return achou;
 };
+const farejarAvaliacao = (texto) => {
+  const T = ' ' + nrmNome(texto).replace(/\s+/g, ' ') + ' ';
+  const tem = (...ks) => ks.some(k => T.includes(k));
+  const numApos = (re) => { const m = (texto || '').match(re); return m ? m[1] : null; };
+  const cat = {}; const fonte = {};
+  // estado geral
+  if (tem('gravissimo', 'graviss')) cat.eg = 'gravíssimo';
+  else if (tem('grave')) cat.eg = 'grave';
+  else if (tem('estavel')) cat.eg = 'estável';
+  // consciência
+  if (tem('sedado', 'sedacao')) cat.consciencia = 'sedado';
+  else if (tem('rebaixad', 'torpor', 'comatos')) cat.consciencia = 'rebaixado';
+  else if (tem('sonolent')) cat.consciencia = 'sonolento';
+  else if (tem('consciente', 'orientado', 'lucido', 'verbalizando')) cat.consciencia = 'consciente e orientado';
+  else if (tem('confus', 'agitad')) cat.consciencia = 'agitado/confuso';
+  // respiração
+  if (tem('vm', 'ventilacao mecanica', 'intubad', 'cot', 'tqt', 'tubo')) cat.resp = 'COT/VM';
+  else if (tem('vni', 'ventilacao nao invasiva')) cat.resp = 'VNI';
+  else if (tem('mascara nao reinalante', 'nao reinalante')) cat.resp = 'máscara não reinalante';
+  else if (tem('mascara')) cat.resp = 'máscara de O2';
+  else if (tem('cateter', 'cateter nasal', 'cn ', 'oculos')) cat.resp = 'cateter de O2';
+  else if (tem('ar ambiente', ' aa ', 'em aa')) cat.resp = 'ar ambiente';
+  // padrão / dispneia
+  if (tem('dispnei', 'taquipnei', 'desconfort respirat')) cat.padrao_resp = 'dispneico';
+  else if (tem('eupneic')) cat.padrao_resp = 'eupneico';
+  // diurese qualitativa
+  if (tem('anuric', 'anuria')) cat.diurese_qual = 'anúria';
+  else if (tem('oliguric', 'oliguria')) cat.diurese_qual = 'oligúria';
+  else if (tem('diurese preservada', 'boa diurese')) cat.diurese_qual = 'preservada';
+  if (tem('svd', 'sonda vesical', 'sonda de demora')) cat.svd = 'com SVD';
+  // normotenso
+  if (tem('normotens')) cat.normotenso = true;
+  // numéricos (valor + fonte)
+  const num = {};
+  let m;
+  if (m = (texto||'').match(/\b(\d{2,3})\s*[x\/]\s*(\d{2,3})\b/)) { num.pa = { v: m[1] + '/' + m[2], src: m[0] }; }
+  if (m = (texto||'').match(/sat[o2 ]*[:\s]*(\d{2,3})\s*%?/i)) { num.sat = { v: m[1], src: m[0].trim() }; }
+  if (m = (texto||'').match(/fio2[:\s]*(\d{2,3})/i)) { num.fio2 = { v: m[1], src: m[0].trim() }; }
+  if (m = (texto||'').match(/peep[:\s]*(\d{1,2})/i)) { num.peep = { v: m[1], src: m[0].trim() }; }
+  if (m = (texto||'').match(/(?:fluxo|o2)[^\d]{0,8}(\d{1,2})\s*l(?:\/min|itros)?/i)) { num.fluxoO2 = { v: m[1], src: m[0].trim() }; }
+  if (m = (texto||'').match(/(?:diurese|diurou|urinou)[^\d]{0,12}(\d{3,4})\s*ml/i)) { num.diurese = { v: m[1], src: m[0].trim() }; }
+  if (m = (texto||'').match(/(?:ganho|balan[cç]o|bh)[^\d]{0,10}\+?\s*(\d{3,4})/i)) { num.ganhos = { v: m[1], src: m[0].trim() }; }
+  if (m = (texto||'').match(/(?:nora|noradrenalina|adrenalina|dobuta|dobutamina|vaso|vasopressina|dopa|tridil|nitro)[^\d]{0,12}(\d{1,3}(?:[.,]\d)?)\s*(?:ml|mcg)/i)) { num.dva = { v: m[0].trim(), src: m[0].trim() }; }
+  // exames
+  const lab = {};
+  const exRe = [['ureia', /ureia[:\s]*(\d{1,3})/i], ['creat', /creat(?:inina)?[:\s]*(\d{1,2}[.,]?\d?)/i], ['sodio', /\b(?:na|sodio)[:\s]*(\d{3})/i], ['pot', /\b(?:k|potassio)[:\s]*(\d[.,]?\d?)/i], ['bic', /(?:bic|hco3|bicarbonato)[:\s]*(\d{1,2}[.,]?\d?)/i]];
+  exRe.forEach(([k, re]) => { const mm = (texto||'').match(re); if (mm) lab[k] = { v: mm[1].replace('.', ','), src: mm[0].trim() }; });
+  return { cat, num, lab };
+};
 const CANC_LISTA = ['Cancelada pelo plantonista — sem informação adicional', 'Piora hemodinâmica', 'Família não autorizou', 'Paliativação', 'Recuperação de diurese', 'SVD desobstruída / débito recuperado', 'Instabilidade / arritmia', 'Acesso perdido / disfuncional', 'Recusa do paciente', 'Transferência / exame fora da unidade', 'Óbito antes da sessão', 'Falta de insumo / máquina', 'Falta de vaga / logística'];
 const montarStatus = (diag, trat) => {
   if (diag === 'IRA revertida' || diag === 'Função renal normal') return diag;
@@ -560,6 +609,7 @@ function NefroApp() {
   const [subCtx, setSubCtx] = useState('eventos');
   const [gavetaCtx, setGavetaCtx] = useState('');
   const [colaDx, setColaDx] = useState(null);
+  const [colaAv, setColaAv] = useState(null);
   const [buscaDx, setBuscaDx] = useState('');
   const [subCond, setSubCond] = useState('dec');
   const [origemResumo, setOrigemResumo] = useState(null);
@@ -1501,7 +1551,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v185</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v187</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -2623,6 +2673,76 @@ const ajRotulo = aj => {
         {/* BEIRA LEITO */}
         <div style={{ pointerEvents: modoConsulta ? 'none' : 'auto' }}>
         {['estado','resp','pa'].includes(subRot) && (<>
+        {subRot === 'estado' && (
+        <div style={{ padding: '8px 16px 0' }}>
+          <span style={{ ...S.checkItem, fontSize: 12, marginRight: 6 }}
+            onClick={() => {
+              const nome = pacAtual?.nome || 'o paciente';
+              const L = ['Olá! Tudo bem? Quando puder, por gentileza, poderia me passar por mensagem as informações abaixo sobre ' + nome + ', para eu concluir a evolução? Agradeço muito.', '',
+                '- Nível de consciência', '- Respiração (ar ambiente, cateter/máscara de O2, ou VM) e fluxo de O2 se houver', '- SatO2 (e FiO2/PEEP se em ventilação)', '- PA (ou se normotenso) e drogas vasoativas com doses', '- Diurese (volume ou oligúrico/anúrico) e se tem sonda vesical', '- Balanço/ganhos do período', '- Exames de hoje se colhidos (ureia, creatinina, Na, K, bicarbonato)', '', 'Obrigado pela ajuda!'].join('\n');
+              if (navigator.share) navigator.share({ text: L }).catch(()=>{});
+              else if (navigator.clipboard?.writeText) navigator.clipboard.writeText(L).then(() => mostrarToast('Pedido copiado')).catch(() => prompt('Copie:', L));
+              else prompt('Copie:', L);
+            }}>📨 Pedir dados ao plantonista</span>
+          <span style={{ ...S.checkItem, fontSize: 12, ...(colaAv ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}
+            onClick={() => setColaAv(c => c ? null : { raw: '' })}>📋 Colar resposta (texto)</span>
+        </div>
+        )}
+        {subRot === 'estado' && colaAv && !colaAv.achados && (
+          <div style={{ margin: '8px 16px 0', padding: 10, borderRadius: 10, background: 'white', border: '1px solid #d5dde5' }}>
+            <textarea value={colaAv.raw} onChange={e => setColaAv(c => ({ ...c, raw: e.target.value }))}
+              placeholder="Cole aqui a resposta do plantonista (texto)…"
+              style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #ddd', borderRadius: 8, padding: 8, fontSize: 13, minHeight: 80, fontFamily: 'inherit' }} />
+            <button style={{ ...S.btn, width: '100%', marginTop: 6, background: '#1a3a5c', color: 'white' }}
+              onClick={() => { if (!colaAv.raw.trim()) return; setColaAv(c => ({ ...c, achados: farejarAvaliacao(c.raw) })); }}>🔎 Extrair dados da avaliação</button>
+          </div>
+        )}
+        {subRot === 'estado' && colaAv && colaAv.achados && (() => {
+          const A = colaAv.achados;
+          const catN = { eg: 'Estado geral', consciencia: 'Consciência', resp: 'Respiração', padrao_resp: 'Padrão resp.', diurese_qual: 'Diurese', svd: 'SVD', normotenso: 'Normotenso' };
+          const numN = { pa: 'PA', sat: 'SatO2', fio2: 'FiO2', peep: 'PEEP', fluxoO2: 'Fluxo O2', diurese: 'Diurese (ml)', ganhos: 'Ganhos (ml)', dva: 'DVA' };
+          const labN = { ureia: 'Ureia', creat: 'Creatinina', sodio: 'Na', pot: 'K', bic: 'Bic' };
+          const tot = Object.keys(A.cat).length + Object.keys(A.num).length + Object.keys(A.lab).length;
+          const aplicar = () => {
+            setAvAtual(a => {
+              const n = { ...a };
+              Object.entries(A.cat).forEach(([k, v]) => { n[k] = v; });
+              if (A.num.pa) { n.pa = A.num.pa.v; n.pani = true; n.normotenso = false; }
+              if (A.num.sat) n.sat = A.num.sat.v;
+              if (A.num.fio2) n.fio2 = A.num.fio2.v;
+              if (A.num.peep) n.peep = A.num.peep.v;
+              if (A.num.fluxoO2) n.fluxoO2 = A.num.fluxoO2.v;
+              if (A.num.diurese) { n.diurese = A.num.diurese.v; n.diurese_qual = ''; }
+              if (A.num.ganhos) n.ganhos = A.num.ganhos.v;
+              if (A.num.dva) n.dvas_txt = A.num.dva.v;
+              const labs = { ...(a.labs || {}) };
+              Object.entries(A.lab).forEach(([k, o]) => { labs[k + '_hoje'] = o.v; });
+              n.labs = labs;
+              return n;
+            });
+            setColaAv(null);
+            mostrarToast('✓ ' + tot + ' campos aplicados — confira na tela');
+          };
+          const Linha = ({ rotulo, valor, fonte }) => (
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, padding: '4px 0', borderBottom: '1px solid #eef2f6' }}>
+              <span style={{ color: '#555' }}>{rotulo}</span>
+              <span style={{ fontWeight: 700, color: '#1a3a5c' }}>{valor}{fonte ? <span style={{ fontWeight: 400, color: '#aaa', fontSize: 11 }}> ← {fonte}</span> : null}</span>
+            </div>
+          );
+          return (
+            <div style={{ margin: '8px 16px 0', padding: 10, borderRadius: 10, background: '#f4f7fb', border: '1.5px solid #b9d2ee' }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: '#1a3a5c', marginBottom: 6 }}>🔎 {tot} dados extraídos — confira e aplique</div>
+              {tot === 0 && <div style={{ fontSize: 12, color: '#888' }}>Nada reconhecido. Lance à mão.</div>}
+              {Object.entries(A.cat).map(([k, v]) => <Linha key={k} rotulo={catN[k] || k} valor={v === true ? 'sim' : v} />)}
+              {Object.entries(A.num).map(([k, o]) => <Linha key={k} rotulo={numN[k] || k} valor={o.v} fonte={o.src} />)}
+              {Object.entries(A.lab).map(([k, o]) => <Linha key={k} rotulo={labN[k] || k} valor={o.v} fonte={o.src} />)}
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <button style={{ ...S.btn, flex: 2, background: '#27ae60', color: 'white' }} onClick={aplicar}>✓ Aplicar tudo</button>
+                <button style={{ ...S.btn, flex: 1, background: 'white', color: '#888', border: '1px solid #ddd' }} onClick={() => setColaAv(null)}>descartar</button>
+              </div>
+            </div>
+          );
+        })()}
         <Section title="☐ Beira Leito">
           {subRot === 'estado' && (<>
           <ChipSelect label="Estado geral" options={['estável','grave','gravíssimo'].map(fx)} value={avAtual.eg}
@@ -3909,6 +4029,22 @@ const ajRotulo = aj => {
       return L.join('\n');
     };
 
+    const faltasPresc = () => {
+      const d = avAtual, f = [];
+      if (!(d.hd_dur || d.hd_horas)) f.push('Duração');
+      if (!d.fluxo_sangue) f.push('Fluxo de sangue');
+      if (!d.fluxo_banho) f.push('Fluxo do banho');
+      const ufOk = (calcUFEf() > 0) || d.uf_hd || d.uf_isolada;
+      if (!ufOk) f.push('UF (efetiva ou isolada)');
+      if (!d.anticoag) f.push('Anticoagulação');
+      return f;
+    };
+    const prescCompleta = () => faltasPresc().length === 0;
+    const exigirCompleta = (acao) => {
+      const f = faltasPresc();
+      if (f.length) { alert('Prescrição incompleta — preencha antes de exportar:\n\n• ' + f.join('\n• ')); return; }
+      acao();
+    };
     const copiarTexto = () => {
       const txt = gerarTextoWA();
       const done = () => { setCopiado(true); setTimeout(() => setCopiado(false), 2000); };
@@ -3986,7 +4122,7 @@ td, th { border: 1px solid #000; padding: 0.5px 1.5px; vertical-align: middle; }
 
 </style></head><body><div class="page"><div class="sheet">
 <h1>PRESCRIÇÃO MÉDICA — HEMODIÁLISE${d.prioridade === 'sim' ? ' <span class="urg">(URGENTE)</span>' : ''}</h1>
-<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v185</p>
+<p class="sub">${pacAtual.externo ? (pacAtual.externoLocal || "").toUpperCase() : "HOSPITAL RUY AZEREDO"} &nbsp;·&nbsp; Data: <b>${hoje}</b> &nbsp;·&nbsp; v187</p>
 <div class="corpo"><div class="c-esq">
 <div class="layout">
 <div class="col-presc">
@@ -4074,11 +4210,16 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           <div style={{ padding: '0 14px 12px', fontSize: 12, color: '#888' }}>Campos errados? Volte à Conduta pra ajustar.</div>
         </div>
 
+        {!prescCompleta() && (
+          <div style={{ margin: '0 16px 8px', padding: '9px 12px', borderRadius: 8, background: '#fdecea', border: '1px solid #c0392b', fontSize: 12.5, color: '#c0392b', fontWeight: 600 }}>
+            ⚠ Prescrição incompleta — falta: {faltasPresc().join(', ')}. Exportação bloqueada.
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 10, padding: '0 16px' }}>
-          <button style={{ ...S.btn, background: copiado ? '#1a3a5c' : '#27ae60', color: 'white', flex: 1, padding: '16px 0', fontSize: 16 }} onClick={copiarTexto}>
+          <button style={{ ...S.btn, background: copiado ? '#1a3a5c' : '#27ae60', color: 'white', flex: 1, padding: '16px 0', fontSize: 16 }} onClick={() => exigirCompleta(copiarTexto)}>
             {copiado ? '✓ Copiado' : '📋 WhatsApp'}
           </button>
-          <button style={{ ...S.btn, background: '#c0392b', color: 'white', flex: 1, padding: '16px 0', fontSize: 16 }} onClick={gerarPDF}>
+          <button style={{ ...S.btn, background: '#c0392b', color: 'white', flex: 1, padding: '16px 0', fontSize: 16 }} onClick={() => exigirCompleta(gerarPDF)}>
             📄 PDF / Imprimir
           </button>
         </div>
