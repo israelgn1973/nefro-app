@@ -670,6 +670,7 @@ function NefroApp() {
   const [subCond, setSubCond] = useState('dec');
   const [origemResumo, setOrigemResumo] = useState(null);
   const [diaFolheado, setDiaFolheado] = useState(0);
+  const swipeRef = React.useRef({ x: 0, y: 0 });
   const irResumo = (vOrigem) => { salvarAvaliacao(false); setOrigemResumo({ v: vOrigem, sub: subRot }); setDiaFolheado(0); setView('panorama'); };
   const concluirRegistro = () => {
     const u = { ...avAtual, concluidaEm: avAtual.concluidaEm || Date.now() };
@@ -1116,11 +1117,12 @@ const ajRotulo = aj => {
     <span onClick={onClick} title="Lista de pacientes"
       style={{ marginLeft: 'auto', fontSize: 22, cursor: 'pointer', lineHeight: 1, padding: '2px 4px', userSelect: 'none' }}>🏠</span>
   );
-  const RodapeNav = ({ direita, onDireita, onPacientes }) => (
+  const RodapeNav = ({ direita, onDireita, onPacientes, salvarSair }) => (
     <>
       <div style={{ height: 'calc(84px + env(safe-area-inset-bottom, 0px))' }} />
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 60, display: 'flex', justifyContent: 'space-between', padding: '8px 12px calc(8px + env(safe-area-inset-bottom, 0px))', background: 'rgba(244,244,240,0.96)', borderTop: '1px solid #ddd' }}>
-        <span />
+        {salvarSair ? <button style={{ ...S.btn, background: 'white', color: '#1d7a45', border: '1.5px solid #1d7a45', padding: '10px 16px' }}
+          onClick={salvarSair}>💾 Salvar & sair</button> : <span />}
         {direita ? <button style={{ ...S.btn, background: '#1a3a5c', color: 'white', padding: '10px 18px' }}
           onClick={onDireita}>{direita}</button> : <span />}
       </div>
@@ -1676,7 +1678,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v217</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v219</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -2976,7 +2978,7 @@ const ajRotulo = aj => {
           </div>
         </div>
 
-        <RodapeNav direita="Voltar ▸" onDireita={() => { setModoConsulta(false); setView('paciente'); }} />
+        <RodapeNav direita="Voltar ▸" onDireita={() => { setModoConsulta(false); setView('paciente'); }} salvarSair={modoConsulta ? null : sairPerguntando} />
       </div>
     );
   }
@@ -3472,7 +3474,7 @@ const ajRotulo = aj => {
         </>)}
 
         </div>
-<RodapeNav direita={modoConsulta ? null : "Resumo ▸"} onDireita={() => irResumo('roteiro')} onPacientes={sairPerguntando} />
+<RodapeNav direita={modoConsulta ? null : "Resumo ▸"} onDireita={() => irResumo('roteiro')} onPacientes={sairPerguntando} salvarSair={modoConsulta ? null : sairPerguntando} />
       </div>
     );
   }
@@ -3916,7 +3918,7 @@ const ajRotulo = aj => {
             </div>
         </>)}
         </div>
-<RodapeNav direita={modoConsulta ? null : "Resumo ▸"} onDireita={() => irResumo('hdview')} />
+<RodapeNav direita={modoConsulta ? null : "Resumo ▸"} onDireita={() => irResumo('hdview')} salvarSair={modoConsulta ? null : sairPerguntando} />
       </div>
     );
   }
@@ -4275,7 +4277,7 @@ const ajRotulo = aj => {
               concluirRegistro();
             }}>✓ Concluir e sair</button>
         </div>}
-        <RodapeNav direita={modoConsulta ? null : "Resumo ▸"} onDireita={() => irResumo('conduta')} onPacientes={sairPerguntando} />
+        <RodapeNav direita={modoConsulta ? null : "Resumo ▸"} onDireita={() => irResumo('conduta')} onPacientes={sairPerguntando} salvarSair={modoConsulta ? null : sairPerguntando} />
       </div>
     );
   }
@@ -4602,12 +4604,13 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
     };
 
     return (
-      <div style={S.app}
-        onTouchStart={e => { window._swipeX0 = e.changedTouches[0].clientX; window._swipeY0 = e.changedTouches[0].clientY; }}
+      <div style={{ ...S.app, minHeight: '100vh', touchAction: 'pan-y' }}
+        onTouchStart={e => { const t = e.touches[0] || e.changedTouches[0]; swipeRef.current = { x: t.clientX, y: t.clientY }; }}
         onTouchEnd={e => {
-          const dx = e.changedTouches[0].clientX - (window._swipeX0 || 0);
-          const dy = e.changedTouches[0].clientY - (window._swipeY0 || 0);
-          if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+          const t = e.changedTouches[0];
+          const dx = t.clientX - swipeRef.current.x;
+          const dy = t.clientY - swipeRef.current.y;
+          if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) {
             if (dx < 0) { setDiaFolheado(d => Math.min(_diasAv.length - 1 - _idxHoje, d + 1)); }
             else { setDiaFolheado(d => Math.max(-_idxHoje, d - 1)); }
           }
@@ -4795,7 +4798,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           )}
         </div>
 
-        <RodapeNav direita="◂ Última tela" onDireita={() => { setDiaFolheado(0); setModoConsulta(false); const o = origemResumo || { v: 'roteiro', sub: 'estado' }; setSubRot(o.sub === 'beira' ? 'estado' : (o.sub || 'estado')); setView(o.v || 'roteiro'); }} />
+        <RodapeNav salvarSair={(!_folheando && !modoConsulta) ? sairPerguntando : null} direita="◂ Última tela" onDireita={() => { setDiaFolheado(0); setModoConsulta(false); const o = origemResumo || { v: 'roteiro', sub: 'estado' }; setSubRot(o.sub === 'beira' ? 'estado' : (o.sub || 'estado')); setView(o.v || 'roteiro'); }} />
       </div>
     );
   }
