@@ -1666,7 +1666,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v210</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v211</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -1876,11 +1876,18 @@ const ajRotulo = aj => {
                     };
                     const blocos = dividirRelatorios(caixaRel.raw);
                     if (blocos && blocos.length > 1) {
+                      const norm = s => (s || '').replace(/\s+/g, ' ').trim();
                       const lote = blocos.map(b => {
                         const cc = parseRelEnf(b);
                         const { match, porSem } = parear(cc);
-                        return { campos: cc, pacId: match ? match.id : null, pacNome: match ? match.nome : null, porSemelhanca: porSem, raw: b, confirmar: true };
-                      });
+                        const jaGuardado = match && (match.relEnf || []).some(r => norm(r.raw) === norm(b));
+                        return { campos: cc, pacId: match ? match.id : null, pacNome: match ? match.nome : null, porSemelhanca: porSem, raw: b, jaGuardado, confirmar: match && !jaGuardado };
+                      }).filter(item => !item.jaGuardado);
+                      if (lote.length === 0) { mostrarToast('Todos os relatórios já estavam guardados'); setCaixaRel(null); return; }
+                      if (lote.length === 1) {
+                        setCaixaRel({ ...caixaRel, campos: lote[0].campos, pacId: lote[0].pacId, porSemelhanca: lote[0].porSemelhanca, confirmado: false });
+                        return;
+                      }
                       setCaixaRel({ ...caixaRel, lote });
                       return;
                     }
