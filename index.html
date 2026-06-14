@@ -1675,7 +1675,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v214</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v215</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -3913,7 +3913,7 @@ const ajRotulo = aj => {
             </div>
         </>)}
         </div>
-<RodapeNav direita={modoConsulta ? null : "Resumo ▸"} onDireita={() => irResumo()} />
+<RodapeNav direita={modoConsulta ? null : "Resumo ▸"} onDireita={() => irResumo('hdview')} />
       </div>
     );
   }
