@@ -1111,12 +1111,15 @@ const ajRotulo = aj => {
     setColetivoHtml({ html, n: itens.length });
   };
 
+  const IconeCasa = ({ onClick }) => (
+    <span onClick={onClick} title="Lista de pacientes"
+      style={{ marginLeft: 'auto', fontSize: 22, cursor: 'pointer', lineHeight: 1, padding: '2px 4px', userSelect: 'none' }}>🏠</span>
+  );
   const RodapeNav = ({ direita, onDireita, onPacientes }) => (
     <>
       <div style={{ height: 'calc(84px + env(safe-area-inset-bottom, 0px))' }} />
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 60, display: 'flex', justifyContent: 'space-between', padding: '8px 12px calc(8px + env(safe-area-inset-bottom, 0px))', background: 'rgba(244,244,240,0.96)', borderTop: '1px solid #ddd' }}>
-        <button style={{ ...S.btn, background: 'white', color: '#1a3a5c', border: '1.5px solid #1a3a5c', padding: '10px 18px' }}
-          onClick={() => { if (onPacientes) onPacientes(); else setView('lista'); }}>‹ Lista</button>
+        <span />
         {direita ? <button style={{ ...S.btn, background: '#1a3a5c', color: 'white', padding: '10px 18px' }}
           onClick={onDireita}>{direita}</button> : <span />}
       </div>
@@ -1549,6 +1552,7 @@ const ajRotulo = aj => {
         <div style={S.header}>
           <button style={S.backBtn} onClick={() => setView('lista')}>‹</button>
           <h1 style={S.h1}>📄 Evoluções p/ PEP</h1>
+          <IconeCasa onClick={() => setView('lista')} />
         </div>
         <div style={{ padding: 16 }}>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
@@ -1635,6 +1639,7 @@ const ajRotulo = aj => {
         <div style={S.header}>
           <button style={S.backBtn} onClick={() => setView('lista')}>‹</button>
           <h1 style={S.h1}>📊 Relatório do serviço</h1>
+          <IconeCasa onClick={() => setView('lista')} />
         </div>
         <div style={{ padding: 16 }}>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
@@ -1666,7 +1671,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v211</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v212</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -2525,6 +2530,7 @@ const ajRotulo = aj => {
       <div style={S.app}>{numPadEl}
         <div style={S.header}>
           <h1 style={S.h1}>{pacAtual.nome}</h1>
+          <IconeCasa onClick={() => sairPerguntando()} />
         </div>
         <TabBar atual={view} />
         <div style={{ paddingBottom: 30 }}>
@@ -2973,6 +2979,7 @@ const ajRotulo = aj => {
       <div style={S.app}>{numPadEl}
         <div style={S.header}>
           <h1 style={S.h1}>{pacAtual.nome}</h1>
+          <IconeCasa onClick={() => sairPerguntando()} />
         </div>
         <TabBar atual="roteiro" />
         <div style={{ display: 'flex', gap: 6, padding: '10px 16px 0', overflowX: 'auto' }}>
@@ -3907,6 +3914,7 @@ const ajRotulo = aj => {
       <div style={S.app}>{numPadEl}
         <div style={S.header}>
           <h1 style={S.h1}>{pacAtual.nome}</h1>
+          <IconeCasa onClick={() => sairPerguntando()} />
         </div>
         <TabBar atual="conduta" />
         <div style={{ display: 'flex', gap: 6, padding: '10px 16px 0', overflowX: 'auto' }}>
@@ -4469,6 +4477,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
         <div style={S.header}>
           <button style={S.backBtn} onClick={() => setView('conduta')}>‹</button>
           <h1 style={S.h1}>Prescrição HD</h1>
+          <IconeCasa onClick={() => sairPerguntando()} />
         </div>
         <TabBar atual="conduta" />
 
@@ -4591,6 +4600,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
         )}
         <div style={S.header}>
           <h1 style={S.h1}>Resumo</h1>
+          <IconeCasa onClick={() => sairPerguntando()} />
 
         </div>
 
