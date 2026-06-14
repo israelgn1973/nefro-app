@@ -1691,7 +1691,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v221</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v222</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -4649,7 +4649,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           {copiado ? '✓ Enviado' : '📤 Compartilhar'}
         </button>}
         <div style={{ padding: 16, paddingBottom: 90 }}>
-          {!modoConsulta && (() => {
+          {!modoConsulta && !_folheando && (() => {
             const pend = pendenciasAv(avV);
             const graves = pend.filter(x => x.grave), avisos = pend.filter(x => !x.grave);
             return (
