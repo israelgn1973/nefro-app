@@ -1691,7 +1691,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v222</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v223</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -4751,6 +4751,28 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                 {(avV.cond_alertas || []).map((c, i) => <Item key={'al'+i} k="Conduta de alerta" v={c} />)}
                 {(avV.cond_eletr || []).length > 0 && <Item k="Eletrólitos" v={(avV.cond_eletr || []).join(', ')} />}
                 {(avV.cond_outras_sel || []).length > 0 && <Item k="Outras" v={(avV.cond_outras_sel || []).map(c => c === 'Troca de diluições' && avV.troca_diluicoes ? `Troca de diluições → ${avV.troca_diluicoes}` : c).join(', ')} />}
+              </Bloco>
+            );
+          })()}
+          {(avV.conduta === 'hd_hoje' || avV.conduta === 'hd_amanha') && !avV.hd_nao_realizada && (() => {
+            const p = avV;
+            const itens = [];
+            const push = (k, v) => { if (v !== undefined && v !== null && String(v).trim() !== '' && String(v).trim() !== 'sem') itens.push([k, v]); };
+            push('Duração', p.hd_dur || p.hd_horas ? `${p.hd_dur || p.hd_horas}h` : '');
+            push('Fluxo de sangue', p.fluxo_sangue ? `${p.fluxo_sangue} ml/min` : '');
+            push('Fluxo do banho', p.fluxo_banho ? `${p.fluxo_banho} ml/min` : '');
+            push('Dialisato Na', p.dialisato_sodio);
+            push('Dialisato temp', p.dialisato_temp ? `${p.dialisato_temp}°C` : '');
+            push('Dialisato bic', p.dialisato_bic);
+            const antic = p.anticoag && p.anticoag !== 'sem' ? [p.anticoag, p.heparina_bolus ? `bolus ${p.heparina_bolus}` : '', p.heparina_taxa ? `${p.heparina_taxa}` : ''].filter(Boolean).join(' · ') : (p.anticoag === 'sem' ? 'sem anticoagulação' : '');
+            push('Anticoagulação', antic);
+            push('Cateter', p.cateter);
+            push('Priming', p.priming);
+            push('Lavagens', p.lavagens);
+            if (!itens.length) return null;
+            return (
+              <Bloco titulo="Parâmetros da diálise">
+                {itens.map(([k, v], idx) => <Item key={idx} k={k} v={v} />)}
               </Bloco>
             );
           })()}
