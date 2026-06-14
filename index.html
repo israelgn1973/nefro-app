@@ -1151,6 +1151,7 @@ const ajRotulo = aj => {
     setSubRot('estado');
     setSubCtx('eventos');
     setSubCond('dec');
+    setAvAtual(null);
     setPacAtual(p);
     const avs = avaliacoes[p.id] || [];
     setTab('info');
@@ -1234,7 +1235,10 @@ const ajRotulo = aj => {
 
   React.useEffect(() => {
     if (!avAtual || !pacAtual || modoConsulta) return;
+    // PROTEÇÃO: só grava se a avaliação pertence ao paciente atual (evita vazar dados entre pacientes)
+    if (avAtual.pacienteId && avAtual.pacienteId !== pacAtual.id) return;
     const t = setTimeout(() => {
+      if (avAtual.pacienteId && avAtual.pacienteId !== pacAtual.id) return;
       setAvaliacoes(prev => {
         const avs = prev[pacAtual.id] || [];
         if (avs.some(a => a.id === avAtual.id && JSON.stringify(a) === JSON.stringify(avAtual))) return prev;
@@ -1671,7 +1675,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v213</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v214</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -4768,7 +4772,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           )}
         </div>
 
-        <RodapeNav direita="Voltar ▸" onDireita={() => setView('paciente')} />
+        <RodapeNav direita="◂ Última tela" onDireita={() => { setModoConsulta(false); const o = origemResumo || { v: 'roteiro', sub: 'estado' }; setSubRot(o.sub === 'beira' ? 'estado' : (o.sub || 'estado')); setView(o.v || 'roteiro'); }} />
       </div>
     );
   }
