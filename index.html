@@ -1671,7 +1671,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v212</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v213</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -2313,6 +2313,7 @@ const ajRotulo = aj => {
           <h1 style={{ ...S.h1, cursor: 'pointer' }} onClick={() => { if (!modoConsulta) abrirEdicaoPaciente(true); }}>
             {pacAtual.nome} <span style={{ fontSize: 13, opacity: 0.6 }}>✎</span>
           </h1>
+          <IconeCasa onClick={() => sairPerguntando()} />
           
         </div>
         {modalPaciente}
@@ -3478,6 +3479,10 @@ const ajRotulo = aj => {
     }
     return (
       <div style={S.app}>{numPadEl}
+        <div style={S.header}>
+          <h1 style={S.h1}>{pacAtual.nome}</h1>
+          <IconeCasa onClick={() => sairPerguntando()} />
+        </div>
         <TabBar atual="hdview" />
         <div style={{ pointerEvents: modoConsulta ? 'none' : 'auto' }}>
         <div style={{ margin: '10px 16px 0', padding: '10px 14px', borderRadius: 10, background: '#eef4fb', border: '1px solid #b9d2ee', fontSize: 14, fontWeight: 800, color: '#1a3a5c' }}>
