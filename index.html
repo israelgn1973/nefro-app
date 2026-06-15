@@ -2017,7 +2017,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v256</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v257</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -4280,7 +4280,7 @@ const ajRotulo = aj => {
               <FavRow campo="conduta"
                 ativos={[...(avAtual.cond_vol||[]), ...(avAtual.cond_eletr||[]), ...(avAtual.cond_outras_sel||[])]}
                 onPick={m => {
-                  const campo = ['Manejo conservador da volemia','Reposição volêmica','Ajustar diurético'].includes(m) ? 'cond_vol'
+                  const campo = ['Manejo conservador da volemia','Reposição volêmica'].includes(m) ? 'cond_vol'
                     : ['Repor K','Repor Mg','Repor Ca','Repor P','Quelante de P','Bicarbonato','Glicoinsulina'].includes(m) ? 'cond_eletr' : 'cond_outras_sel';
                   if (!(avAtual[campo]||[]).includes(m)) regFreq('conduta', m);
                   setAvAtual(a => ({ ...a, [campo]: (a[campo]||[]).includes(m) ? a[campo].filter(x => x!==m) : [...(a[campo]||[]), m] }));
@@ -4294,7 +4294,7 @@ const ajRotulo = aj => {
                 {['Manejo conservador da volemia','Reposição volêmica'].map(m => {
                   const sel = (avAtual.cond_vol||[]).includes(m);
                   return (
-                    <span key={m} style={{ ...S.checkItem, fontSize: 12, ...(m === 'Ajustar diurético' && !sel ? { borderColor: '#e67e22', color: '#e67e22', fontWeight: 700 } : {}), ...(sel ? { background: m === 'Ajustar diurético' ? '#e67e22' : '#1a3a5c', color: 'white', borderColor: m === 'Ajustar diurético' ? '#e67e22' : '#1a3a5c', fontWeight: 700 } : {}) }}
+                    <span key={m} style={{ ...S.checkItem, fontSize: 12, ...(sel ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c', fontWeight: 700 } : {}) }}
                       onClick={() => { if (!(avAtual.cond_vol||[]).includes(m)) regFreq('conduta', m); setAvAtual(a => ({ ...a, cond_vol: (a.cond_vol||[]).includes(m) ? a.cond_vol.filter(x => x!==m) : [...(a.cond_vol||[]), m] })); }}>{m}</span>
                   );
                 })}
@@ -4331,12 +4331,17 @@ const ajRotulo = aj => {
                   )}
                 </div>
               )}
-              {(avAtual.cond_vol||[]).includes('Ajustar diurético') && (
-                <div style={{ marginTop: 8, paddingLeft: 12, borderLeft: '2px solid #cfe0f0' }}>
-                  <div style={{ fontSize: 10, color: '#999', textTransform: 'uppercase', marginBottom: 5 }}>Ajuste de diurético (mesmo bloco da avaliação)</div>
-                  {blocoDiureticos()}
-                </div>
-              )}
+                          <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0' }}>
+              <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 }}>Troca de diluições</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {['SF','SG','Ringer simples','Ringer lactato'].map(f => (
+                  <span key={f} style={{ ...S.checkItem, fontSize: 12, ...(avAtual.troca_diluicoes === f ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}
+                    onClick={() => upAv('troca_diluicoes', avAtual.troca_diluicoes === f ? '' : f)}>{f}</span>
+                ))}
+                <span onClick={() => setVerCompRinger(true)} style={{ fontSize: 11.5, color: '#1a6fb5', cursor: 'pointer', alignSelf: 'center', textDecoration: 'underline', marginLeft: 4 }}>ⓘ composição Ringer</span>
+              </div>
+            </div>
+
             </div>)}
             {subCond === 'diur' && (
           <div style={S.formSection}>
@@ -4486,7 +4491,7 @@ const ajRotulo = aj => {
             <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0' }}>
               <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 }}>Outras</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {['Avaliar RFR','Sacar CDL','Troca de diluições'].map(m => {
+                {['Avaliar RFR','Sacar CDL'].map(m => {
                   const sel = (avAtual.cond_outras_sel||[]).includes(m);
                   return (
                     <span key={m} style={{ ...S.checkItem, fontSize: 12, ...(sel ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}
@@ -4494,15 +4499,7 @@ const ajRotulo = aj => {
                   );
                 })}
               </div>
-              {(avAtual.cond_outras_sel||[]).includes('Troca de diluições') && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-                  {['SF','SG','Ringer simples','Ringer lactato'].map(f => (
-                    <span key={f} style={{ ...S.checkItem, fontSize: 12, ...(avAtual.troca_diluicoes === f ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}
-                      onClick={() => upAv('troca_diluicoes', avAtual.troca_diluicoes === f ? '' : f)}>{f}</span>
-                  ))}
-                  <span onClick={() => setVerCompRinger(true)} style={{ fontSize: 11.5, color: '#1a6fb5', cursor: 'pointer', alignSelf: 'center', textDecoration: 'underline', marginLeft: 4 }}>ⓘ composição Ringer</span>
-                </div>
-              )}
+              
             </div>
         </div>
         </div>
