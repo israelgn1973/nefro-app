@@ -1985,7 +1985,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v252</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v253</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -2002,17 +2002,21 @@ const ajRotulo = aj => {
               <div style={{ width: '100%', padding: 10, borderRadius: 10, border: '1.5px solid #b9d2ee', background: '#eef4fb', color: '#1a3a5c', fontWeight: 700, fontSize: 13, textAlign: 'center' }}>
                 ✓ Condutas definidas — {prescritasHoje} HD prescrita{prescritasHoje === 1 ? '' : 's'} hoje
                 
-                {prescritasHoje > 0 && (() => {
-                  const hojeISO = dataLocalISO();
-                  const hojeBR = hojeISO.split('-').reverse().join('/');
-                  const doDia = pacientes.filter(p => infoHD[p.id]?.hdHoje && !infoHD[p.id]?.arquivado);
-                  const avHj = (p) => (avaliacoes[p.id] || []).find(a => a.conduta === 'hd_hoje' && dataLocalISO(a.data) === hojeISO);
+                {(() => {
+                  // CICLO FECHADO: cobra os relatórios das HDs prescritas ONTEM (as de hoje só aparecem amanhã)
+                  const ontem = new Date(Date.now() - 86400000);
+                  const ontemISO2 = ontem.getFullYear() + '-' + String(ontem.getMonth()+1).padStart(2,'0') + '-' + String(ontem.getDate()).padStart(2,'0');
+                  const ontemBR = ontemISO2.split('-').reverse().join('/');
+                  // pacientes com prescrição de HD de ONTEM (conduta hd_hoje naquela data)
+                  const avOntem = (p) => (avaliacoes[p.id] || []).find(a => a.conduta === 'hd_hoje' && dataLocalISO(a.data) === ontemISO2);
+                  const doDia = pacientes.filter(p => !infoHD[p.id]?.arquivado && avOntem(p));
+                  const avHj = avOntem;
                   const esperados = doDia.filter(p => { const a = avHj(p); return !(a && a.hd_destino === 'cancelada'); });
-                  const recebeu = (p) => (p.relEnf || []).some(r => (r.campos && r.campos.data === hojeBR) || dataLocalISO(r.criadoEm) === hojeISO);
+                  const recebeu = (p) => (p.relEnf || []).some(r => (r.campos && r.campos.data === ontemBR) || dataLocalISO(r.criadoEm) === ontemISO2);
                   const faltam = esperados.filter(p => !recebeu(p));
                   const naoRodou = (p) => {
                     const a = avHj(p);
-                    if (!a) { alert('Sem prescrição de hoje encontrada.'); return; }
+                    if (!a) { alert('Sem prescrição de ontem encontrada.'); return; }
                     const esc = prompt('HD não rodou — motivo:\n' + CANC_LISTA.map((mzz, izz) => (izz + 1) + '. ' + mzz).join('\n') + '\n\nDigite o número:');
                     const nEsc = parseInt(esc, 10);
                     if (!nEsc || nEsc < 1 || nEsc > CANC_LISTA.length) return;
@@ -2021,7 +2025,7 @@ const ajRotulo = aj => {
                   };
                   return faltam.length === 0 ? null : (
                     <div style={{ marginTop: 6, fontSize: 12, color: '#1a3a5c' }}>
-                      <b>📬 Relatórios do dia: {esperados.length - faltam.length} de {esperados.length}</b> — faltam:
+                      <b>📬 Relatórios de ontem: {esperados.length - faltam.length} de {esperados.length}</b> — faltam:
                       {faltam.map(p => (
                         <div key={'plc' + p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
                           <span style={{ flex: 1 }}>{p.nome}{p.uti ? ' · ' + p.uti : ''}</span>
