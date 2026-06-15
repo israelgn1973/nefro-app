@@ -547,11 +547,13 @@ function NumPadOverlay({ pad, onChange, onClose }) {
   const disp = pad.mode === 'pa' ? fmtPA(pad.value) : pad.mode === 'dur' ? (fmtDur(pad.value) || pad.value) : pad.value;
   const hintEl = pad.hint ? <div style={{ background: '#fef5e7', border: '1px solid #f0d9b5', borderRadius: 8, padding: '7px 10px', fontSize: 12.5, color: '#7a5c1e', marginBottom: 8 }}>💡 {pad.hint}</div> : null;
   const press = (k) => {
-    if (k === 'back') { onChange(pad.value.slice(0, -1)); return; }
-    if (k === ',') { if (pad.allowComma && !pad.value.includes(',')) onChange(pad.value + ','); return; }
-    let nv = (pad.value + k).slice(0, pad.mode === 'pa' ? 6 : 8);
+    if (k === 'back') { onChange(pad.value.slice(0, -1), false); return; }
+    if (k === ',') { if (pad.allowComma && !pad.value.includes(',')) onChange(pad.value + ',', false); return; }
+    // primeiro dígito após abrir substitui o valor herdado (comportamento de calculadora)
+    const base = pad._fresco ? '' : pad.value;
+    let nv = (base + k).slice(0, pad.mode === 'pa' ? 6 : 8);
     if (pad.bicAuto && /^\d{3}$/.test(nv)) nv = nv.slice(0, 2) + ',' + nv[2];
-    onChange(nv);
+    onChange(nv, false);
     if (pad.autoLen && nv.replace(/\D/g, '').length >= pad.autoLen) {
       pad.onSet(nv);
       if (pad.onNext) pad.onNext(); else onClose();
@@ -895,7 +897,7 @@ function NefroApp() {
     if (!av.eg) R('eg', 'Estado geral não informado', 'roteiro', 'estado');
     if (!av.consciencia) R('consc', 'Nível de consciência não informado', 'roteiro', 'estado');
     if (!av.pa && !av.pam && !av.normotenso) R('pa', 'PA sem valor e sem "normotenso"', 'roteiro', 'pa');
-    if (!av.sat && !av.sat_nd) R('sat', 'SatO2 sem valor e sem ND', 'roteiro', 'resp');
+    if (!av.sat && !av.sat_nd && !av.sat_bem) R('sat', 'SatO2 sem valor e sem ND', 'roteiro', 'resp');
     if (['COT/VM','TQT/VM'].includes(av.resp) && (!av.fio2 || !av.peep)) R('vm', 'Em VM sem FiO2 ou PEEP', 'roteiro', 'resp');
     if (!av.diurese && !av.diurese_qual) R('diurese', 'Diurese não informada', 'roteiro', 'bh');
     (av.diureticos || []).forEach(d => {
@@ -1169,7 +1171,7 @@ const ajRotulo = aj => {
   const NumInput = ({ value, onSet, placeholder, label, style: st, allowComma, mode, hint, next, autoLen, bicAuto }) => (
     <input readOnly inputMode="none" value={value || ''} placeholder={placeholder}
       style={st || S.input}
-      onClick={() => setNumpad({ label: label || placeholder || 'Número', value: mode === 'pa' ? String(value || '').replace(/[^0-9]/g, '') : String(value || ''), onSet, allowComma: !!allowComma, mode: mode || 'num', hint: typeof hint === 'function' ? hint() : hint, onNext: next || null, autoLen: autoLen || null, bicAuto: !!bicAuto })} />
+      onClick={() => setNumpad({ label: label || placeholder || 'Número', value: mode === 'pa' ? String(value || '').replace(/[^0-9]/g, '') : String(value || ''), onSet, allowComma: !!allowComma, mode: mode || 'num', hint: typeof hint === 'function' ? hint() : hint, onNext: next || null, autoLen: autoLen || null, bicAuto: !!bicAuto, _fresco: true })} />
   );
 
   const gerarResumoExternos = () => {
@@ -1294,7 +1296,7 @@ const ajRotulo = aj => {
       </div>
     </div>
   ) : null;
-  const numPadEl0 = numpad ? <NumPadOverlay pad={numpad} onChange={v => setNumpad({ ...numpad, value: v })} onClose={() => setNumpad(null)} /> : null;
+  const numPadEl0 = numpad ? <NumPadOverlay pad={numpad} onChange={(v, fresco) => setNumpad({ ...numpad, value: v, _fresco: fresco === undefined ? false : fresco })} onClose={() => setNumpad(null)} /> : null;
   const numPadEl = <>{numPadEl0}{toastEl}{verOrigEl}</>;
 
   const calcPO = ts => Math.max(0, Math.floor((Date.now() - ts) / 86400000)) + 'º PO';
@@ -1831,7 +1833,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v248</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v250</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
