@@ -703,9 +703,14 @@ function NefroApp() {
   //  tipo: 'identico' (barra), 'correcao' (mesmo pac+data, texto difere → pergunta), 'novo' (aceita)
   const classificarRel = (raw, pacId, dataSessao) => {
     const nr = normRaw(raw);
-    // 1) idêntico a QUALQUER relatório já guardado (qualquer paciente/data) → barra
+    // 1) idêntico a um relatório já guardado
     for (const p of pacientes) for (const r of (p.relEnf || [])) {
-      if (normRaw(r.raw) === nr && nr.length > 0) return { tipo: 'identico', pacId: p.id };
+      if (normRaw(r.raw) === nr && nr.length > 0) {
+        // se o idêntico é do CICLO ATUAL (após o último zeramento) → duplicata real, barra
+        if ((r.criadoEm || 0) >= relZeradoEm) return { tipo: 'identico', pacId: p.id };
+        // se é de um ciclo ANTERIOR (antes de zerar) → revive para o ciclo atual
+        return { tipo: 'reviver', pacId: p.id, relAntigo: r };
+      }
     }
     // 2) mesmo paciente + mesma data da sessão, texto difere → possível correção
     if (pacId && dataSessao) {
@@ -734,9 +739,17 @@ function NefroApp() {
     // TRAVAS de duplicidade
     if (!jaConfirmado) {
       const cls = classificarRel(raw, pacId, c.data || '');
+      if (cls.tipo === 'reviver') {
+        // relatório idêntico de um ciclo anterior (antes do zeramento): traz para o ciclo atual
+        const idAntigo = cls.relAntigo?.id;
+        setPacientes(ps => ps.map(p => p.id === cls.pacId ? { ...p, relEnf: (p.relEnf || []).map(r => r.id === idAntigo ? { ...r, criadoEm: Date.now() } : r) } : p));
+        const prev = pacientes.find(p => p.id === cls.pacId);
+        mostrarToast('✓ Relatório reativado no ciclo atual' + (prev ? ' (' + prev.nome + ')' : ''));
+        return;
+      }
       if (cls.tipo === 'identico') {
         const pdup = pacientes.find(p => p.id === cls.pacId);
-        mostrarToast('⛔ Relatório idêntico já recebido' + (pdup ? ' (' + pdup.nome + ')' : ''));
+        mostrarToast('⛔ Relatório idêntico já recebido neste ciclo' + (pdup ? ' (' + pdup.nome + ')' : ''));
         return;
       }
       if (cls.tipo === 'correcao') {
@@ -2034,7 +2047,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v264</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v265</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
