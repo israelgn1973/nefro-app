@@ -343,7 +343,8 @@ const verificarRelEnf = (c) => {
     const [dd, mm, aa] = c.data.split('/').map(Number);
     const dt = new Date(aa, mm - 1, dd, 12);
     const dif = Math.round((dt - new Date()) / 86400000);
-    if (dif > 0) A.push({ n: 'erro', m: `Data ${c.data} está no FUTURO — anotação errada.` });
+    if (dif === 1) A.push({ n: 'aviso', m: `Data ${c.data} é de amanhã — se a HD virou a meia-noite, confirme que pertence ao ciclo de ontem.` });
+    else if (dif > 1) A.push({ n: 'erro', m: `Data ${c.data} está no FUTURO — anotação errada.` });
     else if (dif < -3) A.push({ n: 'aviso', m: `Data ${c.data} tem mais de 3 dias — relatório antigo ou data errada (mês trocado é o erro mais comum).` });
   }
   if (!isNaN(ufE) && ufE === 0 && !isNaN(ufT) && ufT > 0)
@@ -662,6 +663,28 @@ function NefroApp() {
     if (toastRef.current) clearTimeout(toastRef.current);
     toastRef.current = setTimeout(() => setToast(null), 1600);
   };
+  // EXPORTAÇÕES DE PRESCRIÇÃO (denominador do "falta alguém?")
+  const dataDaAv = (avData) => dataLocalISO(avData);
+  const registrarExportacao = (pacId, avData) => {
+    const dISO = dataDaAv(avData);
+    setPacientes(ps => ps.map(p => {
+      if (p.id !== pacId) return p;
+      const exps = p.prescExportadas || [];
+      // 1 por paciente+data (vale a última): se já há nesse dia, atualiza o timestamp; senão, adiciona
+      const semEsteDia = exps.filter(e => e.data !== dISO);
+      return { ...p, prescExportadas: [...semEsteDia, { data: dISO, em: Date.now() }] };
+    }));
+  };
+  // "FALTA ALGUÉM?" — compara prescrições exportadas vs relatórios recebidos, por data
+  const faltamRelatorios = (dataISO) => {
+    // pacientes que tiveram prescrição EXPORTADA naquela data
+    const exportados = pacientes.filter(p => (p.prescExportadas || []).some(e => e.data === dataISO));
+    // dos exportados, quais NÃO têm relatório recebido com a data da sessão correspondente
+    const dataBR = dataISO.split('-').reverse().join('/');
+    const faltam = exportados.filter(p => !(p.relEnf || []).some(r => (r.campos?.data || '') === dataBR));
+    return { total: exportados.length, recebidos: exportados.length - faltam.length, faltam };
+  };
+  const ontemISO = () => { const d = new Date(Date.now() - 86400000); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
   // CONTADOR DE RELATÓRIOS (registro por data + travas de duplicidade)
   const normRaw = (s) => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
   // todos os relatórios recebidos (de todos os pacientes), com paciente e data da sessão
@@ -693,6 +716,19 @@ function NefroApp() {
   };
   // LEVA 2: aplica o relatório direto no paciente (sem trava campo-a-campo)
   const aplicarRelUnico = (c, raw, pacId, jaConfirmado) => {
+    // DATA VIRADA: relatório com data de amanhã pode ser HD que virou a meia-noite
+    if (!jaConfirmado && c.data) {
+      const [dd, mm, aa] = c.data.split('/').map(Number);
+      const dt = new Date(aa, mm - 1, dd, 12);
+      const dif = Math.round((dt - new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate(), 12)) / 86400000);
+      if (dif === 1) {
+        const ontem = new Date(dt.getTime() - 86400000);
+        const dataOntem = String(ontem.getDate()).padStart(2,'0') + '/' + String(ontem.getMonth()+1).padStart(2,'0') + '/' + ontem.getFullYear();
+        const ok = confirm('Este relatório tem data de ' + c.data + ' (amanhã).\n\nA HD virou a meia-noite ou foi feita no dia seguinte por logística, mas pertence ao ciclo de ' + dataOntem + '?\n\nOK = receber no ciclo de ' + dataOntem + '\nCancelar = não aplicar');
+        if (!ok) { mostrarToast('Não aplicado'); return; }
+        c = { ...c, data: dataOntem }; // associa ao ciclo de ontem
+      }
+    }
     // TRAVAS de duplicidade
     if (!jaConfirmado) {
       const cls = classificarRel(raw, pacId, c.data || '');
@@ -759,6 +795,7 @@ function NefroApp() {
   const [verOriginal, setVerOriginal] = useState(null);
   const [hdSituacao, setHdSituacao] = useState(null);
   const [relZeradoEm, setRelZeradoEm] = useState(() => { try { return parseInt(localStorage.getItem('relZeradoEm')) || 0; } catch(e) { return 0; } });
+  const [faltaIgnorado, setFaltaIgnorado] = useState(false);
   const [hdSubAba, setHdSubAba] = useState('ultima');
   const swipeRef = React.useRef({ x: 0, y: 0 });
   const irResumo = (vOrigem) => { salvarAvaliacao(false); setOrigemResumo({ v: vOrigem, sub: subRot }); setDiaFolheado(0); setView('panorama'); };
@@ -1794,7 +1831,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v242</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v246</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -1916,21 +1953,31 @@ const ajRotulo = aj => {
         return (
           <div style={{ margin: '8px 16px 0' }}>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => setCaixaRel(c => c ? null : { raw: '', campos: null, pacId: null })}
+              <button onClick={() => { setColaAv(null); setVerRelEnf(false); setCaixaRel(c => c ? null : { raw: '', campos: null, pacId: null }); }}
                 style={{ ...S.btn, background: 'white', color: '#1a3a5c', border: '1.5px dashed #b9d2ee', flex: 1, fontSize: 12.5, padding: '10px 6px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                 📬 Relatórios da enfermagem
                 {(() => { const n = relRecebidosCiclo().length; return n > 0 ? <span onClick={(e) => { e.stopPropagation(); setVerRelEnf(v => !v); }}
                   style={{ fontSize: 12, fontWeight: 700, color: '#1a7a45', background: '#eaf6ee', border: '1px solid #b8e0c5', borderRadius: 8, padding: '3px 8px' }}>{n} recebido{n > 1 ? 's' : ''}</span> : null; })()}
               </button>
-              <button onClick={() => setColaAv(c => c ? null : { raw: '' })}
+              <button onClick={() => { setCaixaRel(null); setVerRelEnf(false); setColaAv(c => c ? null : { raw: '' }); }}
                 style={{ ...S.btn, background: 'white', color: '#1a3a5c', border: '1.5px dashed #b9d2ee', flex: 1, fontSize: 12.5, padding: '10px 6px' }}>
                 📋 Outros documentos
               </button>
             </div>
             {verRelEnf && (() => {
               const recs = relRecebidosCiclo();
+              const falta = faltamRelatorios(ontemISO());
               return (
                 <div style={{ marginTop: 4, background: 'white', borderRadius: 10, border: '1px solid #e3e8ee', overflow: 'hidden' }}>
+                  {!faltaIgnorado && falta.faltam.length > 0 && (
+                    <div style={{ padding: '10px 14px', background: '#fdf3e7', borderBottom: '1px solid #f0d2a8', fontSize: 12.5, color: '#9a6a1a', lineHeight: 1.5 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <b>Faltam {falta.faltam.length} de {falta.total} (prescritos ontem)</b>
+                        <span onClick={(e) => { e.stopPropagation(); setFaltaIgnorado(true); }} style={{ fontSize: 11, color: '#999', cursor: 'pointer' }}>ignorar ✕</span>
+                      </div>
+                      <div style={{ fontSize: 12 }}>{falta.faltam.map(p => p.nome).join(' · ')}</div>
+                    </div>
+                  )}
                   {recs.length === 0 ? (
                     <div style={{ padding: '12px 14px', fontSize: 13, color: '#999', textAlign: 'center' }}>Nenhum relatório recebido neste ciclo.</div>
                   ) : recs.map((r, idx) => (
@@ -2048,10 +2095,11 @@ const ajRotulo = aj => {
       )}
 
       {caixaRel && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 14 }}
-          onClick={() => setCaixaRel(null)}>
-          <div style={{ background: 'white', width: '100%', maxWidth: 560, maxHeight: '85vh', overflowY: 'auto', borderRadius: 16, padding: 16 }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontWeight: 700, color: '#1a3a5c', marginBottom: 8 }}>📬 Caixa de relatórios</div>
+        <div style={{ margin: '4px 16px 12px', background: 'white', borderRadius: 10, border: '1px solid #e3e8ee', padding: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ fontWeight: 700, color: '#1a3a5c' }}>📬 Caixa de relatórios</span>
+              <span onClick={() => setCaixaRel(null)} style={{ fontSize: 13, color: '#999', cursor: 'pointer' }}>fechar ✕</span>
+            </div>
             {caixaRel.lote ? (() => {
               const sel = caixaRel.lote.filter(r => r.confirmar);
               const aplicarLote = () => {
@@ -2080,6 +2128,15 @@ const ajRotulo = aj => {
                       </div>
                     </div>
                   ))}
+                  {(() => {
+                    const nGuard = caixaRel.lote.filter(r => r.confirmar && r.pacId).length;
+                    const nIgnor = caixaRel.lote.filter(r => !r.pacId).length;
+                    return (nIgnor > 0) ? (
+                      <div style={{ marginTop: 10, padding: '10px 12px', background: '#fdf3e7', border: '1px solid #f0d2a8', borderRadius: 8, fontSize: 12.5, color: '#9a6a1a', lineHeight: 1.5 }}>
+                        <b>⚠️ {nIgnor} relatório{nIgnor === 1 ? '' : 's'} de paciente{nIgnor === 1 ? '' : 's'} não cadastrado{nIgnor === 1 ? '' : 's'}</b> {nIgnor === 1 ? 'será ignorado' : 'serão ignorados'} (cadastre o paciente primeiro para guardar). {nGuard} {nGuard === 1 ? 'será guardado' : 'serão guardados'}.
+                      </div>
+                    ) : null;
+                  })()}
                   <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                     <button style={{ ...S.btn, flex: 1, background: 'white', color: '#888', border: '1px solid #ddd' }} onClick={() => setCaixaRel(null)}>cancelar</button>
                     <button style={{ ...S.btn, flex: 2, background: sel.filter(r=>r.pacId).length ? '#27ae60' : '#ccc', color: 'white', fontWeight: 700 }} onClick={sel.filter(r=>r.pacId).length ? aplicarLote : undefined}>Guardar {sel.filter(r=>r.pacId).length} relatório{sel.filter(r=>r.pacId).length === 1 ? '' : 's'}</button>
@@ -2089,7 +2146,7 @@ const ajRotulo = aj => {
             })() : !caixaRel.campos ? (
               <>
                 <textarea value={caixaRel.raw} onChange={e => setCaixaRel({ ...caixaRel, raw: e.target.value })}
-                  placeholder="Cole o relatório do grupo assim que chegar — a qualquer hora. O app guarda e te lembra amanhã." rows={9}
+                  placeholder="Cole o relatório do grupo assim que chegar — a qualquer hora. O app guarda e te lembra amanhã." rows={5}
                   style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #ddd', borderRadius: 10, padding: 10, fontSize: 13 }} />
                 <button style={{ ...S.btn, background: '#1a3a5c', color: 'white', width: '100%', marginTop: 8 }}
                   onClick={() => {
@@ -2231,7 +2288,6 @@ const ajRotulo = aj => {
                 </>
               );
             })()}
-          </div>
         </div>
       )}
 
@@ -4132,7 +4188,7 @@ const ajRotulo = aj => {
 
             <div style={{ padding: '0 16px' }}>
               <button style={{ ...S.btn, background: '#c0392b', color: 'white', width: '100%' }}
-                onClick={() => { salvarAvaliacao(false); setView('prescricao'); }}>📄 Prescrição HD — texto e impressão</button>
+                onClick={() => { registrarExportacao(pacAtual.id, avAtual.data); salvarAvaliacao(false); setView('prescricao'); }}>📄 Prescrição HD — texto e impressão</button>
             </div>
         </>)}
         </div>
