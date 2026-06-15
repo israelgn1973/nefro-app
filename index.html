@@ -713,6 +713,8 @@ function NefroApp() {
   const [origemResumo, setOrigemResumo] = useState(null);
   const [diaFolheado, setDiaFolheado] = useState(0);
   const [verOriginal, setVerOriginal] = useState(null);
+  const [hdSituacao, setHdSituacao] = useState(null);
+  const [hdSubAba, setHdSubAba] = useState('ultima');
   const swipeRef = React.useRef({ x: 0, y: 0 });
   const irResumo = (vOrigem) => { salvarAvaliacao(false); setOrigemResumo({ v: vOrigem, sub: subRot }); setDiaFolheado(0); setView('panorama'); };
   const concluirRegistro = () => {
@@ -1746,7 +1748,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v231</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v232</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -3595,6 +3597,24 @@ const ajRotulo = aj => {
             🚨 Emergência dialítica sinalizada — considerar HD imediata
           </div>
         )}
+
+        {(() => {
+          // SELETOR DE SITUAÇÃO HD (Camada 1 da reestruturação)
+          const opcoes = [['conservador','Conservador'],['primeira','Primeira HD'],['continuidade','Continuidade de HD'],['rfr','RFR']];
+          // dedução inicial só pra sugerir (não trava): se já tem HD interna → continuidade
+          const temHDi = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido;
+          const sit = hdSituacao || (temHDi ? 'continuidade' : null);
+          return (
+            <div style={{ margin: '10px 16px 0' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {opcoes.map(([v, lbl]) => (
+                  <span key={v} onClick={() => { setHdSituacao(v); setHdSubAba('ultima'); }}
+                    style={{ ...S.checkItem, fontSize: 12.5, ...(sit === v ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}>{lbl}</span>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         {(() => {
           const temHDInterna = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!pacAtual.dataPrimeiraHD || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido;
