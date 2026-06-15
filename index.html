@@ -500,8 +500,8 @@ const S = {
   alerta: { background: '#fdecea', borderLeft: '4px solid #c0392b', padding: '10px 14px', fontSize: 13, margin: '8px 16px', borderRadius: '0 8px 8px 0' },
   labsGrid: { display: 'grid', gridTemplateColumns: '90px 1fr 1fr 1fr' },
   labCell: { padding: '8px 8px', borderRight: '1px solid #f0f0f0', borderBottom: '1px solid #f0f0f0', fontSize: 13 },
-  modal: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 300, display: 'flex', alignItems: 'flex-end' },
-  modalBox: { background: 'white', borderRadius: '16px 16px 0 0', width: '100%', maxWidth: 480, margin: '0 auto', maxHeight: '85vh', overflowY: 'auto', padding: '20px 16px 40px' },
+  modal: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 300, display: 'flex', alignItems: 'flex-start' },
+  modalBox: { background: 'white', borderRadius: '0 0 16px 16px', width: '100%', maxWidth: 480, margin: '0 auto', maxHeight: '90vh', overflowY: 'auto', padding: '20px 16px 30px' },
   utiGrid: { display: 'flex', flexWrap: 'wrap', gap: 6, padding: '12px 14px' },
   utiBadge: { padding: '6px 12px', borderRadius: 16, border: '1.5px solid #ddd', fontSize: 13, cursor: 'pointer', background: 'white' },
   checkGrid: { display: 'flex', flexWrap: 'wrap', gap: 8, padding: '12px 14px' },
@@ -1831,7 +1831,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v246</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v248</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -4622,7 +4622,7 @@ const ajRotulo = aj => {
       const priming = d.priming || 400;
       const lavagens = d.anticoag === 'com' ? (num(d.lavagens) || 0) : (num(d.lavagens) || Math.max(100, ((durHoras(d.hd_dur || d.hd_horas) || 4) * 2 - 1) * 100));
       const ufTot = ufEf + num(priming) + num(lavagens);
-      const hoje = d.ultima_hd_data ? new Date(d.ultima_hd_data + 'T12:00').toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR');
+      const hoje = new Date().toLocaleDateString('pt-BR');
       const nCols = Math.min(horas, 6); // colunas de hora no gráfico
       const horasArr = Array.from({ length: nCols }, (_, i) => `${i + 1}ªH`);
       const pressoes = [220, 200, 180, 160, 140, 120, 100, 80, 60, 40];
