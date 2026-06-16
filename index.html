@@ -233,9 +233,10 @@ const INDICE_DX = (() => {
 const lerCustomDx = () => { try { return JSON.parse(localStorage.getItem('nefro_dx_custom')) || []; } catch { return []; } };
 const ehCustomDx = (nome) => { const n = (nome || '').toLowerCase(); return !INDICE_DX.some(x => x.n.toLowerCase() === n); };
 const ehCustomCm = (nome) => { const n = (nome || '').toLowerCase(); return !INDICE_DX.some(x => x.cat === 'cm' && x.n.toLowerCase() === n); };
+const setCategoriaDx = (nome, grupo) => { try { const a = lerCustomDx().map(x => x.n.toLowerCase() === nome.toLowerCase() ? { ...x, grupo } : x); localStorage.setItem('nefro_dx_custom', JSON.stringify(a)); } catch {} };
 const editCustomDx = (antigo, novo) => { try { const a = lerCustomDx().map(x => x.n.toLowerCase() === antigo.toLowerCase() ? { ...x, n: novo } : x); localStorage.setItem('nefro_dx_custom', JSON.stringify(a)); } catch {} };
 const delCustomDx = (nome) => { try { const a = lerCustomDx().filter(x => x.n.toLowerCase() !== nome.toLowerCase()); localStorage.setItem('nefro_dx_custom', JSON.stringify(a)); } catch {} };
-const addCustomDx = (nome) => { try { const a = lerCustomDx(); if (!a.find(x => x.n.toLowerCase() === nome.toLowerCase())) { a.push({ n: nome, cat: 'outros', grupo: 'Outros (a reclassificar)' }); localStorage.setItem('nefro_dx_custom', JSON.stringify(a)); } } catch {} };
+const addCustomDx = (nome) => { try { const a = lerCustomDx(); if (!a.find(x => x.n.toLowerCase() === nome.toLowerCase())) { a.push({ n: nome, cat: 'outros', grupo: 'Outros' }); localStorage.setItem('nefro_dx_custom', JSON.stringify(a)); } } catch {} };
 const buscarDx = (termo, freq) => {
   const t = (termo || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
   if (t.length < 2) return [];
@@ -2094,7 +2095,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v274</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v275</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -3262,7 +3263,8 @@ const ajRotulo = aj => {
                 <span>{verMeusDx ? '▲' : '▼'}</span>
               </div>
               {verMeusDx && custom.map(x => (
-                <div key={x.n} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+                <div key={x.n} style={{ marginBottom: 8, paddingBottom: 8, borderBottom: '1px solid #f0e9d8' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                   <span style={{ ...S.checkItem, flex: 1, ...(novoPac.gatilhos.includes(x.n) ? { background: '#c0392b', color: 'white', borderColor: '#c0392b' } : {}) }}
                     onClick={() => { if (!novoPac.gatilhos.includes(x.n)) regFreq('gatilhos', x.n); setNovoPac(n => { const liga = !n.gatilhos.includes(x.n); return { ...n, gatilhos: liga ? [...n.gatilhos, x.n] : n.gatilhos.filter(y => y !== x.n) }; }); }}>{x.n}</span>
                   <span onClick={() => { const nv = prompt('Editar diagnóstico:', x.n); if (nv === null) return; const nome = nv.trim(); if (!nome) return; editCustomDx(x.n, nome); setPacientes(ps => ps.map(p => ({ ...p, gatilhos: (p.gatilhos || []).map(y => y === x.n ? nome : y) }))); setNovoPac(n => ({ ...n, gatilhos: (n.gatilhos || []).map(y => y === x.n ? nome : y) })); setForcar(f => f + 1); }}
@@ -3270,15 +3272,23 @@ const ajRotulo = aj => {
                   <span onClick={() => { if (!confirm('Remover "' + x.n + '" do seu catálogo? (pacientes que já o têm continuam com ele)')) return; delCustomDx(x.n); setForcar(f => f + 1); }}
                     style={{ fontSize: 15, color: '#c0392b', cursor: 'pointer', padding: '0 4px' }}>🗑</span>
                 </div>
+                  <select value={GATILHOS_GRUPOS.some(([g]) => g === x.grupo) ? x.grupo : 'Outros'} onChange={e => { setCategoriaDx(x.n, e.target.value); setForcar(f => f + 1); }}
+                    style={{ width: '100%', boxSizing: 'border-box', fontSize: 11.5, padding: '4px 8px', borderRadius: 6, border: '1px solid #e0d4b8', background: 'white', color: '#777', marginTop: 2 }}>
+                    {GATILHOS_GRUPOS.map(([g]) => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                </div>
               ))}
             </div>
           );
         })()}
-        {GATILHOS_GRUPOS.map(([grupo, itens]) => (
+        {GATILHOS_GRUPOS.map(([grupo, itens]) => {
+                const meusDoGrupo = (lerCustomDx().filter(x => x.cat !== 'cm' && x.grupo === grupo)).map(x => x.n);
+                const todosItens = [...itens, ...meusDoGrupo];
+                return (
                 <div key={grupo} style={{ padding: '8px 14px', borderBottom: '1px solid #f5f5f5' }}>
                   <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 }}>{grupo}</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {itens.map(g => (
+                    {todosItens.map(g => (
                       <span key={g} style={{ ...S.checkItem, ...(novoPac.gatilhos.includes(g) ? { background: '#c0392b', color: 'white', borderColor: '#c0392b' } : {}) }}
                         onClick={() => { if (!novoPac.gatilhos.includes(g)) regFreq('gatilhos', g); setNovoPac(n => { const liga = !n.gatilhos.includes(g); const gat = liga ? [...n.gatilhos, g] : n.gatilhos.filter(x => x !== g); let pend = n.comorb_pend || []; if (liga) MAPA_EC_G.forEach(([ch, coms]) => { if (g.toLowerCase().includes(ch.toLowerCase())) pend = [...new Set([...pend, ...coms.filter(x => !(n.comorbidades || []).includes(x))])]; }); return { ...n, gatilhos: gat, comorb_pend: pend }; }); }}>{g}</span>
                     ))}
@@ -3358,7 +3368,7 @@ const ajRotulo = aj => {
                     </div>
                   )}
                 </div>
-              ))}
+              );})}
         </>)}
               <div style={{ padding: '8px 14px' }}>
                 <input style={{ ...S.input, textAlign: 'left', fontSize: 13 }} type="text"
