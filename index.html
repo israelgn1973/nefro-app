@@ -658,6 +658,7 @@ function NefroApp() {
   const [verArquivados, setVerArquivados] = useState(false);
   const [buscaInativo, setBuscaInativo] = useState('');
   const [forcar, setForcar] = useState(0);
+  const [verMeusDx, setVerMeusDx] = useState(false);
   const [verDados, setVerDados] = useState(false);
   const [mesStats, setMesStats] = useState(null);
   const [modoExcluir, setModoExcluir] = useState(false);
@@ -2093,7 +2094,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v272</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v273</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -3256,8 +3257,11 @@ const ajRotulo = aj => {
           if (!custom.length) return null;
           return (
             <div style={{ padding: '8px 14px', borderBottom: '1px solid #f5f5f5', background: '#fffdf6' }}>
-              <div style={{ fontSize: 11, color: '#a07b2a', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 }}>⭐ Meus diagnósticos</div>
-              {custom.map(x => (
+              <div onClick={() => setVerMeusDx(v => !v)} style={{ fontSize: 11, color: '#a07b2a', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>⭐ Meus diagnósticos ({custom.length})</span>
+                <span>{verMeusDx ? '▲' : '▼'}</span>
+              </div>
+              {verMeusDx && custom.map(x => (
                 <div key={x.n} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
                   <span style={{ ...S.checkItem, flex: 1, ...(novoPac.gatilhos.includes(x.n) ? { background: '#c0392b', color: 'white', borderColor: '#c0392b' } : {}) }}
                     onClick={() => { if (!novoPac.gatilhos.includes(x.n)) regFreq('gatilhos', x.n); setNovoPac(n => { const liga = !n.gatilhos.includes(x.n); return { ...n, gatilhos: liga ? [...n.gatilhos, x.n] : n.gatilhos.filter(y => y !== x.n) }; }); }}>{x.n}</span>
