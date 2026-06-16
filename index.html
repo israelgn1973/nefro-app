@@ -741,8 +741,9 @@ function NefroApp() {
       const cls = classificarRel(raw, pacId, c.data || '');
       if (cls.tipo === 'reviver') {
         // relatório idêntico de um ciclo anterior (antes do zeramento): traz para o ciclo atual
+        // atualiza data/campos com os do relatório reenviado (pode ter data diferente do registro antigo)
         const idAntigo = cls.relAntigo?.id;
-        setPacientes(ps => ps.map(p => p.id === cls.pacId ? { ...p, relEnf: (p.relEnf || []).map(r => r.id === idAntigo ? { ...r, criadoEm: Date.now() } : r) } : p));
+        setPacientes(ps => ps.map(p => p.id === cls.pacId ? { ...p, relEnf: (p.relEnf || []).map(r => r.id === idAntigo ? { ...r, campos: c, raw, criadoEm: Date.now() } : r) } : p));
         const prev = pacientes.find(p => p.id === cls.pacId);
         mostrarToast('✓ Relatório reativado no ciclo atual' + (prev ? ' (' + prev.nome + ')' : ''));
         return;
@@ -2047,7 +2048,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v266</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v267</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
