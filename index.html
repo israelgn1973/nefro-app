@@ -233,7 +233,12 @@ const INDICE_DX = (() => {
 const lerCustomDx = () => { try { return JSON.parse(localStorage.getItem('nefro_dx_custom')) || []; } catch { return []; } };
 const ehCustomDx = (nome) => { const n = (nome || '').toLowerCase(); return !INDICE_DX.some(x => x.n.toLowerCase() === n); };
 const ehCustomCm = (nome) => { const n = (nome || '').toLowerCase(); return !INDICE_DX.some(x => x.cat === 'cm' && x.n.toLowerCase() === n); };
-const setCategoriaDx = (nome, grupo) => { try { const a = lerCustomDx().map(x => x.n.toLowerCase() === nome.toLowerCase() ? { ...x, grupo } : x); localStorage.setItem('nefro_dx_custom', JSON.stringify(a)); } catch {} };
+const catsCustomDiag = () => {
+    const fixas = GATILHOS_GRUPOS.map(([g]) => g);
+    const usadas = [...new Set(lerCustomDx().filter(x => x.cat !== 'cm' && x.grupo).map(x => x.grupo))];
+    return usadas.filter(g => !fixas.includes(g));
+  };
+  const setCategoriaDx = (nome, grupo) => { try { const a = lerCustomDx().map(x => x.n.toLowerCase() === nome.toLowerCase() ? { ...x, grupo } : x); localStorage.setItem('nefro_dx_custom', JSON.stringify(a)); } catch {} };
 const editCustomDx = (antigo, novo) => { try { const a = lerCustomDx().map(x => x.n.toLowerCase() === antigo.toLowerCase() ? { ...x, n: novo } : x); localStorage.setItem('nefro_dx_custom', JSON.stringify(a)); } catch {} };
 const delCustomDx = (nome) => { try { const a = lerCustomDx().filter(x => x.n.toLowerCase() !== nome.toLowerCase()); localStorage.setItem('nefro_dx_custom', JSON.stringify(a)); } catch {} };
 const addCustomDx = (nome) => { try { const a = lerCustomDx(); if (!a.find(x => x.n.toLowerCase() === nome.toLowerCase())) { a.push({ n: nome, cat: 'outros', grupo: 'Outros' }); localStorage.setItem('nefro_dx_custom', JSON.stringify(a)); } } catch {} };
@@ -2095,7 +2100,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v275</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v276</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -3272,9 +3277,11 @@ const ajRotulo = aj => {
                   <span onClick={() => { if (!confirm('Remover "' + x.n + '" do seu catálogo? (pacientes que já o têm continuam com ele)')) return; delCustomDx(x.n); setForcar(f => f + 1); }}
                     style={{ fontSize: 15, color: '#c0392b', cursor: 'pointer', padding: '0 4px' }}>🗑</span>
                 </div>
-                  <select value={GATILHOS_GRUPOS.some(([g]) => g === x.grupo) ? x.grupo : 'Outros'} onChange={e => { setCategoriaDx(x.n, e.target.value); setForcar(f => f + 1); }}
+                  <select value={(GATILHOS_GRUPOS.some(([g]) => g === x.grupo) || catsCustomDiag().includes(x.grupo)) ? x.grupo : 'Outros'} onChange={e => { if (e.target.value === '__nova__') { const nv = prompt('Nome da nova categoria:'); if (nv && nv.trim()) { setCategoriaDx(x.n, nv.trim()); setForcar(f => f + 1); } return; } setCategoriaDx(x.n, e.target.value); setForcar(f => f + 1); }}
                     style={{ width: '100%', boxSizing: 'border-box', fontSize: 11.5, padding: '4px 8px', borderRadius: 6, border: '1px solid #e0d4b8', background: 'white', color: '#777', marginTop: 2 }}>
                     {GATILHOS_GRUPOS.map(([g]) => <option key={g} value={g}>{g}</option>)}
+                    {catsCustomDiag().map(g => <option key={g} value={g}>{g} ✦</option>)}
+                    <option value="__nova__">+ Nova categoria…</option>
                   </select>
                 </div>
               ))}
@@ -3369,6 +3376,20 @@ const ajRotulo = aj => {
                   )}
                 </div>
               );})}
+        {catsCustomDiag().map(grupo => {
+                const itensCat = lerCustomDx().filter(x => x.cat !== 'cm' && x.grupo === grupo).map(x => x.n);
+                if (!itensCat.length) return null;
+                return (
+                <div key={grupo} style={{ padding: '8px 14px', borderBottom: '1px solid #f5f5f5', background: '#fffdf6' }}>
+                  <div style={{ fontSize: 11, color: '#a07b2a', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 }}>{grupo} ✦</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {itensCat.map(g => (
+                      <span key={g} style={{ ...S.checkItem, ...(novoPac.gatilhos.includes(g) ? { background: '#c0392b', color: 'white', borderColor: '#c0392b' } : {}) }}
+                        onClick={() => { if (!novoPac.gatilhos.includes(g)) regFreq('gatilhos', g); setNovoPac(n => { const liga = !n.gatilhos.includes(g); return { ...n, gatilhos: liga ? [...n.gatilhos, g] : n.gatilhos.filter(y => y !== g) }; }); }}>{g}</span>
+                    ))}
+                  </div>
+                </div>
+                );})}
         </>)}
               <div style={{ padding: '8px 14px' }}>
                 <input style={{ ...S.input, textAlign: 'left', fontSize: 13 }} type="text"
