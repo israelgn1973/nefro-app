@@ -2047,7 +2047,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v265</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v266</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -2386,7 +2386,7 @@ const ajRotulo = aj => {
                       const lote = blocos.map(b => {
                         const cc = parseRelEnf(b);
                         const { match, porSem } = parear(cc);
-                        const jaGuardado = match && (match.relEnf || []).some(r => norm(r.raw) === norm(b));
+                        const jaGuardado = match && (match.relEnf || []).some(r => norm(r.raw) === norm(b) && (r.criadoEm || 0) >= relZeradoEm);
                         return { campos: cc, pacId: match ? match.id : null, pacNome: match ? match.nome : null, porSemelhanca: porSem, raw: b, jaGuardado, confirmar: match && !jaGuardado };
                       }).filter(item => !item.jaGuardado);
                       if (lote.length === 0) { mostrarToast('Todos os relatórios já estavam guardados'); setCaixaRel(null); return; }
@@ -2401,7 +2401,7 @@ const ajRotulo = aj => {
                     const { match, porSem } = parear(c);
                     // já guardado? evita duplicar
                     const norm1 = s => (s || '').replace(/\s+/g, ' ').trim();
-                    if (match && (match.relEnf || []).some(r => norm1(r.raw) === norm1(caixaRel.raw))) { mostrarToast('Relatório já guardado'); setCaixaRel(null); return; }
+                    if (match && (match.relEnf || []).some(r => norm1(r.raw) === norm1(caixaRel.raw) && (r.criadoEm || 0) >= relZeradoEm)) { mostrarToast('Relatório já guardado neste ciclo'); setCaixaRel(null); return; }
                     if (match && !porSem) {
                       // MATCH EXATO → aplica direto (sem trava)
                       aplicarRelUnico(c, caixaRel.raw, match.id);
