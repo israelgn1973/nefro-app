@@ -2194,7 +2194,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v310</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v311</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -4688,15 +4688,6 @@ const ajRotulo = aj => {
           <div style={S.formSection}>
             <div style={S.formGroup}>
               <div style={{ padding: '10px 14px' }}>
-                {doseDiurRef ? (
-                  <div style={{ marginBottom: 10, fontSize: 12.5, color: '#1a3a5c', background: '#eef4fb', border: '1px solid #cfe0f0', borderRadius: 8, padding: '8px 10px', lineHeight: 1.45 }}>
-                    💊 <b>Dose registrada na avaliação:</b> {doseDiurRef}
-                  </div>
-                ) : (
-                  <div style={{ marginBottom: 10, fontSize: 12.5, color: '#888', background: '#f7f7f7', border: '1px solid #eee', borderRadius: 8, padding: '8px 10px' }}>
-                    💊 Nenhum diurético registrado na avaliação.
-                  </div>
-                )}
                 {blocoDiureticos()}
               </div>
             </div>
