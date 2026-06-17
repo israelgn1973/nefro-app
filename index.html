@@ -2100,7 +2100,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v277</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v278</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -4507,10 +4507,7 @@ const ajRotulo = aj => {
                 ))}
                 <span onClick={() => setVerCompRinger(true)} style={{ fontSize: 11.5, color: '#1a6fb5', cursor: 'pointer', alignSelf: 'center', textDecoration: 'underline', marginLeft: 4 }}>ⓘ composição Ringer</span>
               </div>
-              <div style={{ marginTop: 8, fontSize: 11.5, color: '#7a6a3a', background: '#fdf6e3', border: '1px solid #f0e4c0', borderRadius: 8, padding: '8px 10px', lineHeight: 1.5 }}>
-                💡 Na IRA, a hipernatremia costuma decorrer da tonicidade dos fluidos administrados. Pela eletroneutralidade do plasma, o <b>SID</b> (diferença de íons fortes) varia junto com o bicarbonato — contabiliza-o, mais do que o causa isoladamente (o transporte tubular de H⁺/HCO₃⁻ também atua). Na prática, soluções com SID baixo (ex.: SF 0,9%, SID 0) acompanham acidose hiperclorêmica; o Ringer lactato (SID efetivo maior, após metabolização do lactato) tende a poupar o bic. A diluição escolhida move, ao mesmo tempo, o Na⁺ e o estado ácido-base.
-              </div>
-            </div>
+                          </div>
 
             </div>)}
             {subCond === 'diur' && (
