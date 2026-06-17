@@ -1080,7 +1080,7 @@ function NefroApp() {
     );
   };
   const blocoDiureticos = () => (
-          <div style={{ padding: '10px 14px' }}>
+          <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0' }}>
             {faixaRef(true)}
             <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 }}>Diureticoterapia</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -2195,7 +2195,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v313</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v314</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -4679,15 +4679,7 @@ const ajRotulo = aj => {
                           </div>
 
             </div>)}
-            {subCond === 'diur' && (
-          <div style={S.formSection}>
-            <div style={S.formGroup}>
-              <div style={{ padding: '10px 14px' }}>
-                {blocoDiureticos()}
-              </div>
-            </div>
-          </div>
-        )}
+            {subCond === 'diur' && blocoDiureticos()}
         {subCond === 'outras' && (<div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0' }}>
               {faixaRef(true)}
               <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 }}>Bundle</div>
