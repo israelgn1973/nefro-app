@@ -2194,7 +2194,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v308</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v310</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -2896,7 +2896,7 @@ const ajRotulo = aj => {
           <h1 style={{ ...S.h1, cursor: 'pointer' }} onClick={() => { if (!modoConsulta) abrirEdicaoPaciente(true); }}>
             {pacAtual.nome}{(pacAtual.idade || pacAtual.sexo) ? <span style={{ fontSize: 13, fontWeight: 500, opacity: 0.7, marginLeft: 8 }}>{[pacAtual.idade ? pacAtual.idade + 'a' : '', pacAtual.sexo].filter(Boolean).join(' · ')}</span> : null} <span style={{ fontSize: 13, opacity: 0.6 }}>✎</span>
           </h1>
-          <IconeCasa onClick={() => sairPerguntando()} />
+          <span style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.6)', fontWeight: 500, whiteSpace: 'nowrap' }}>{new Date().toLocaleDateString('pt-BR')}</span><IconeCasa onClick={() => sairPerguntando()} />
           
         </div>
         {modalPaciente}
@@ -3126,7 +3126,7 @@ const ajRotulo = aj => {
       <div style={S.app}>{numPadEl}
         <div style={S.header}>
           <h1 style={S.h1}>{pacAtual.nome}{(pacAtual.idade || pacAtual.sexo) ? <span style={{ fontSize: 13, fontWeight: 500, opacity: 0.7, marginLeft: 8 }}>{[pacAtual.idade ? pacAtual.idade + 'a' : '', pacAtual.sexo].filter(Boolean).join(' · ')}</span> : null}</h1>
-          <IconeCasa onClick={() => sairPerguntando()} />
+          <span style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.6)', fontWeight: 500, whiteSpace: 'nowrap' }}>{new Date().toLocaleDateString('pt-BR')}</span><IconeCasa onClick={() => sairPerguntando()} />
         </div>
         <TabBar atual="renal" />
         <div style={{ paddingBottom: 30, pointerEvents: modoConsulta ? 'none' : 'auto' }}>
@@ -3193,7 +3193,7 @@ const ajRotulo = aj => {
       <div style={S.app}>{numPadEl}
         <div style={S.header}>
           <h1 style={S.h1}>{pacAtual.nome}{(pacAtual.idade || pacAtual.sexo) ? <span style={{ fontSize: 13, fontWeight: 500, opacity: 0.7, marginLeft: 8 }}>{[pacAtual.idade ? pacAtual.idade + 'a' : '', pacAtual.sexo].filter(Boolean).join(' · ')}</span> : null}</h1>
-          <IconeCasa onClick={() => sairPerguntando()} />
+          <span style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.6)', fontWeight: 500, whiteSpace: 'nowrap' }}>{new Date().toLocaleDateString('pt-BR')}</span><IconeCasa onClick={() => sairPerguntando()} />
         </div>
         <TabBar atual={view} />
         <div style={{ paddingBottom: 30 }}>
@@ -3681,7 +3681,7 @@ const ajRotulo = aj => {
       <div style={S.app}>{numPadEl}
         <div style={S.header}>
           <h1 style={S.h1}>{pacAtual.nome}{(pacAtual.idade || pacAtual.sexo) ? <span style={{ fontSize: 13, fontWeight: 500, opacity: 0.7, marginLeft: 8 }}>{[pacAtual.idade ? pacAtual.idade + 'a' : '', pacAtual.sexo].filter(Boolean).join(' · ')}</span> : null}</h1>
-          <IconeCasa onClick={() => sairPerguntando()} />
+          <span style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.6)', fontWeight: 500, whiteSpace: 'nowrap' }}>{new Date().toLocaleDateString('pt-BR')}</span><IconeCasa onClick={() => sairPerguntando()} />
         </div>
         <TabBar atual="roteiro" />
         <div style={{ display: 'flex', gap: 6, padding: '10px 16px 0', overflowX: 'auto' }}>
@@ -4037,7 +4037,7 @@ const ajRotulo = aj => {
       <div style={S.app}>{numPadEl}
         <div style={S.header}>
           <h1 style={S.h1}>{pacAtual.nome}{(pacAtual.idade || pacAtual.sexo) ? <span style={{ fontSize: 13, fontWeight: 500, opacity: 0.7, marginLeft: 8 }}>{[pacAtual.idade ? pacAtual.idade + 'a' : '', pacAtual.sexo].filter(Boolean).join(' · ')}</span> : null}</h1>
-          <IconeCasa onClick={() => sairPerguntando()} />
+          <span style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.6)', fontWeight: 500, whiteSpace: 'nowrap' }}>{new Date().toLocaleDateString('pt-BR')}</span><IconeCasa onClick={() => sairPerguntando()} />
         </div>
         <TabBar atual="hdview" />
         <div style={{ pointerEvents: modoConsulta ? 'none' : 'auto' }}>
@@ -4607,7 +4607,7 @@ const ajRotulo = aj => {
       <div style={S.app}>{numPadEl}
         <div style={S.header}>
           <h1 style={S.h1}>{pacAtual.nome}{(pacAtual.idade || pacAtual.sexo) ? <span style={{ fontSize: 13, fontWeight: 500, opacity: 0.7, marginLeft: 8 }}>{[pacAtual.idade ? pacAtual.idade + 'a' : '', pacAtual.sexo].filter(Boolean).join(' · ')}</span> : null}</h1>
-          <IconeCasa onClick={() => sairPerguntando()} />
+          <span style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.6)', fontWeight: 500, whiteSpace: 'nowrap' }}>{new Date().toLocaleDateString('pt-BR')}</span><IconeCasa onClick={() => sairPerguntando()} />
         </div>
         <TabBar atual="conduta" />
         <div style={{ display: 'flex', gap: 6, padding: '10px 16px 0', overflowX: 'auto' }}>
@@ -5105,7 +5105,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
         <div style={S.header}>
           <button style={S.backBtn} onClick={() => setView('conduta')}>‹</button>
           <h1 style={S.h1}>Prescrição HD</h1>
-          <IconeCasa onClick={() => sairPerguntando()} />
+          <span style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.6)', fontWeight: 500, whiteSpace: 'nowrap' }}>{new Date().toLocaleDateString('pt-BR')}</span><IconeCasa onClick={() => sairPerguntando()} />
         </div>
         <TabBar atual="conduta" />
 
@@ -5245,8 +5245,8 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           </div>
         )}
         <div style={S.header}>
-          <h1 style={S.h1}>Resumo{_folheando ? ' · ' + new Date(avV.data).toLocaleDateString('pt-BR') : ''}</h1>
-          <IconeCasa onClick={() => sairPerguntando()} />
+          <h1 style={S.h1}>Resumo</h1>
+          <span style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.6)', fontWeight: 500, whiteSpace: 'nowrap' }}>{new Date(avV.data).toLocaleDateString('pt-BR')}</span><IconeCasa onClick={() => sairPerguntando()} />
 
         </div>
         {_diasAv.length > 1 && (
