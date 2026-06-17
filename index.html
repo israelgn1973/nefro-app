@@ -264,6 +264,7 @@ const catsCustomDiag = () => {
 const editCustomDx = (antigo, novo) => { try { const a = lerCustomDx().map(x => x.n.toLowerCase() === antigo.toLowerCase() ? { ...x, n: novo } : x); localStorage.setItem('nefro_dx_custom', JSON.stringify(a)); } catch {} };
 const delCustomDx = (nome) => { try { const a = lerCustomDx().filter(x => x.n.toLowerCase() !== nome.toLowerCase()); localStorage.setItem('nefro_dx_custom', JSON.stringify(a)); } catch {} };
 const addCustomDx = (nome) => { try { const a = lerCustomDx(); if (!a.find(x => x.n.toLowerCase() === nome.toLowerCase())) { a.push({ n: nome, cat: 'outros', grupo: 'Outros' }); localStorage.setItem('nefro_dx_custom', JSON.stringify(a)); } } catch {} };
+const addCustomCm = (nome) => { try { const a = lerCustomDx(); if (!a.find(x => x.n.toLowerCase() === nome.toLowerCase())) { a.push({ n: nome, cat: 'cm', grupo: 'Comorbidade · Outras' }); localStorage.setItem('nefro_dx_custom', JSON.stringify(a)); } } catch {} };
 const buscarDx = (termo, freq) => {
   const t = (termo || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
   if (t.length < 2) return [];
@@ -2194,7 +2195,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v311</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v313</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -3383,12 +3384,16 @@ const ajRotulo = aj => {
             };
             return (
               <div style={{ marginTop: 6, border: '1px solid #e0e6ed', borderRadius: 10, overflow: 'hidden' }}>
-                {res.length === 0 && (
+                {res.length === 0 && (<>
                   <div onClick={() => { const nome = buscaDx.trim(); addCustomDx(nome); regFreq('gatilhos', nome); setNovoPac(n => ({ ...n, gatilhos: [...new Set([...(n.gatilhos || []), nome])] })); setPacAtual(p => ({ ...p, gatilhos: [...new Set([...(p.gatilhos || []), nome])], updatedAt: Date.now() })); setBuscaDx(''); }}
-                    style={{ padding: '10px 12px', fontSize: 13, color: '#8a6d3b', background: '#fdf6ec', cursor: 'pointer' }}>
-                    + adicionar "<b>{buscaDx.trim()}</b>" como novo diagnóstico (vai para Outros — reclassificar depois)
+                    style={{ padding: '10px 12px', fontSize: 13, color: '#c0392b', background: '#fdf6ec', cursor: 'pointer', borderBottom: '1px solid #f0e6d6' }}>
+                    + adicionar "<b>{buscaDx.trim()}</b>" como <b>diagnóstico</b>
                   </div>
-                )}
+                  <div onClick={() => { const nome = buscaDx.trim(); addCustomCm(nome); regFreq('comorbidades', nome); setNovoPac(n => ({ ...n, comorbidades: [...new Set([...(n.comorbidades || []), nome])] })); setPacAtual(p => ({ ...p, comorbidades: [...new Set([...(p.comorbidades || []), nome])], updatedAt: Date.now() })); setBuscaDx(''); }}
+                    style={{ padding: '10px 12px', fontSize: 13, color: '#1a3a5c', background: '#eef4fb', cursor: 'pointer' }}>
+                    + adicionar "<b>{buscaDx.trim()}</b>" como <b>comorbidade</b>
+                  </div>
+                </>)}
                 {res.map(it => (
                   <div key={it.cat + it.n} onClick={() => aplicar(it)}
                     style={{ padding: '9px 12px', fontSize: 13.5, borderBottom: '1px solid #f0f0f0', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -3539,11 +3544,6 @@ const ajRotulo = aj => {
                 </div>
                 );})}
         </>)}
-              <div style={{ padding: '8px 14px' }}>
-                <input style={{ ...S.input, textAlign: 'left', fontSize: 13 }} type="text"
-                  value={novoPac.gatilhos_outros} onChange={e => setNovoPac(n => ({ ...n, gatilhos_outros: e.target.value }))}
-                  placeholder="Outros (ex: Rabdomiólise por estatina...)" />
-              </div>
             </div>
 
             </>
@@ -3599,11 +3599,6 @@ const ajRotulo = aj => {
                 </div>
               ))}
               </>)}
-              <div style={{ padding: '8px 14px' }}>
-                <input style={{ ...S.input, textAlign: 'left', fontSize: 13 }} type="text"
-                  value={novoPac.comorbidades_outras} onChange={e => setNovoPac(n => ({ ...n, comorbidades_outras: e.target.value }))}
-                  placeholder="Outras (ex: Leucemia...)" />
-              </div>
             </div>
             
             </div>
