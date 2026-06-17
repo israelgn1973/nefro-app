@@ -2100,7 +2100,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v276</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v277</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -5205,23 +5205,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
             </Bloco>
           )}
 
-          {(() => {
-            const aj = avV.aj_diur || {};
-            const nomeAj = aj.droga === 'susp_furo' ? 'suspender furosemida'
-              : aj.droga ? `${({furo_amp:'Furosemida',furo_cp:'Furosemida',espiro:'Espironolactona',hctz:'Hidroclorotiazida'})[aj.droga]} ${aj.n || '?'}${aj.droga === 'furo_amp' ? 'amp' : 'cp'} ${aj.int || ''}`.trim() : '';
-            const condRot = { hd_hoje: 'HD HOJE', hd_amanha: 'HD amanhã', conservador: 'Tratamento conservador' }[avV.conduta] || avV.conduta;
-            return (
-              <Bloco ir="conduta" titulo="Conduta">
-                <Item k="Conduta" v={condRot} />
-                {nomeAj && <Item k="Ajuste de diurético" v={`dose atual: ${diurTxt || 'sem diurético'} → ajustar para: ${nomeAj}`} />}
-                {(avV.cond_vol || []).filter(c => c !== 'Ajustar diurético' || !nomeAj).length > 0 && <Item k="Volemia" v={(avV.cond_vol || []).filter(c => c !== 'Ajustar diurético' || !nomeAj).join(', ')} />}
-                {(avV.atbs || []).length > 0 && <Item k="Antibióticos" v={(avV.atbs || []).join(', ')} />}
-                {(avV.cond_alertas || []).map((c, i) => <Item key={'al'+i} k="Conduta de alerta" v={c} />)}
-                {(avV.cond_eletr || []).length > 0 && <Item k="Eletrólitos" v={(avV.cond_eletr || []).join(', ')} />}
-                {(avV.cond_outras_sel || []).length > 0 && <Item k="Outras" v={(avV.cond_outras_sel || []).map(c => c === 'Troca de diluições' && avV.troca_diluicoes ? `Troca de diluições → ${avV.troca_diluicoes}` : c).join(', ')} />}
-              </Bloco>
-            );
-          })()}
+          
           {(avV.conduta === 'hd_hoje' || avV.conduta === 'hd_amanha') && !avV.hd_nao_realizada && (() => {
             const p = avV;
             const itens = [];
@@ -5278,6 +5262,29 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                   <Item k="UF efetiva" v={((num(avV.uf_hd) || 0) + (num(avV.uf_isolada) || 0)) + ' ml'} />
                 </div>
               )}
+              {(() => {
+                const aj = avV.aj_diur || {};
+                const nomeAj = aj.droga === 'susp_furo' ? 'suspender furosemida'
+                  : aj.droga ? `${({furo_amp:'Furosemida',furo_cp:'Furosemida',espiro:'Espironolactona',hctz:'Hidroclorotiazida'})[aj.droga]} ${aj.n || '?'}${aj.droga === 'furo_amp' ? 'amp' : 'cp'} ${aj.int || ''}`.trim() : '';
+                const detVol = (avV.cond_vol || []).filter(c => c !== 'Ajustar diurético' || !nomeAj).map(c => {
+                  if ((c === 'Reposição volêmica' || c === 'Expansão com fluidos') && avV.fluido_tipo) {
+                    const prep = avV.fluido_tipo === 'SF 0,45%' ? ' (preparo 500 ml: SG 5% 500 ml + NaCl 20% 11 ml)'
+                      : avV.fluido_tipo === 'SF 0,225% (1/4)' ? ' (preparo 500 ml: SG 5% 500 ml + NaCl 20% 5,5 ml)'
+                      : avV.fluido_tipo === 'SF 3%' ? ' (preparo 500 ml: SF 0,9% 445 ml + NaCl 20% 55 ml)' : '';
+                    return `${c}: ${avV.fluido_ml || '?'} ml de ${avV.fluido_tipo}${prep}`;
+                  }
+                  return c;
+                });
+                const detOutras = (avV.cond_outras_sel || []).map(c => c === 'Troca de diluições' && avV.troca_diluicoes ? `Troca de diluições → ${avV.troca_diluicoes}` : c);
+                return (<>
+                  {nomeAj && <Item k="Ajuste de diurético" v={`dose atual: ${diurTxt || 'sem diurético'} → ajustar para: ${nomeAj}`} />}
+                  {detVol.length > 0 && <Item k="Volemia" v={detVol.join('; ')} />}
+                  {(avV.cond_eletr || []).length > 0 && <Item k="Eletrólitos" v={(avV.cond_eletr || []).join(', ')} />}
+                  {detOutras.length > 0 && <Item k="Outras" v={detOutras.join('; ')} />}
+                  {(avV.atbs || []).length > 0 && <Item k="Antibióticos" v={(avV.atbs || []).join(', ')} />}
+                  {(avV.cond_alertas || []).map((c, ix) => <Item key={'al'+ix} k="Conduta de alerta" v={c} />)}
+                </>);
+              })()}
               <Item k="Conclusão" v={{ acompanhamento: 'Segue em acompanhamento', alta_nefro: 'Alta da nefrologia', alta_hosp: 'Alta hospitalar', paliativo: 'Cuidados paliativos', obito: 'Óbito' }[avV.conclusao]} />
             </div>
           </div>
