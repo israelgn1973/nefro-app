@@ -1030,11 +1030,9 @@ function NefroApp() {
           <div style={{ padding: '10px 14px' }}>
             {(() => {
               const d = avAtual || {};
-              const dose = textoDoseDiur(d).replace(/(\d)(amp|cp)/g, '$1 $2');
               const na = d.labs?.sodio_hoje, k = d.labs?.pot_hoje;
               const naN = parseFloat(String(na).replace(',', '.')), kN = parseFloat(String(k).replace(',', '.'));
               const itens = [];
-              if (dose) itens.push(<span key="dose"><b>Em uso:</b> {dose}</span>);
               if (d.diurese != null && d.diurese !== '') itens.push(<span key="diu">Diurese {d.diurese} ml</span>);
               if (na != null && na !== '') itens.push(<span key="na" style={!isNaN(naN) && naN < 135 ? { color: '#c0392b', fontWeight: 700 } : {}}>Na {na}</span>);
               if (k != null && k !== '') itens.push(<span key="k" style={!isNaN(kN) && kN < 3.5 ? { color: '#c0392b', fontWeight: 700 } : {}}>K {k}</span>);
@@ -2163,7 +2161,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v298</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v299</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
