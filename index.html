@@ -163,7 +163,7 @@ const farejarAvaliacao = (texto) => {
   return { cat, num, lab };
 };
 const CANC_LISTA = ['Cancelada pelo plantonista — sem informação adicional', 'Piora hemodinâmica', 'Família não autorizou', 'Paliativação', 'Recuperação de diurese', 'SVD desobstruída / débito recuperado', 'Instabilidade / arritmia', 'Acesso perdido / disfuncional', 'Recusa do paciente', 'Transferência / exame fora da unidade', 'Óbito antes da sessão', 'Falta de insumo / máquina', 'Falta de vaga / logística'];
-const novoPacVazio = () => ({ nome:'', idade:'', sexo:'', leito:'', temLeito:false, externo:false, externoLocal:'', convenio:'SUS', convenioOutro:'', diag:'', trat:'', filaHD:'', uti:'', esquemaHD:'', preopTipos:[], preopOutro:'', creatBasal:'', comorbidades:[], perfilHemo:'', fe:'', comorbidades_outras:'', gatilhos:[], sepseFocos:[], sepseOutro:'', gatilhos_outros:'', urgenciaAdm:false, urgencias:[] });
+const novoPacVazio = () => ({ nome:'', idade:'', sexo:'', leito:'', temLeito:false, externo:false, externoLocal:'', convenio:'SUS', convenioOutro:'', diag:'', trat:'', filaHD:'', uti:'', esquemaHD:'', preopTipos:[], preopOutro:'', creatBasal:'', creatBasalData:'', imgRinsCronico:'', comorbidades:[], perfilHemo:'', fe:'', comorbidades_outras:'', gatilhos:[], sepseFocos:[], sepseOutro:'', gatilhos_outros:'', urgenciaAdm:false, urgencias:[] });
 const montarStatus = (diag, trat) => {
   if (diag === 'IRA revertida' || diag === 'Função renal normal') return diag;
   if (!diag && !trat) return '';
@@ -1026,24 +1026,38 @@ function NefroApp() {
     if ((d.diureticos || []).includes('Hidroclorotiazida')) det.push(`Hidroclorotiazida ${(parseInt(d.hctz_cp) || 1) * 25}mg ${d.hctz_int || ''}`.trim());
     return det.length ? det.join('; ') : (d.semFuro ? 'sem furosemida' : '');
   };
+  const textoDoseFuro = (d) => {
+    if (!d) return '';
+    const out = [];
+    if ((d.diureticos || []).includes('Furosemida') && d.furo_manut !== 'sem' && d.furo_dose_n)
+      out.push(`Furosemida ${d.furo_dose_n} ${d.furo_manut === 'amp' ? 'amp' : 'cp'} ${d.furo_int || ''}`.trim());
+    if (d.furo_bolus_n) out.push(`Furo bolus ${d.furo_bolus_amp || ''}amp x${d.furo_bolus_n}`);
+    return out.join(' + ');
+  };
+  const faixaRef = (furo) => {
+    const d = avAtual || {};
+    const al = { color: '#c0392b', fontWeight: 700 };
+    const na = d.labs?.sodio_hoje, k = d.labs?.pot_hoje, bic = d.labs?.bic_hoje;
+    const naN = parseFloat(String(na).replace(',', '.')), kN = parseFloat(String(k).replace(',', '.')), bicN = parseFloat(String(bic).replace(',', '.'));
+    const itens = [];
+    if (na != null && na !== '') itens.push(<span key="na" style={!isNaN(naN) && naN < 135 ? al : {}}>Na {na}</span>);
+    if (k != null && k !== '') itens.push(<span key="k" style={!isNaN(kN) && kN < 3.5 ? al : {}}>K {k}</span>);
+    if (bic != null && bic !== '') itens.push(<span key="bic" style={!isNaN(bicN) && bicN < 18 ? al : {}}>Bic {bic}</span>);
+    if (d.ganhos != null && d.ganhos !== '') itens.push(<span key="g">Ganhos {d.ganhos} ml</span>);
+    if (d.diurese != null && d.diurese !== '') itens.push(<span key="diu">Diurese {d.diurese} ml</span>);
+    if (d.uf_obtida != null && d.uf_obtida !== '') itens.push(<span key="uf">UF últ. HD {d.uf_obtida} ml</span>);
+    if (furo) { const fd = textoDoseFuro(d); if (fd) itens.push(<span key="furo"><b>{fd}</b></span>); }
+    if (d.edema) itens.push(<span key="ed">Edema: {d.edema}</span>);
+    if (!itens.length) return null;
+    return (
+      <div style={{ background: '#f4f7fa', border: '1px solid #d8e2ec', borderRadius: 8, padding: '8px 10px', marginBottom: 10, fontSize: 12.5, lineHeight: 1.7, color: '#33485c' }}>
+        {itens.map((el, i) => <React.Fragment key={i}>{i > 0 && <span style={{ color: '#b8c2cc' }}> · </span>}{el}</React.Fragment>)}
+      </div>
+    );
+  };
   const blocoDiureticos = () => (
           <div style={{ padding: '10px 14px' }}>
-            {(() => {
-              const d = avAtual || {};
-              const na = d.labs?.sodio_hoje, k = d.labs?.pot_hoje;
-              const naN = parseFloat(String(na).replace(',', '.')), kN = parseFloat(String(k).replace(',', '.'));
-              const itens = [];
-              if (d.diurese != null && d.diurese !== '') itens.push(<span key="diu">Diurese {d.diurese} ml</span>);
-              if (na != null && na !== '') itens.push(<span key="na" style={!isNaN(naN) && naN < 135 ? { color: '#c0392b', fontWeight: 700 } : {}}>Na {na}</span>);
-              if (k != null && k !== '') itens.push(<span key="k" style={!isNaN(kN) && kN < 3.5 ? { color: '#c0392b', fontWeight: 700 } : {}}>K {k}</span>);
-              if (d.edema) itens.push(<span key="ed">Edema: {d.edema}</span>);
-              if (!itens.length) return null;
-              return (
-                <div style={{ background: '#f4f7fa', border: '1px solid #d8e2ec', borderRadius: 8, padding: '8px 10px', marginBottom: 10, fontSize: 12.5, lineHeight: 1.7, color: '#33485c' }}>
-                  {itens.map((el, i) => <React.Fragment key={i}>{i > 0 && <span style={{ color: '#b8c2cc' }}> · </span>}{el}</React.Fragment>)}
-                </div>
-              );
-            })()}
+            {faixaRef(false)}
             <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 }}>Diureticoterapia</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               <span style={{ ...S.checkItem, fontSize: 12, ...(avAtual.semFuro ? { background: '#27ae60', color: 'white', borderColor: '#27ae60' } : {}) }}
@@ -1670,7 +1684,7 @@ const ajRotulo = aj => {
       id: 'av_' + Date.now(), pacienteId: pacN.id, data: Date.now(),
       ...memoriaHD,
       ...(condutaSug ? { conduta_sugerida: condutaSug } : {}),
-      conduta: condutaSug ? 'hd_hoje' : 'conservador', prioridade: 'nao', conclusao: 'acompanhamento', aj_diur: {}, cond_alertas: [], labs: (pacN?.creatBasal ? { creat_basal: pacN.creatBasal } : {}),
+      conduta: condutaSug ? 'hd_hoje' : 'conservador', prioridade: 'nao', conclusao: 'acompanhamento', aj_diur: {}, cond_alertas: [], labs: {},
       eg: (prev && ['estável','grave','gravíssimo'].includes(prev.eg)) ? prev.eg : 'estável', consciencia: (prev && prev.consciencia) ? prev.consciencia : flexSexo('consciente e orientado', pacN.sexo), padrao_resp: flexSexo('eupneico', pacN.sexo), resp:'', sat:'', pai:false, pam:'', pa:'', dvas:{}, fio2:'', peep:'', fluxoO2:'', edema:'ausente',
       ganhos:'', diurese:'', bh_parcial:false, bh_horas:'', svd:'', diureticos:[], furo_manut:'sem', furo_dose_n:'', furo_int:'', furo_bolus_n:'', furo_bolus_amp:'', espiro_cp:'', espiro_int:'', hctz_cp:'', hctz_int:'',
       ultima_hd_data:'', acesso:'CDL', tempo_obtido:'', uf_obtida:'',
@@ -1701,7 +1715,6 @@ const ajRotulo = aj => {
         _confirmados: [],
         labs: {
           ureia_basal: prev.labs?.ureia_basal || prev.labs?.ureia_hoje,
-          creat_basal: prev.labs?.creat_basal || prev.labs?.creat_hoje,
           sodio_basal: prev.labs?.sodio_basal || prev.labs?.sodio_hoje,
           pot_basal: prev.labs?.pot_basal || prev.labs?.pot_hoje,
           bic_basal: prev.labs?.bic_basal || prev.labs?.bic_hoje,
@@ -2161,7 +2174,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v299</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v301</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -3122,6 +3135,36 @@ const ajRotulo = aj => {
               ))}
             </div>
           </div>
+          <div style={{ padding: '12px 16px 0' }}>
+            <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', fontWeight: 700, letterSpacing: 0.5, marginBottom: 6 }}>Creatinina basal <span style={{ textTransform: 'none', fontWeight: 400, color: '#aaa' }}>· opcional</span></div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <NumInput value={pacAtual.creatBasal} allowComma label="Creatinina basal (mg/dL)" style={{ ...S.input, width: 84, textAlign: 'center', fontWeight: 600 }}
+                onSet={v => { const at = { ...pacAtual, creatBasal: fmtDec(v), updatedAt: Date.now() }; setPacientes(ps => ps.map(p => p.id === pacAtual.id ? at : p)); setPacAtual(at); }} placeholder="—" />
+              <span style={{ fontSize: 12, color: '#888' }}>mg/dL</span>
+              <input type="month" value={pacAtual.creatBasalData || ''}
+                onChange={e => { const at = { ...pacAtual, creatBasalData: e.target.value, updatedAt: Date.now() }; setPacientes(ps => ps.map(p => p.id === pacAtual.id ? at : p)); setPacAtual(at); }}
+                style={{ ...S.input, width: 150, fontSize: 13, textAlign: 'center' }} />
+            </div>
+            {(() => {
+              const avs = avaliacoes[pacAtual.id] || [];
+              let ini = '';
+              for (let i = avs.length - 1; i >= 0; i--) { const c = avs[i].labs?.creat_hoje; if (c != null && c !== '') { ini = c; break; } }
+              if (!ini) return null;
+              return <div style={{ fontSize: 12, color: '#888', marginTop: 7 }}>Creatinina inicial (de entrada): <b style={{ color: '#555' }}>{ini}</b> <span style={{ color: '#aaa' }}>— não é a basal</span></div>;
+            })()}
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 12.5, color: '#444', marginBottom: 6 }}>Imagem (TC/USG): rins contraídos / sofrimento crônico?</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {[['sim','Sim'],['nao','Não']].map(([v, l]) => (
+                  <span key={v} style={{ ...S.checkItem, fontSize: 12.5, ...(pacAtual.imgRinsCronico === v ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}
+                    onClick={() => { const at = { ...pacAtual, imgRinsCronico: pacAtual.imgRinsCronico === v ? '' : v, updatedAt: Date.now() }; setPacientes(ps => ps.map(p => p.id === pacAtual.id ? at : p)); setPacAtual(at); }}>{l}</span>
+                ))}
+              </div>
+              {pacAtual.imgRinsCronico === 'sim' && (
+                <div style={{ fontSize: 12, color: '#1a3a5c', marginTop: 6 }}>↳ critério de cronicidade (apoia DRC)</div>
+              )}
+            </div>
+          </div>
           <div style={{ display: 'flex', gap: 6, padding: '10px 16px 0', overflowX: 'auto' }}>
             {[['eventos','🩺 Diagnósticos'],['comorb','🧬 Comorbidades']].map(([k, l]) => (
               <span key={k} onClick={() => setSubCtx(k)}
@@ -3901,7 +3944,8 @@ const ajRotulo = aj => {
               <div key={key} style={{ ...S.labsGrid, background: li % 2 === 1 ? '#f4f7fa' : 'white' }}>
                 <div style={{ ...S.labCell, fontSize: 12, color: '#666' }}>{lbl}</div>
                 {['basal','ant','hoje'].map((t, ti) => {
-                  const val = avAtual.labs?.[`${key}_${t}`];
+                  const isBasalCreat = key === 'creat' && t === 'basal';
+                  const val = isBasalCreat ? pacAtual.creatBasal : avAtual.labs?.[`${key}_${t}`];
                   const n = parseFloat(String(val ?? '').replace(',', '.'));
                   const critico = !isNaN(n) && (
                     (key === 'pot' && (n > 6.0 || n < 3.0)) ||
@@ -3912,7 +3956,9 @@ const ajRotulo = aj => {
                   );
                   return (
                     <div key={t} style={{ ...S.labCell, padding: 4, background: critico ? '#fdecea' : 'transparent' }}>
-                      <NumInput value={val} onSet={v => upLab(`${key}_${t}`, ['pot','ca','mg','creat','p'].includes(key) ? fmtDec(v) : v)} allowComma label={lbl + ' — ' + t} bicAuto={key === 'bic'}
+                      <NumInput value={val} onSet={v => isBasalCreat
+                          ? (() => { const at = { ...pacAtual, creatBasal: fmtDec(v), updatedAt: Date.now() }; setPacientes(ps => ps.map(p => p.id === pacAtual.id ? at : p)); setPacAtual(at); })()
+                          : upLab(`${key}_${t}`, ['pot','ca','mg','creat','p'].includes(key) ? fmtDec(v) : v)} allowComma label={lbl + ' — ' + t} bicAuto={key === 'bic'}
                         style={{ width: '100%', border: 'none', outline: 'none', fontSize: 13, fontWeight: critico ? 700 : 400, color: critico ? '#c0392b' : '#333', textAlign: 'center', fontFamily: 'monospace', background: critico ? 'transparent' : (t === 'hoje' ? '#f4f4f0' : 'transparent') }} />
                     </div>
                   );
@@ -4586,7 +4632,7 @@ const ajRotulo = aj => {
         <div style={S.formSection}>
           <div style={S.formGroup}>
             {subCond === 'fluidos' && (<div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0' }}>
-                            
+              {faixaRef(true)}
               <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 }}>Volemia</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {['Manejo conservador da volemia','Reposição volêmica'].map(m => {
@@ -4656,6 +4702,7 @@ const ajRotulo = aj => {
           </div>
         )}
         {subCond === 'outras' && (<div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0' }}>
+              {faixaRef(true)}
               <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 }}>Bundle</div>
                 <span style={{ ...S.checkItem, fontSize: 12, ...((avAtual.cond_bundle_ira) ? { background: '#1d7a45', color: 'white', borderColor: '#1d7a45', fontWeight: 700 } : { borderColor: '#1d7a45', color: '#1d7a45' }) }}
                   onClick={() => upAv('cond_bundle_ira', !avAtual.cond_bundle_ira)}>{avAtual.cond_bundle_ira ? '✓ Bundle de prevenção de IRA' : '+ Bundle de prevenção de IRA'}</span>
