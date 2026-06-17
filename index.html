@@ -675,7 +675,6 @@ function NefroApp() {
   const [buscaInativo, setBuscaInativo] = useState('');
   const [forcar, setForcar] = useState(0);
   const [verMeusDx, setVerMeusDx] = useState(false);
-  const [verParecer, setVerParecer] = useState(false);
   const [verDados, setVerDados] = useState(false);
   const [mesStats, setMesStats] = useState(null);
   const [modoExcluir, setModoExcluir] = useState(false);
@@ -2125,7 +2124,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v290</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v289</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -4499,11 +4498,38 @@ const ajRotulo = aj => {
           </div>
         </div>
 
-                {(subCond === 'fluidos' || subCond === 'diur' || subCond === 'outras') && (<>
+        {true && (<>
+        {(() => {
+          const sugs = sugestoesConduta();
+          if (!sugs.length) return null;
+          const cores = { vermelho: ['#fdecea', '#c0392b', '#c0392b'], ambar: ['#fdf6ec', '#e8cfa8', '#8a6d3b'], info: ['#eef4fb', '#b9d2ee', '#1a3a5c'] };
+          return (
+            <div style={{ margin: '10px 16px 0' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>💡 Sugestões do caso</div>
+              {sugs.map((s, i) => (
+                <div key={i} style={{ padding: '8px 12px', borderRadius: 8, marginBottom: 6, fontSize: 12.5, lineHeight: 1.5, background: cores[s.n][0], border: `1.5px solid ${cores[s.n][1]}`, color: cores[s.n][2], fontWeight: s.n === 'vermelho' ? 700 : 400 }}>
+                  {s.t}
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+
+        </>)}
+
+        {(subCond === 'fluidos' || subCond === 'diur' || subCond === 'outras') && (<>
         <div style={S.formSection}>
           <div style={S.formGroup}>
             {subCond === 'fluidos' && (<div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0' }}>
-                            
+              <FavRow campo="conduta"
+                ativos={[...(avAtual.cond_vol||[]), ...(avAtual.cond_eletr||[]), ...(avAtual.cond_outras_sel||[])]}
+                onPick={m => {
+                  const campo = ['Manejo conservador da volemia','Reposição volêmica'].includes(m) ? 'cond_vol'
+                    : ['Repor K','Repor Mg','Repor Ca','Repor P','Quelante de P','Bicarbonato','Glicoinsulina'].includes(m) ? 'cond_eletr' : 'cond_outras_sel';
+                  if (!(avAtual[campo]||[]).includes(m)) regFreq('conduta', m);
+                  setAvAtual(a => ({ ...a, [campo]: (a[campo]||[]).includes(m) ? a[campo].filter(x => x!==m) : [...(a[campo]||[]), m] }));
+                }} />
+              
               <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 }}>Volemia</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {['Manejo conservador da volemia','Reposição volêmica'].map(m => {
@@ -4735,11 +4761,7 @@ const ajRotulo = aj => {
         <div>
             {(pacAtual.gatilhos || []).includes('Pré-operatório') && (
               <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0', background: '#f4f7fb' }}>
-                <div onClick={() => setVerParecer(v => !v)} style={{ fontSize: 11, color: '#1a3a5c', textTransform: 'uppercase', fontWeight: 700, letterSpacing: 0.5, marginBottom: verParecer ? 6 : 0, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>📋 Parecer pré-operatório{(pacAtual.preopTipos || []).length ? ' — ' + pacAtual.preopTipos.map(t => t === 'Outro' ? (pacAtual.preopOutro || 'Outro') : t).join(', ') : ''}{(avAtual.parecer_modelos || []).length ? ` (${avAtual.parecer_modelos.length})` : ''}</span>
-                  <span style={{ fontSize: 13 }}>{verParecer ? '▲' : '▼'}</span>
-                </div>
-                {verParecer && (<>
+                <div style={{ fontSize: 11, color: '#1a3a5c', textTransform: 'uppercase', fontWeight: 700, letterSpacing: 0.5, marginBottom: 6 }}>📋 Parecer pré-operatório{(pacAtual.preopTipos || []).length ? ' — ' + pacAtual.preopTipos.map(t => t === 'Outro' ? (pacAtual.preopOutro || 'Outro') : t).join(', ') : ''}</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {PARECER_MODELOS.map(([id, txt]) => {
                     const sel = (avAtual.parecer_modelos || []).includes(id);
@@ -4754,7 +4776,6 @@ const ajRotulo = aj => {
                     value={avAtual.parecer_obs || ''} onChange={e => upAv('parecer_obs', e.target.value)}
                     placeholder="complemento (cuidados específicos, o que otimizar…)" />
                 )}
-              </>)}
               </div>
             )}
             <FormRow label="Conclusão">
