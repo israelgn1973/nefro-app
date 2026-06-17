@@ -163,7 +163,7 @@ const farejarAvaliacao = (texto) => {
   return { cat, num, lab };
 };
 const CANC_LISTA = ['Cancelada pelo plantonista — sem informação adicional', 'Piora hemodinâmica', 'Família não autorizou', 'Paliativação', 'Recuperação de diurese', 'SVD desobstruída / débito recuperado', 'Instabilidade / arritmia', 'Acesso perdido / disfuncional', 'Recusa do paciente', 'Transferência / exame fora da unidade', 'Óbito antes da sessão', 'Falta de insumo / máquina', 'Falta de vaga / logística'];
-const novoPacVazio = () => ({ nome:'', idade:'', sexo:'', leito:'', temLeito:false, externo:false, externoLocal:'', convenio:'SUS', convenioOutro:'', diag:'', trat:'', filaHD:'', uti:'', esquemaHD:'', preopTipos:[], preopOutro:'', creatBasal:'', creatBasalData:'', imgRinsCronico:'', comorbidades:[], perfilHemo:'', fe:'', comorbidades_outras:'', gatilhos:[], sepseFocos:[], sepseOutro:'', gatilhos_outros:'', urgenciaAdm:false, urgencias:[] });
+const novoPacVazio = () => ({ nome:'', idade:'', sexo:'', leito:'', temLeito:false, externo:false, externoLocal:'', convenio:'SUS', convenioOutro:'', diag:'', trat:'', filaHD:'', uti:'', esquemaHD:'', preopTipos:[], preopOutro:'', creatBasal:'', creatBasalData:'', imgRinsCronico:'', comorbidades:[], perfilHemo:'', fe:'', comorbidades_outras:'', gatilhos:[], sepseFocos:[], sepseOutro:'', gatilhos_outros:'', atbs:[], urgenciaAdm:false, urgencias:[] });
 const montarStatus = (diag, trat) => {
   if (diag === 'IRA revertida' || diag === 'Função renal normal') return diag;
   if (!diag && !trat) return '';
@@ -470,7 +470,7 @@ function FavRow({ campo, ativos, onPick, cor = '#1a3a5c', max = 5 }) {
       <div style={{ fontSize: 10, color: '#b8860b', textTransform: 'uppercase', marginBottom: 4 }}>★ Frequentes</div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
         {tops.map(o => (
-          <span key={o} style={{ ...S.checkItem, fontSize: 12, borderColor: '#e0c060', background: (ativos || []).includes(o) ? cor : '#fdf8e8', ...((ativos || []).includes(o) ? { color: 'white', borderColor: cor } : {}) }}
+          <span key={o} style={{ ...S.checkItem, fontSize: 12, borderColor: '#e0c060', background: '#fdf8e8', ...((ativos || []).includes(o) ? { opacity: 0.4 } : {}) }}
             onClick={() => onPick(o)}>{o}</span>
         ))}
       </div>
@@ -478,6 +478,17 @@ function FavRow({ campo, ativos, onPick, cor = '#1a3a5c', max = 5 }) {
   );
 }
 const GATILHOS = GATILHOS_GRUPOS.flatMap(g => g[1]);
+const ATB_FLAT = [
+  ['Ceftriaxona',0],['Cefepime',0],['Ceftazidima',0],['Piperacilina-tazobactam',0],['Ampicilina-sulbactam',0],['Ceftazidima-avibactam',0],
+  ['Meropenem',0],['Imipenem',0],['Ertapenem',0],
+  ['Vancomicina',1],['Teicoplanina',0],['Linezolida',0],['Daptomicina',0],
+  ['Amicacina',1],['Gentamicina',1],
+  ['Polimixina B',1],['Colistina',1],
+  ['Ciprofloxacino',0],['Levofloxacino',0],
+  ['Tigeciclina',0],['Metronidazol',0],['Sulfametoxazol-trimetoprim',1],['Azitromicina',0],['Clindamicina',0],
+  ['Anfotericina B',1],['Fluconazol',0],['Micafungina',0],
+];
+const NEFRO_ATB = ATB_FLAT.filter(([, p]) => p).map(([n]) => n);
 
 const DEMO_PACIENTES = [];
 const DEMO_AVALIACOES = {};
@@ -839,6 +850,9 @@ function NefroApp() {
   const [subRot, setSubRot] = useState('beira');
   const [subCtx, setSubCtx] = useState('eventos');
   const [gavetaCtx, setGavetaCtx] = useState('');
+  const [gruposFechados, setGruposFechados] = useState({});
+  const [atbAberto, setAtbAberto] = useState(false);
+  const [buscaAtb, setBuscaAtb] = useState('');
   const [colaDx, setColaDx] = useState(null);
   const [colaAv, setColaAv] = useState(null); // {raw, achados, pacId, sugestao}
   const [pedirUTI, setPedirUTI] = useState(false);
@@ -891,6 +905,15 @@ function NefroApp() {
       return;
     }
     concluirRegistro();
+  };
+  const toggleAtb = (m) => {
+    if (!pacAtual) return;
+    const cur = pacAtual.atbs || [];
+    const nv = cur.includes(m) ? cur.filter(x => x !== m) : [...cur, m];
+    const at = { ...pacAtual, atbs: nv, updatedAt: Date.now() };
+    setPacientes(ps => ps.map(p => p.id === pacAtual.id ? at : p));
+    setPacAtual(at);
+    setNovoPac(n => ({ ...n, atbs: nv }));
   };
   const gerarListaSeguimento = () => {
     const ativos = pacientes.filter(p => p.nome && !infoHD[p.id]?.arquivado);
@@ -1057,14 +1080,11 @@ function NefroApp() {
   };
   const blocoDiureticos = () => (
           <div style={{ padding: '10px 14px' }}>
-            {faixaRef(false)}
+            {faixaRef(true)}
             <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 }}>Diureticoterapia</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               <span style={{ ...S.checkItem, fontSize: 12, ...(avAtual.semFuro ? { background: '#27ae60', color: 'white', borderColor: '#27ae60' } : {}) }}
                 onClick={() => setAvAtual(a => ({ ...a, semFuro: !a.semFuro, diureticos: !a.semFuro ? (a.diureticos||[]).filter(x => x !== 'Furosemida') : (a.diureticos||[]), furo_manut: !a.semFuro ? 'sem' : a.furo_manut, furo_dose_n: !a.semFuro ? '' : a.furo_dose_n, furo_bolus_n: !a.semFuro ? '' : a.furo_bolus_n }))}>Sem furosemida</span>
-              {(avAtual.diureticos||[]).includes('Furosemida') && (
-                <div style={{ padding: '0 14px 4px' }}><ChipLab rotulo="K" chave="pot_hoje" unid="mEq/l" riscoBaixo={3.5} /></div>
-              )}
               {(avAtual.diureticos||[]).includes('Hidroclorotiazida') && (
                 <div style={{ padding: '0 14px 4px' }}><ChipLab rotulo="Na" chave="sodio_hoje" unid="mEq/l" riscoBaixo={135} /><ChipLab rotulo="K" chave="pot_hoje" unid="mEq/l" riscoBaixo={3.5} /></div>
               )}
@@ -1349,7 +1369,7 @@ const ajRotulo = aj => {
         add('Parecer pré-operatório', txtP);
       }
       if (d.ultima_hd_obs) add('Última HD — intercorrências', d.ultima_hd_obs);
-      if ((d.atbs || []).length) add('Antibióticos em uso', d.atbs);
+      if ((pacRef.atbs || []).length) add('Antibióticos em uso', pacRef.atbs);
       // alertas genéricos NÃO entram no texto; condutas concretas vêm dos campos selecionados (med_revisar etc.)
       if ((d.cond_eletr || []).length) {
         const sel = d.cond_eletr || [];
@@ -1787,7 +1807,7 @@ const ajRotulo = aj => {
     const convenioLista = pacAtual.convenio === 'SUS' || CONVENIOS.includes(pacAtual.convenio);
     setNovoPac({
       nome:'', idade:'', sexo:'', leito:'', convenioOutro:'', filaHD:'', uti:'', perfilHemo:'', fe:'', comorbidades_outras:'', sepseOutro:'', gatilhos_outros:'',
-      comorbidades:[], gatilhos:[], sepseFocos:[], urgencias:[], urgenciaAdm:false,
+      comorbidades:[], gatilhos:[], sepseFocos:[], urgencias:[], urgenciaAdm:false, atbs:[],
       ...pacAtual,
       temLeito: !!pacAtual.leito,
       convenio: convenioLista ? pacAtual.convenio : 'OUTROS',
@@ -2174,7 +2194,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v302</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v308</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -3277,7 +3297,7 @@ const ajRotulo = aj => {
             <div style={{ ...S.formGroup, marginBottom: 16 }}>
               {(novoPac.gatilhos || []).length > 0 && (
           <div style={{ padding: '8px 14px', borderBottom: '1px solid #f5f5f5' }}>
-            <div style={{ fontSize: 10.5, color: '#1d7a45', textTransform: 'uppercase', fontWeight: 700, letterSpacing: 0.5, marginBottom: 5 }}>✓ Ativos neste paciente</div>
+            <div style={{ fontSize: 10.5, color: '#1d7a45', textTransform: 'uppercase', fontWeight: 700, letterSpacing: 0.5, marginBottom: 5 }}>✓ Diagnósticos ativos</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {novoPac.gatilhos.map((g, gi) => (
                 <span key={'at_' + g} style={{ ...S.checkItem, background: '#1d7a45', color: 'white', borderColor: '#1d7a45', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -3290,6 +3310,21 @@ const ajRotulo = aj => {
             </div>
           </div>
         )}
+              {(novoPac.comorbidades || []).length > 0 && (
+                <div style={{ padding: '8px 14px', borderBottom: '1px solid #f5f5f5' }}>
+                  <div style={{ fontSize: 10.5, color: '#1d7a45', textTransform: 'uppercase', fontWeight: 700, letterSpacing: 0.5, marginBottom: 5 }}>✓ Comorbidades ativas</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {novoPac.comorbidades.map((c, ci) => (
+                      <span key={'atc_' + c} style={{ ...S.checkItem, background: '#1d7a45', color: 'white', borderColor: '#1d7a45', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        {ci > 0 && <span style={{ opacity: 0.8 }} onClick={() => setNovoPac(n => { const a = [...n.comorbidades]; [a[ci-1], a[ci]] = [a[ci], a[ci-1]]; setPacAtual(p => ({ ...p, comorbidades: a, updatedAt: Date.now() })); return { ...n, comorbidades: a }; })}>▲</span>}
+                        {ci < novoPac.comorbidades.length - 1 && <span style={{ opacity: 0.8 }} onClick={() => setNovoPac(n => { const a = [...n.comorbidades]; [a[ci+1], a[ci]] = [a[ci], a[ci+1]]; setPacAtual(p => ({ ...p, comorbidades: a, updatedAt: Date.now() })); return { ...n, comorbidades: a }; })}>▼</span>}
+                        <span onClick={() => { const oficial = !ehCustomCm(c); if (oficial) { const s = prompt('Editar uma comorbidade do catálogo exige senha:'); if (s !== '8453') { if (s !== null) alert('Senha incorreta.'); return; } } const nv = prompt('Editar comorbidade:', c); if (nv === null) return; const nome = nv.trim(); if (!nome) return; if (ehCustomCm(c)) editCustomDx(c, nome); setNovoPac(n => ({ ...n, comorbidades: n.comorbidades.map(x => x === c ? nome : x) })); setPacAtual(p => ({ ...p, comorbidades: (p.comorbidades || []).map(x => x === c ? nome : x), updatedAt: Date.now() })); }}>✎</span>
+                        <span onClick={() => { if (ehCustomCm(c) && confirm('Excluir "' + c + '" do catálogo Outros também?')) delCustomDx(c); setNovoPac(n => ({ ...n, comorbidades: n.comorbidades.filter(x => x !== c) })); setPacAtual(p => ({ ...p, comorbidades: (p.comorbidades || []).filter(x => x !== c), updatedAt: Date.now() })); }}>{c} ✕</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
         
           <div style={{ padding: '8px 14px', borderBottom: '1px solid #f5f5f5' }}>
                 <FavRow campo="gatilhos" cor="#c0392b" ativos={novoPac.gatilhos}
@@ -3324,7 +3359,7 @@ const ajRotulo = aj => {
         })()}
         <div style={{ padding: '8px 14px', borderBottom: '1px solid #f5f5f5' }}>
           <span style={{ ...S.checkItem, fontSize: 12.5, ...(gavetaCtx === 'ev' ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}
-            onClick={() => setGavetaCtx(g => g === 'ev' ? '' : 'ev')}>{gavetaCtx === 'ev' ? '− fechar catálogo' : '+ evento (catálogo)'}</span>
+            onClick={() => setGavetaCtx(g => g === 'ev' ? '' : 'ev')}>{gavetaCtx === 'ev' ? '− fechar catálogo' : '+ catálogo (diagnósticos + comorbidades)'}</span>
         </div>
         <div style={{ padding: '8px 14px 0' }}>
           <input value={buscaDx} onChange={e => setBuscaDx(e.target.value)} type="text"
@@ -3401,7 +3436,11 @@ const ajRotulo = aj => {
                 const todosItens = [...itens, ...meusDoGrupo];
                 return (
                 <div key={grupo} style={{ padding: '8px 14px', borderBottom: '1px solid #f5f5f5' }}>
-                  <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 }}>{grupo}</div>
+                  <div onClick={() => setGruposFechados(gf => ({ ...gf, ['cat:' + grupo]: !gf['cat:' + grupo] }))} style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>{grupo}{(() => { const n = todosItens.filter(g => novoPac.gatilhos.includes(g)).length; return n ? ' · ' + n : ''; })()}</span>
+                    <span style={{ fontSize: 10 }}>{gruposFechados['cat:' + grupo] ? '▼' : '▲'}</span>
+                  </div>
+                  {!gruposFechados['cat:' + grupo] && (<>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                     {todosItens.map(g => (
                       <span key={g} style={{ ...S.checkItem, ...(novoPac.gatilhos.includes(g) ? { background: '#c0392b', color: 'white', borderColor: '#c0392b' } : {}) }}
@@ -3482,6 +3521,7 @@ const ajRotulo = aj => {
                       ))}
                     </div>
                   )}
+                  </>)}
                 </div>
               );})}
         {catsCustomDiag().map(grupo => {
@@ -3506,77 +3546,25 @@ const ajRotulo = aj => {
               </div>
             </div>
 
-            <div style={S.formLabel}>Urgência dialítica na admissão</div>
-            <div style={{ ...S.formGroup, marginBottom: 16 }}>
-              <div style={{ padding: '10px 14px', borderBottom: novoPac.urgenciaAdm ? '1px solid #f5f5f5' : 'none' }}>
-                <span onClick={() => setNovoPac(n => ({ ...n, urgenciaAdm: !n.urgenciaAdm, urgencias: !n.urgenciaAdm ? n.urgencias : [] }))}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14 }}>
-                  <span style={{ width: 20, height: 20, borderRadius: 4, border: '1.5px solid #ccc', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: novoPac.urgenciaAdm ? '#c0392b' : 'white', color: 'white', fontSize: 13 }}>{novoPac.urgenciaAdm ? '✓' : ''}</span>
-                  Admitido com urgência dialítica
-                </span>
-              </div>
-              {novoPac.urgenciaAdm && (
-                <div style={{ padding: '8px 14px' }}>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {URGENCIAS_DIALITICAS.map(u => (
-                      <span key={u} style={{ ...S.checkItem, fontSize: 12, ...(novoPac.urgencias.includes(u) ? { background: '#c0392b', color: 'white', borderColor: '#c0392b' } : {}) }}
-                        onClick={() => setNovoPac(n => ({ ...n, urgencias: n.urgencias.includes(u) ? n.urgencias.filter(x => x!==u) : [...n.urgencias, u] }))}>{u}</span>
-                    ))}
-                  </div>
-                  {novoPac.urgencias.includes('Intoxicação dialisável') && (
-                    <div style={{ marginTop: 8, paddingLeft: 12, borderLeft: '2px solid #f0d0cc' }}>
-                      <div style={{ fontSize: 10, color: '#999', textTransform: 'uppercase', marginBottom: 5 }}>Substância</div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                        {INTOXICACOES_DIALISAVEIS.map(s => (
-                          <span key={s} style={{ ...S.checkItem, fontSize: 12, ...(novoPac.intoxSubst?.includes(s) ? { background: '#e67e22', color: 'white', borderColor: '#e67e22' } : {}) }}
-                            onClick={() => setNovoPac(n => ({ ...n, intoxSubst: (n.intoxSubst||[]).includes(s) ? n.intoxSubst.filter(x => x!==s) : [...(n.intoxSubst||[]), s] }))}>{s}</span>
-                        ))}
-                      </div>
-                      {novoPac.intoxSubst?.includes('Outro') && (
-                        <input style={{ ...S.input, textAlign: 'left', fontSize: 13, marginTop: 6 }} type="text"
-                          value={novoPac.intoxOutro||''} onChange={e => setNovoPac(n => ({ ...n, intoxOutro: e.target.value }))}
-                          placeholder="Qual substância?" />
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
             </>
           )}
           {true && (
             <div style={{ marginTop: 12 }}>
             <div style={S.formLabel}>Comorbidades</div>
             <div style={{ ...S.formGroup, marginBottom: 12 }}>
-              {(novoPac.comorbidades || []).length > 0 && (
-                <div style={{ padding: '8px 14px', borderBottom: '1px solid #f5f5f5' }}>
-                  <div style={{ fontSize: 10.5, color: '#1d7a45', textTransform: 'uppercase', fontWeight: 700, letterSpacing: 0.5, marginBottom: 5 }}>✓ Ativas neste paciente</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {novoPac.comorbidades.map((c, ci) => (
-                      <span key={'atc_' + c} style={{ ...S.checkItem, background: '#1d7a45', color: 'white', borderColor: '#1d7a45', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        {ci > 0 && <span style={{ opacity: 0.8 }} onClick={() => setNovoPac(n => { const a = [...n.comorbidades]; [a[ci-1], a[ci]] = [a[ci], a[ci-1]]; setPacAtual(p => ({ ...p, comorbidades: a, updatedAt: Date.now() })); return { ...n, comorbidades: a }; })}>▲</span>}
-                        {ci < novoPac.comorbidades.length - 1 && <span style={{ opacity: 0.8 }} onClick={() => setNovoPac(n => { const a = [...n.comorbidades]; [a[ci+1], a[ci]] = [a[ci], a[ci+1]]; setPacAtual(p => ({ ...p, comorbidades: a, updatedAt: Date.now() })); return { ...n, comorbidades: a }; })}>▼</span>}
-                        <span onClick={() => { const oficial = !ehCustomCm(c); if (oficial) { const s = prompt('Editar uma comorbidade do catálogo exige senha:'); if (s !== '8453') { if (s !== null) alert('Senha incorreta.'); return; } } const nv = prompt('Editar comorbidade:', c); if (nv === null) return; const nome = nv.trim(); if (!nome) return; if (ehCustomCm(c)) editCustomDx(c, nome); setNovoPac(n => ({ ...n, comorbidades: n.comorbidades.map(x => x === c ? nome : x) })); setPacAtual(p => ({ ...p, comorbidades: (p.comorbidades || []).map(x => x === c ? nome : x), updatedAt: Date.now() })); }}>✎</span>
-                        <span onClick={() => { if (ehCustomCm(c) && confirm('Excluir "' + c + '" do catálogo Outros também?')) delCustomDx(c); setNovoPac(n => ({ ...n, comorbidades: n.comorbidades.filter(x => x !== c) })); setPacAtual(p => ({ ...p, comorbidades: (p.comorbidades || []).filter(x => x !== c), updatedAt: Date.now() })); }}>{c} ✕</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
               
           <div style={{ padding: '8px 14px', borderBottom: '1px solid #f5f5f5' }}>
                 <FavRow campo="comorbidades" max={7} ativos={novoPac.comorbidades}
                   onPick={c => { if (!novoPac.comorbidades.includes(c)) regFreq('comorbidades', c); setNovoPac(n => ({ ...n, comorbidades: n.comorbidades.includes(c) ? n.comorbidades.filter(x => x!==c) : [...n.comorbidades, c] })); }} />
               </div>
-              <div style={{ padding: '8px 14px', borderBottom: '1px solid #f5f5f5' }}>
-                <span style={{ ...S.checkItem, fontSize: 12.5, ...(gavetaCtx === 'cm' ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}
-                  onClick={() => setGavetaCtx(g => g === 'cm' ? '' : 'cm')}>{gavetaCtx === 'cm' ? '− fechar catálogo' : '+ comorbidade (catálogo)'}</span>
-              </div>
-              {gavetaCtx === 'cm' && (<>
+              {gavetaCtx === 'ev' && (<>
               {COMORBIDADES_GRUPOS.map(([grupo, itens]) => (
                 <div key={grupo} style={{ padding: '8px 14px', borderBottom: '1px solid #f5f5f5' }}>
-                  <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 }}>{grupo}</div>
+                  <div onClick={() => setGruposFechados(gf => ({ ...gf, ['cat:cm:' + grupo]: !gf['cat:cm:' + grupo] }))} style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>{grupo}{(() => { const n = itens.filter(c => novoPac.comorbidades.includes(c)).length; return n ? ' · ' + n : ''; })()}</span>
+                    <span style={{ fontSize: 10 }}>{gruposFechados['cat:cm:' + grupo] ? '▼' : '▲'}</span>
+                  </div>
+                  {!gruposFechados['cat:cm:' + grupo] && (<>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                     {itens.map(c => {
                       const pend = (novoPac.comorb_pend || []).includes(c);
@@ -3596,14 +3584,7 @@ const ajRotulo = aj => {
                   </div>
                   {grupo === 'Cardiovascular' && novoPac.comorbidades.includes('IC') && (
                     <div style={{ marginTop: 8, paddingLeft: 12, borderLeft: '2px solid #c8d4e0' }}>
-                      <div style={{ fontSize: 10, color: '#999', textTransform: 'uppercase', marginBottom: 5 }}>Perfil hemodinâmico (Stevenson)</div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {[['A','quente e seco (compensado)'],['B','quente e úmido (congesto)'],['C','frio e úmido (baixo débito + congesto)'],['L','frio e seco (hipovolêmico)']].map(([letra, desc]) => (
-                          <span key={letra} style={{ ...S.checkItem, fontSize: 12, textAlign: 'left', ...(novoPac.perfilHemo === letra ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}
-                            onClick={() => setNovoPac(n => ({ ...n, perfilHemo: n.perfilHemo === letra ? '' : letra }))}><b>{letra}</b> — {desc}</span>
-                        ))}
-                      </div>
-                      <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <span style={{ fontSize: 13, color: '#555' }}>FE (%):</span>
                         <NumInput style={{ ...S.input, width: 80 }} value={novoPac.fe} onSet={v => setNovoPac(n => ({ ...n, fe: v }))} placeholder="—" label="FE (%)" />
                         {novoPac.fe && (
@@ -3614,6 +3595,7 @@ const ajRotulo = aj => {
                       </div>
                     </div>
                   )}
+                  </>)}
                 </div>
               ))}
               </>)}
@@ -3626,6 +3608,65 @@ const ajRotulo = aj => {
             
             </div>
           )}
+            <div style={S.formLabel}>Antibióticos</div>
+            <div style={{ ...S.formGroup, marginBottom: 16, padding: '10px 14px' }}>
+              {(pacAtual.atbs || []).length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                  {(pacAtual.atbs || []).map(m => {
+                    const prob = NEFRO_ATB.includes(m);
+                    return (
+                      <span key={m} style={{ ...S.checkItem, fontSize: 12, ...(prob ? { background: '#e67e22', color: 'white', borderColor: '#e67e22' } : { background: '#7a4a1e', color: 'white', borderColor: '#7a4a1e' }) }}
+                        onClick={() => toggleAtb(m)}>{m} ✕</span>
+                    );
+                  })}
+                </div>
+              )}
+              <input value={buscaAtb} onChange={e => setBuscaAtb(e.target.value)} type="text"
+                placeholder="💊 buscar antibiótico…"
+                style={{ width: '100%', boxSizing: 'border-box', border: '1.5px solid #ddd', borderRadius: 10, padding: '8px 12px', fontSize: 13.5, fontFamily: 'inherit' }} />
+              {buscaAtb.trim().length >= 2 && (() => {
+                const q = buscaAtb.trim().toLowerCase();
+                const res = ATB_FLAT.filter(([n]) => n.toLowerCase().includes(q) && !(pacAtual.atbs || []).includes(n)).slice(0, 8);
+                if (!res.length) return null;
+                return (
+                  <div style={{ marginTop: 6, border: '1px solid #e0e6ed', borderRadius: 10, overflow: 'hidden' }}>
+                    {res.map(([n, prob]) => (
+                      <div key={n} onClick={() => { toggleAtb(n); setBuscaAtb(''); }}
+                        style={{ padding: '9px 12px', fontSize: 13.5, borderBottom: '1px solid #f0f0f0', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: prob ? '#c4641a' : '#333' }}>
+                        <span>{n}</span>{prob ? <span style={{ fontSize: 10, color: '#c4641a' }}>nefrotóxico</span> : null}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+              {(() => {
+                const sel = pacAtual.atbs || [];
+                const E = {
+                  'Amicacina': 'Ataque 15 mg/kg (dose plena). IRA/HD: 500 mg 48/48h.',
+                  'Vancomicina': 'Ataque 20–25 mg/kg (1,5–2 g). Depois 1 g 48/48h (HD convencional remove pouco; independe do horário da sessão).',
+                  'Polimixina B': 'Sem ajuste renal (diferente da colistina). Dose plena.',
+                  'Cefepime': 'IRA/HD: 1 g 1x/dia. Sem ajuste → neurotoxicidade (rebaixamento/mioclonia).',
+                };
+                const caixas = sel.filter(m => E[m]);
+                return caixas.length ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                    {caixas.map(m => {
+                      const peso = parseFloat(String((avAtual && avAtual.peso_est) || '').replace(',', '.'));
+                      let calc = '';
+                      if (peso) {
+                        if (m === 'Amicacina') calc = ' Ataque ~ ' + (Math.round(peso * 15 / 50) * 50) + ' mg para ' + peso + ' kg.';
+                        if (m === 'Vancomicina') calc = ' Ataque ~ ' + (Math.round(peso * 20 / 50) * 50) + '-' + (Math.round(peso * 25 / 50) * 50) + ' mg para ' + peso + ' kg.';
+                      }
+                      return (
+                        <div key={m} style={{ background: '#fdf6f0', border: '1px solid #ecd5c0', borderRadius: 8, padding: '7px 10px', fontSize: 12.5, color: '#7a4a1e' }}>
+                          <b>{m}:</b> {E[m]}{calc ? <b>{calc}</b> : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null;
+              })()}
+            </div>
           </div>
         </div>
 
@@ -3644,7 +3685,7 @@ const ajRotulo = aj => {
         </div>
         <TabBar atual="roteiro" />
         <div style={{ display: 'flex', gap: 6, padding: '10px 16px 0', overflowX: 'auto' }}>
-          {[['estado','🛏 Estado'],['resp','🫁 Respiração'],['pa','💉 PA & DVAs'],['bh','💧 Balanço'],['exames','🧪 Exames'],['atb','💊 ATB']].map(([k, l]) => (
+          {[['estado','🛏 Estado'],['resp','🫁 Respiração'],['pa','💉 PA & DVAs'],['bh','💧 Balanço'],['exames','🧪 Exames']].map(([k, l]) => (
             <span key={k} onClick={() => setSubRot(k)}
               style={{ ...S.checkItem, fontSize: 12.5, whiteSpace: 'nowrap', ...(subRot === k ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}>{l}</span>
           ))}
@@ -3978,49 +4019,6 @@ const ajRotulo = aj => {
         </div>
 
         </>)}
-        {subRot === 'atb' && (
-          <Section title="💊 Antibióticos em uso">
-            <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0' }}>
-              <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 }}>Antibióticos em uso</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {['Amicacina','Vancomicina','Polimixina B','Cefepime'].map(m => {
-                  const sel = (avAtual.atbs||[]).includes(m);
-                  return (
-                    <span key={m} style={{ ...S.checkItem, fontSize: 12, ...(sel ? { background: '#7a4a1e', color: 'white', borderColor: '#7a4a1e' } : {}) }}
-                      onClick={() => setAvAtual(a => ({ ...a, atbs: (a.atbs||[]).includes(m) ? a.atbs.filter(x => x!==m) : [...(a.atbs||[]), m] }))}>{m}</span>
-                  );
-                })}
-              </div>
-              {(() => {
-                const sel = avAtual.atbs || [];
-                const E = {
-                  'Amicacina': 'Ataque 15 mg/kg (dose plena). IRA/HD: 500 mg 48/48h.',
-                  'Vancomicina': 'Ataque 20–25 mg/kg (1,5–2 g). Depois 1 g 48/48h (HD convencional remove pouco; independe do horário da sessão).',
-                  'Polimixina B': 'Sem ajuste renal (diferente da colistina). Dose plena.',
-                  'Cefepime': 'IRA/HD: 1 g 1x/dia. Sem ajuste → neurotoxicidade (rebaixamento/mioclonia).',
-                };
-                const caixas = sel.filter(m => E[m]);
-                return caixas.length ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
-                    {caixas.map(m => {
-                      const peso = parseFloat(String(avAtual.peso_est || '').replace(',', '.'));
-                      let calc = '';
-                      if (peso) {
-                        if (m === 'Amicacina') calc = ' Ataque ~ ' + (Math.round(peso * 15 / 50) * 50) + ' mg para ' + peso + ' kg.';
-                        if (m === 'Vancomicina') calc = ' Ataque ~ ' + (Math.round(peso * 20 / 50) * 50) + '-' + (Math.round(peso * 25 / 50) * 50) + ' mg para ' + peso + ' kg.';
-                      }
-                      return (
-                        <div key={m} style={{ background: '#fdf6f0', border: '1px solid #ecd5c0', borderRadius: 8, padding: '7px 10px', fontSize: 12.5, color: '#7a4a1e' }}>
-                          <b>{m}:</b> {E[m]}{calc ? <b>{calc}</b> : null}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : null;
-              })()}
-            </div>
-          </Section>
-        )}
 
         </div>
 <RodapeNav direita={modoConsulta ? null : "Resumo ▸"} onDireita={() => irResumo('roteiro')} onPacientes={sairPerguntando} salvarSair={modoConsulta ? null : (() => concluirOuAuditar('roteiro'))} />
@@ -4043,9 +4041,6 @@ const ajRotulo = aj => {
         </div>
         <TabBar atual="hdview" />
         <div style={{ pointerEvents: modoConsulta ? 'none' : 'auto' }}>
-        <div style={{ margin: '10px 16px 0', padding: '10px 14px', borderRadius: 10, background: '#eef4fb', border: '1px solid #b9d2ee', fontSize: 14, fontWeight: 800, color: '#1a3a5c' }}>
-          🩸 Última HD: {dULT ? dULT.split('-').reverse().join('/') : '— sem data —'}{intervaloTxt ? <span style={{ fontWeight: 900 }}> — {intervaloTxt}</span> : null}
-        </div>
         {avAtual.emerg_dial && (
           <div style={{ margin: '8px 16px 0', padding: '8px 12px', borderRadius: 10, background: '#fdecea', border: '1.5px solid #c0392b', fontSize: 12.5, fontWeight: 700, color: '#c0392b' }}>
             🚨 Emergência dialítica sinalizada — considerar HD imediata
@@ -5442,7 +5437,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                   {detVol.length > 0 && <Item k="Volemia" v={detVol.join('; ')} />}
                   {(avV.cond_eletr || []).length > 0 && <Item k="Eletrólitos" v={(avV.cond_eletr || []).join(', ')} />}
                   {detOutras.length > 0 && <Item k="Outras" v={detOutras.join('; ')} />}
-                  {(avV.atbs || []).length > 0 && <Item k="Antibióticos" v={(avV.atbs || []).join(', ')} />}
+                  {(pacAtual.atbs || []).length > 0 && <Item k="Antibióticos" v={(pacAtual.atbs || []).join(', ')} />}
                   {(avV.cond_alertas || []).map((c, ix) => <Item key={'al'+ix} k="Conduta de alerta" v={c} />)}
                 </>);
               })()}
