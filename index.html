@@ -639,7 +639,6 @@ function NefroApp() {
     const h = new Date().getHours(); return h >= 21 || h < 6;
   });
   React.useEffect(() => { try { document.documentElement.classList.toggle('noturno', noturno); } catch {} }, [noturno]);
-  useEffect(() => { if (avAtual?.hd_primeira_sessao && (hdSubAba === 'ultima' || hdSubAba === 'programada')) setHdSubAba('hoje'); }, [avAtual?.hd_primeira_sessao, hdSubAba]);
   React.useEffect(() => {
     const tick = () => {
       let vetoAtivo = false;
@@ -2124,7 +2123,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v289</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v288</span></h1>
         <button style={S.headerBtn} onClick={() => setShowModal(true)}>+ Paciente</button>
       </div>
 
@@ -3962,7 +3961,7 @@ const ajRotulo = aj => {
           const _temHDi2 = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido;
           const _sit2 = hdSituacao || (_temHDi2 ? 'hd' : null);
           if (_sit2 !== 'hd' && _sit2 !== 'continuidade') return null;
-          const subs = avAtual.hd_primeira_sessao ? [['hoje','HD hoje']] : [['ultima','Última HD'],['hoje','HD hoje'],['programada','Programada p/ outro dia']];
+          const subs = avAtual.hd_primeira_sessao ? [['hoje','HD hoje'],['programada','Programada p/ outro dia']] : [['ultima','Última HD'],['hoje','HD hoje'],['programada','Programada p/ outro dia']];
           return (
             <div style={{ display: 'flex', gap: 4, margin: '8px 16px 0', borderBottom: '2px solid #e3e8ee' }}>
               {subs.map(([v, lbl]) => (
