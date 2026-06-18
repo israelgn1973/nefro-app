@@ -2227,7 +2227,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v328</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.0</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -3214,7 +3214,7 @@ const ajRotulo = aj => {
           <span style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.6)', fontWeight: 500, whiteSpace: 'nowrap' }}>{fmtDataSem()}</span><IconeCasa onClick={() => sairPerguntando()} />
         </div>
         <TabBar atual={view} />
-        <div style={{ paddingBottom: 30 }}>
+        <div style={{ padding: '0 16px 30px' }}>
           <div style={{ pointerEvents: modoConsulta ? 'none' : 'auto' }}>
           {false && (
             <>
@@ -3682,7 +3682,7 @@ const ajRotulo = aj => {
           </div>
         </div>
 
-        <RodapeNav extraBottom={34} direita="Voltar ▸" onDireita={() => { setModoConsulta(false); setView('paciente'); }} salvarSair={modoConsulta ? null : (() => concluirOuAuditar('eventos'))} />
+        <RodapeNav direita="Voltar ▸" onDireita={() => { setModoConsulta(false); setView('paciente'); }} salvarSair={modoConsulta ? null : (() => concluirOuAuditar('eventos'))} />
       </div>
     );
   }
