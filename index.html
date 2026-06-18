@@ -712,6 +712,8 @@ function NefroApp() {
   const [numpad, setNumpad] = useState(null);
   const [pdfHtml, setPdfHtml] = useState(null);
   const [filtroHD, setFiltroHD] = useState(false);
+  const [filtroCat, setFiltroCat] = useState(null);
+  const [catAberto, setCatAberto] = useState(false);
   const [verAmanha, setVerAmanha] = useState(false);
   const [verArquivados, setVerArquivados] = useState(false);
   const [buscaInativo, setBuscaInativo] = useState('');
@@ -2076,6 +2078,16 @@ const ajRotulo = aj => {
     return m;
   })();
 
+  const catDe = (p) => {
+    const ih = infoHD[p.id] || {};
+    if (ih.hdHoje) return 'hoje';
+    if (ih.suspensa) return 'susp';
+    const avs = avaliacoes[p.id] || [];
+    const avHoje = avs.find(a => dataLocalISO(a.data) === dataLocalISO());
+    const emHD = avs.some(a => a.conduta === 'hd_hoje') || ['diaria', 'sqs', 'tqs'].includes(p.esquemaHD) || (avHoje && avHoje.conduta === 'hd_amanha');
+    return emHD ? 'emhd' : 'cons';
+  };
+
   if (view === 'pep') {
     const diasDisp = [];
     for (let i = 0; i < 7; i++) diasDisp.push(dataLocalISO(Date.now() - i * 86400000));
@@ -2214,62 +2226,10 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v319</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v320</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
-
-      {(() => {
-        const hojeISO = dataLocalISO();
-        const ontemISO = dataLocalISO(Date.now() - 86400000);
-        const pendentes = pacientes.filter(p => (infoHD[p.id]?.motivo || infoHD[p.id]?.prioridadeOntem) && !infoHD[p.id]?.condutaHoje && !infoHD[p.id]?.arquivado).length;
-        const prescritasHoje = pacientes.filter(p => infoHD[p.id]?.hdHoje && !infoHD[p.id]?.arquivado).length;
-        if (!pendentes && !prescritasHoje && !filtroHD) return null;
-        return (
-          <div style={{ padding: '10px 16px 0' }}>
-            {prescritasHoje > 0 && (
-              <div style={{ width: '100%', padding: 10, borderRadius: 10, border: '1.5px solid #b9d2ee', background: '#eef4fb', color: '#1a3a5c', fontWeight: 700, fontSize: 13, textAlign: 'center' }}>
-                ✓ Condutas definidas — {prescritasHoje} HD prescrita{prescritasHoje === 1 ? '' : 's'} hoje
-                
-                {(() => {
-                  // CICLO FECHADO: cobra os relatórios das HDs prescritas ONTEM (as de hoje só aparecem amanhã)
-                  const ontem = new Date(Date.now() - 86400000);
-                  const ontemISO2 = ontem.getFullYear() + '-' + String(ontem.getMonth()+1).padStart(2,'0') + '-' + String(ontem.getDate()).padStart(2,'0');
-                  const ontemBR = ontemISO2.split('-').reverse().join('/');
-                  // pacientes com prescrição de HD de ONTEM (conduta hd_hoje naquela data)
-                  const avOntem = (p) => (avaliacoes[p.id] || []).find(a => a.conduta === 'hd_hoje' && dataLocalISO(a.data) === ontemISO2);
-                  const doDia = pacientes.filter(p => !infoHD[p.id]?.arquivado && avOntem(p));
-                  const avHj = avOntem;
-                  const esperados = doDia.filter(p => { const a = avHj(p); return !(a && a.hd_destino === 'cancelada'); });
-                  const recebeu = (p) => (p.relEnf || []).some(r => (r.campos && r.campos.data === ontemBR) || dataLocalISO(r.criadoEm) === ontemISO2);
-                  const faltam = esperados.filter(p => !recebeu(p));
-                  const naoRodou = (p) => {
-                    const a = avHj(p);
-                    if (!a) { alert('Sem prescrição de ontem encontrada.'); return; }
-                    const esc = prompt('HD não rodou — motivo:\n' + CANC_LISTA.map((mzz, izz) => (izz + 1) + '. ' + mzz).join('\n') + '\n\nDigite o número:');
-                    const nEsc = parseInt(esc, 10);
-                    if (!nEsc || nEsc < 1 || nEsc > CANC_LISTA.length) return;
-                    setAvaliacoes(prev => ({ ...prev, [p.id]: (prev[p.id] || []).map(ax => ax.id === a.id ? { ...ax, hd_destino: 'cancelada', hd_canc_motivo: CANC_LISTA[nEsc - 1] } : ax) }));
-                    mostrarToast('Registrado: HD não realizada — ' + CANC_LISTA[nEsc - 1]);
-                  };
-                  return faltam.length === 0 ? null : (
-                    <div style={{ marginTop: 6, fontSize: 12, color: '#1a3a5c' }}>
-                      <b>📬 Relatórios de ontem: {esperados.length - faltam.length} de {esperados.length}</b> — faltam:
-                      {faltam.map(p => (
-                        <div key={'plc' + p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                          <span style={{ flex: 1 }}>{p.nome}{p.uti ? ' · ' + p.uti : ''}</span>
-                          <span onClick={e => { e.stopPropagation(); naoRodou(p); }}
-                            style={{ fontSize: 11, fontWeight: 700, color: '#c0392b', border: '1px solid #c0392b', borderRadius: 6, padding: '2px 7px' }}>✗ HD não rodou</span>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
-          </div>
-        );
-      })()}
 
       {(() => {
         const ativos = pacientes.filter(p => !infoHD[p.id]?.arquivado && !p.externo);
@@ -2317,9 +2277,16 @@ const ajRotulo = aj => {
           hdPrescritas.forEach(p => { const ultHD = (avaliacoes[p.id] || []).find(a => a.conduta === 'hd_hoje'); if (ultHD && ultHD.data > maisRecente) maisRecente = ultHD.data; });
           return maisRecente ? new Date(maisRecente).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '—';
         })();
+        const hdHojePacs = pacientes.filter(p => infoHD[p.id]?.hdHoje && !infoHD[p.id]?.arquivado);
+        const prescritasN = hdHojePacs.length;
+        const hojeISO3 = dataLocalISO();
+        const faltamN = hdHojePacs.filter(p => {
+          const av = (avaliacoes[p.id] || []).find(a => a.conduta === 'hd_hoje' && dataLocalISO(a.data) === hojeISO3);
+          return !(av && (p.relEnf || []).some(r => r.criadoEm >= av.data));
+        }).length;
         return (
           <div style={{ margin: '12px 16px 0', padding: '10px 14px', borderRadius: 10, background: '#1a3a5c', color: 'white', fontSize: 12.5, lineHeight: 1.6 }}>
-            ☀️ <b>{vistos}/{ativos.length}</b> evoluídos hoje{provaveis ? <> · <span onClick={() => setFiltroHD(f => !f)} style={{ cursor: 'pointer', padding: '1px 6px', borderRadius: 6, background: filtroHD ? '#3d6aa3' : 'transparent', textDecoration: filtroHD ? 'none' : 'underline', textDecorationStyle: 'dotted' }}>💧 <b>{provaveis}</b> provável{provaveis > 1 ? 'is' : ''} HD{filtroHD ? ' ✓' : ''}</span></> : null}{prior ? <> · ⚠ <b>{prior}</b> prioridade de ontem</> : null}{semEvol ? <> · 🕐 <b>{semEvol}</b> sem evolução há 2d+</> : null}
+            ☀️ <b>{vistos}/{ativos.length}</b> evoluídos hoje{prescritasN > 0 ? <> · 🩸 <b>{prescritasN}</b> HD prescrita{prescritasN === 1 ? '' : 's'}{faltamN > 0 ? <> · <span style={{ color: '#ffd28a' }}>faltam <b>{faltamN}</b> relatório{faltamN === 1 ? '' : 's'}</span></> : <span style={{ opacity: 0.7 }}> · relatórios ✓</span>}</> : null}{provaveis ? <> · <span onClick={() => setFiltroHD(f => !f)} style={{ cursor: 'pointer', padding: '1px 6px', borderRadius: 6, background: filtroHD ? '#3d6aa3' : 'transparent', textDecoration: filtroHD ? 'none' : 'underline', textDecorationStyle: 'dotted' }}>💧 <b>{provaveis}</b> provável{provaveis > 1 ? 'is' : ''} HD{filtroHD ? ' ✓' : ''}</span></> : null}{prior ? <> · ⚠ <b>{prior}</b> prioridade de ontem</> : null}{semEvol ? <> · 🕐 <b>{semEvol}</b> sem evolução há 2d+</> : null}
             {filtroHD && <div style={{ fontSize: 11, opacity: 0.85, marginTop: 4 }}>mostrando só prováveis de HD — toque em 💧 para ver todos</div>}
           </div>
         );
@@ -2380,6 +2347,35 @@ const ajRotulo = aj => {
                 </div>
               );
             })()}
+          </div>
+        );
+      })()}
+      {pacientes.filter(p => p.nome && !infoHD[p.id]?.arquivado).length > 0 && (() => {
+        const pop = pacientes.filter(p => p.nome && !infoHD[p.id]?.arquivado);
+        const cont = { hoje: 0, emhd: 0, susp: 0, cons: 0 };
+        pop.forEach(p => { cont[catDe(p)]++; });
+        const cats = [['hoje', 'HD HOJE', '#c0392b'], ['emhd', 'EM HD', '#2e6da4'], ['susp', 'Suspensa', '#8a6d3b'], ['cons', 'Conservador', '#27ae60']];
+        const ativoLbl = filtroCat ? (cats.find(c => c[0] === filtroCat) || [])[1] : null;
+        return (
+          <div style={{ margin: '8px 16px 0' }}>
+            <div onClick={() => setCatAberto(v => !v)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', cursor: 'pointer', fontSize: 12, color: '#7a8a9a', fontWeight: 700 }}>
+              <span>🔎 Filtrar por status{ativoLbl ? <span style={{ color: '#1a3a5c' }}> · {ativoLbl} ✓</span> : null}</span>
+              <span style={{ color: '#9aa7b4' }}>{catAberto ? '▴' : '▾'}</span>
+            </div>
+            {catAberto && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, paddingBottom: 4 }}>
+                {cats.map(([k, lbl, cor]) => {
+                  const on = filtroCat === k;
+                  return (
+                    <span key={k} onClick={() => setFiltroCat(f => f === k ? null : k)}
+                      style={{ fontSize: 12, fontWeight: 700, padding: '5px 10px', borderRadius: 16, cursor: 'pointer', border: '1.5px solid ' + cor, background: on ? cor : 'white', color: on ? 'white' : cor }}>
+                      {lbl} {cont[k]}
+                    </span>
+                  );
+                })}
+                {filtroCat && <span onClick={() => setFiltroCat(null)} style={{ fontSize: 12, fontWeight: 700, padding: '5px 10px', borderRadius: 16, cursor: 'pointer', border: '1.5px solid #ccc', background: 'white', color: '#888' }}>Todos</span>}
+              </div>
+            )}
           </div>
         );
       })()}
@@ -2699,7 +2695,8 @@ const ajRotulo = aj => {
           ? <div style={S.emptyState}><div style={{ fontSize: 48 }}>🏥</div><p>Nenhum paciente</p></div>
           : (() => { const ativos = pacientes.filter(p => modoExcluir || !infoHD[p.id]?.arquivado);
             const porData = buscaData ? ativos.filter(p => (avaliacoes[p.id] || []).some(a => dataLocalISO(a.data) === buscaData)) : ativos;
-            const vis = filtroHD ? porData.filter(p => infoHD[p.id]?.motivo || infoHD[p.id]?.prioridadeOntem) : porData;
+            let vis = filtroHD ? porData.filter(p => infoHD[p.id]?.motivo || infoHD[p.id]?.prioridadeOntem) : porData;
+            if (filtroCat) vis = vis.filter(p => catDe(p) === filtroCat);
             const pert = (p, u) => u === '__EXT__' ? !!p.externo : (!p.externo && (p.uti || '') === u);
             const ordemTrajeto = [...ANDARES.flatMap(([, us]) => us), ...UTIs.filter(u => !ANDARES.some(([, us]) => us.includes(u))), '', '__EXT__'];
             const andarDe = (u) => { const a = ANDARES.find(([, us]) => us.includes(u)); return a ? a[0] : null; };
