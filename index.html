@@ -888,6 +888,21 @@ function NefroApp() {
   const [hdSubAba, setHdSubAba] = useState('ultima');
   const [manualUltHdAberto, setManualUltHdAberto] = useState(false);
   useEffect(() => { if (avAtual?.hd_primeira_sessao && (hdSubAba === 'ultima' || hdSubAba === 'programada')) setHdSubAba('hoje'); }, [avAtual?.hd_primeira_sessao, hdSubAba]);
+  // Relatório enviado = sessão feita. Há relatório da sessão anterior e destino vazio ⟹ registra "realizada" (a priori) e puxa tempo/UF do relatório.
+  useEffect(() => {
+    if (!avAtual || avAtual.hd_destino || !pacAtual || modoConsulta) return;
+    if (dataLocalISO(avAtual.data) !== dataLocalISO()) return;
+    const lista = avaliacoes[pacAtual.id] || [];
+    const prevHD = lista.find(a => a.id !== avAtual.id && a.conduta === 'hd_hoje');
+    if (!prevHD || dataLocalISO(prevHD.data) === dataLocalISO()) return;
+    const rel = (pacAtual.relEnf || []).find(r => !r.usadoEm) || (pacAtual.relEnf || [])[0];
+    if (!rel) return;
+    const rc = rel.campos || {};
+    setAvAtual(a => ({ ...a, hd_destino: 'realizada',
+      ultima_hd_data: a.ultima_hd_data || dataLocalISO(prevHD.data),
+      tempo_obtido: a.tempo_obtido || rc.durCalc || rc.tempo || '',
+      uf_obtida: a.uf_obtida || rc.ufEfetiva || rc.ufTotal || '' }));
+  }, [avAtual?.id, avAtual?.hd_destino, pacAtual?.id, pacAtual?.relEnf, avaliacoes]);
   const irResumo = (vOrigem) => { salvarAvaliacao(false); setOrigemResumo({ v: vOrigem, sub: subRot }); setDiaFolheado(0); setView('panorama'); };
   const concluirRegistro = () => {
     const u = { ...avAtual, concluidaEm: avAtual.concluidaEm || Date.now() };
@@ -1011,7 +1026,8 @@ function NefroApp() {
     const ehHoje = dataLocalISO(av.data) === dataLocalISO();
     if (ehHoje) {
       const prev = ((avaliacoes[pac.id] || []).filter(a => a.id !== av.id && dataLocalISO(a.data) !== dataLocalISO(av.data)))[0];
-      if (prev && prev.conduta === 'hd_hoje' && !av.hd_destino) R('destino_ant', 'Destino da sessão anterior não marcado', 'hdview', null);
+      const relPrev = (pac.relEnf || []).find(r => !r.usadoEm) || (pac.relEnf || [])[0];
+      if (prev && prev.conduta === 'hd_hoje' && !av.hd_destino && !relPrev) R('destino_ant', 'Destino da sessão anterior não marcado', 'hdview', null);
     }
     const temLab = Object.values(av.labs || {}).some(v => v != null && v !== '');
     if (!temLab && !av.sem_exames_hoje) A('labs', 'Sem exames lançados hoje', 'roteiro', 'exames');
@@ -1322,6 +1338,7 @@ function NefroApp() {
         add('Data', d.ultima_hd_data ? new Date(d.ultima_hd_data + 'T12:00').toLocaleDateString('pt-BR') : '');
         if (d.hd_externa) add('Realizada em', d.hd_externa_local || 'serviço externo');
         add('Acesso', d.acesso);
+        if (d.hd_destino === 'realizada') add('Sessão', 'realizada');
         if (d.hd_destino === 'conforme') add('Sessão', 'realizada conforme prescrito');
         if (d.hd_destino === 'cancelada') add('Sessão', 'NÃO realizada' + (d.hd_canc_motivo ? ' — ' + d.hd_canc_motivo.toLowerCase() : ''));
         if (d.hd_destino === 'parcial') add('Sessão', 'encerrada precocemente' + (d.hd_parcial_motivo ? ' — ' + d.hd_parcial_motivo.toLowerCase() : ''));
@@ -2225,7 +2242,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.1.1</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.1.5</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -4134,6 +4151,22 @@ const ajRotulo = aj => {
           const _temHDe = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido;
           const _sitE = hdSituacao || (_temHDe ? 'hd' : null);
           if (_sitE !== 'hd' && _sitE !== 'continuidade') return null;
+          const esqAtual = pacAtual.esquemaHD;
+          const drift = (() => {
+            if (esqAtual !== 'sqs' && esqAtual !== 'tqs') return null;
+            const rels = pacAtual.relEnf || [];
+            if (!rels.length) return null;
+            const rec = rels.slice().sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0))[0];
+            const ds = rec.campos && rec.campos.data;
+            if (!ds) return null;
+            const pp = String(ds).split('/'); if (pp.length !== 3) return null;
+            const dow = new Date(+pp[2], +pp[1] - 1, +pp[0]).getDay();
+            const diasAtual = esqAtual === 'sqs' ? [1, 3, 5] : [2, 4, 6];
+            const diasAlt = esqAtual === 'sqs' ? [2, 4, 6] : [1, 3, 5];
+            if (diasAtual.includes(dow) || !diasAlt.includes(dow)) return null;
+            if (pacAtual.driftIgnoradoData === ds) return null;
+            return { ds, dow, alt: esqAtual === 'sqs' ? 'tqs' : 'sqs', altLabel: esqAtual === 'sqs' ? 'Ter/Qui/Sáb' : 'Seg/Qua/Sex' };
+          })();
           return (
             <div style={{ padding: '0 16px 12px' }}>
               <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 4, marginBottom: 8 }}>Esquema HD</div>
@@ -4145,6 +4178,17 @@ const ajRotulo = aj => {
                 <span style={{ ...S.checkItem, fontSize: 12, fontWeight: 700, ...(avAtual.hd_primeira_sessao ? { background: '#e67e22', color: 'white', borderColor: '#e67e22' } : { color: '#e67e22', borderColor: '#e8c39e' }) }}
                   onClick={() => { const nv = !avAtual.hd_primeira_sessao; upAv('hd_primeira_sessao', nv); if (nv) setHdSubAba('hoje'); }}>1ª sessão</span>
               </div>
+              {drift && (
+                <div style={{ marginTop: 8, padding: '10px 12px', borderRadius: 8, background: '#fdf6ec', border: '1.5px solid #e8cfa8', fontSize: 12.5, color: '#8a6d3b', lineHeight: 1.5 }}>
+                  Relatório registrou sessão numa <b>{['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'][drift.dow]}</b> ({drift.ds}), fora do esquema atual. O esquema mudou para <b>{drift.altLabel}</b>?
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                    <span style={{ ...S.checkItem, fontSize: 12, background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' }}
+                      onClick={() => { setPacientes(ps => ps.map(p => p.id === pacAtual.id ? { ...p, esquemaHD: drift.alt, driftIgnoradoData: '' } : p)); setPacAtual(pa => ({ ...pa, esquemaHD: drift.alt, driftIgnoradoData: '' })); }}>Sim, mudou p/ {drift.altLabel}</span>
+                    <span style={{ ...S.checkItem, fontSize: 12 }}
+                      onClick={() => { setPacientes(ps => ps.map(p => p.id === pacAtual.id ? { ...p, driftIgnoradoData: drift.ds } : p)); setPacAtual(pa => ({ ...pa, driftIgnoradoData: drift.ds })); }}>Foi só dessa vez</span>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })()}
@@ -4177,6 +4221,8 @@ const ajRotulo = aj => {
             </div>
           );
         })()}
+
+        {hdSubAba !== 'ultima' && (() => { const fx = faixaRef(true); return fx ? <div style={{ margin: '10px 16px 0' }}>{fx}</div> : null; })()}
 
         {hdSubAba === 'ultima' && dULT && (
           <div style={{ margin: '10px 16px 0', padding: '10px 14px', borderRadius: 10, background: '#eef4fb', border: '1px solid #b9d2ee', fontSize: 14, fontWeight: 800, color: '#1a3a5c' }}>
@@ -4275,7 +4321,19 @@ const ajRotulo = aj => {
               <div style={{ ...S.card, margin: '12px 16px' }}>
                 <div style={{ padding: 16, fontSize: 14, color: '#444', lineHeight: 1.6 }}>
                   <b>HD programada para outro dia.</b><br/>
-                  A próxima sessão não é hoje (ex.: amanhã, depois de amanhã, segunda-feira). A prescrição será feita no dia da sessão.
+                  {(() => {
+                    const esq = pacAtual.esquemaHD;
+                    const dias = esq === 'sqs' ? [1, 3, 5] : esq === 'tqs' ? [2, 4, 6] : esq === 'diaria' ? [0, 1, 2, 3, 4, 5, 6] : null;
+                    if (!dias) return 'A próxima sessão não é hoje. A prescrição será feita no dia da sessão.';
+                    const base = new Date(); base.setHours(0, 0, 0, 0);
+                    let prox = null, di = 0;
+                    for (let i = 1; i <= 7; i++) { const d = new Date(base.getTime() + i * 86400000); if (dias.includes(d.getDay())) { prox = d; di = i; break; } }
+                    if (!prox) return 'A próxima sessão não é hoje. A prescrição será feita no dia da sessão.';
+                    const nomes = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+                    const rel = di === 1 ? 'amanhã' : di === 2 ? 'depois de amanhã' : 'em ' + di + ' dias';
+                    return <span>Próxima sessão: <b style={{ color: '#1a3a5c' }}>{nomes[prox.getDay()]} · {prox.toLocaleDateString('pt-BR')}</b> ({rel}). A prescrição será feita no dia da sessão.</span>;
+                  })()}
+                  {['sqs', 'tqs'].includes(pacAtual.esquemaHD) ? <div style={{ marginTop: 10, fontSize: 12.5, color: '#7a8a9a' }}>Esquema {pacAtual.esquemaHD === 'sqs' ? 'Seg/Qua/Sex' : 'Ter/Qui/Sáb'} · intervalos de 2 e 3 dias (fim de semana).</div> : null}
                 </div>
               </div>
             );
@@ -4425,6 +4483,7 @@ const ajRotulo = aj => {
                             }
                             const dataISO = c.data ? c.data.split('/').reverse().join('-') : '';
                             setAvAtual(a => ({ ...a,
+                              hd_destino: a.hd_destino || 'realizada',
                               tempo_obtido: (diverge ? c.durCalc : tempoFinal) || a.tempo_obtido,
                               uf_obtida: c.ufEfetiva || c.ufTotal || a.uf_obtida,
                               ultima_hd_data: dataISO || a.ultima_hd_data }));
@@ -4445,10 +4504,12 @@ const ajRotulo = aj => {
             const dest = avAtual.hd_destino || '';
             const CANC = CANC_LISTA;
             const PARC = ['Instabilidade hemodinâmica', 'Rebaixamento', 'PCR', 'Coagulação do circuito', 'Sangramento', 'CDL sem fluxo', 'Calafrios/reação', 'Agitação', 'Saída para exame/cirurgia'];
+            const relSessao = (pacAtual.relEnf || []).find(r => !r.usadoEm) || (pacAtual.relEnf || [])[0];
+            const temRel = !!relSessao;
             return (
               <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0', background: '#f4f7fb' }}>
                 <div style={{ fontSize: 12.5, fontWeight: 700, color: '#1a3a5c', marginBottom: 8 }}>
-                  HD prescrita {dataLocalISO(prevHD.data) === dataLocalISO(Date.now() - 86400000) ? 'ontem' : 'em ' + new Date(prevHD.data).toLocaleDateString('pt-BR')} ({durP}h · UF {ufP || '—'} ml) — realizada conforme prescrito?
+                  HD prescrita {dataLocalISO(prevHD.data) === dataLocalISO(Date.now() - 86400000) ? 'ontem' : 'em ' + new Date(prevHD.data).toLocaleDateString('pt-BR')} ({durP}h · UF {ufP || '—'} ml) — como foi a sessão?
                 </div>
                 {(() => {
                   const rel = (pacAtual.relEnf || []).find(r => !r.usadoEm) || (pacAtual.relEnf || [])[0];
@@ -4502,14 +4563,22 @@ const ajRotulo = aj => {
                     </div>
                   );
                 })()}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {[['conforme', '✓ Conforme'], ['parcial', 'Parcial'], ['cancelada', 'Não realizada']].map(([v, l]) => (
-                    <span key={v} style={{ ...S.checkItem, fontSize: 12, ...(dest === v ? { background: v === 'conforme' ? '#27ae60' : v === 'parcial' ? '#e67e22' : '#c0392b', color: 'white', borderColor: 'transparent' } : {}) }}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+                  {!temRel && <span style={{ fontSize: 11.5, fontWeight: 600, color: '#8a6d3b', width: '100%', marginBottom: 2 }}>⚠ Sem relatório desta sessão — registre o que aconteceu:</span>}
+                  {(temRel
+                    ? [['realizada', '🩸 Realizada'], ['conforme', 'Completa'], ['parcial', 'Parcial'], ['cancelada', 'Cancelada']]
+                    : [['realizada', '✓ Realizada'], ['cancelada', '✕ Cancelada (não realizada)'], ['conforme', 'Completa'], ['parcial', 'Parcial']]
+                  ).map(([v, l]) => {
+                    const cor = v === 'cancelada' ? '#c0392b' : v === 'parcial' ? '#e67e22' : v === 'conforme' ? '#27ae60' : '#1d7a45';
+                    return (
+                    <span key={v} style={{ ...S.checkItem, fontSize: 12, ...(dest === v ? { background: cor, color: 'white', borderColor: 'transparent' } : {}) }}
                       onClick={() => {
                         if (v === 'conforme') setAvAtual(a => ({ ...a, hd_destino: 'conforme', hd_canc_motivo: '', hd_parcial_motivo: '', tempo_obtido: durP, uf_obtida: ufP ? String(ufP) : a.uf_obtida, ultima_hd_data: a.ultima_hd_data || dataLocalISO(prevHD.data) }));
+                        else if (v === 'realizada') setAvAtual(a => ({ ...a, hd_destino: 'realizada', hd_canc_motivo: '', hd_parcial_motivo: '', ultima_hd_data: a.ultima_hd_data || dataLocalISO(prevHD.data) }));
                         else setAvAtual(a => ({ ...a, hd_destino: v, ultima_hd_data: a.ultima_hd_data || dataLocalISO(prevHD.data), ...(v === 'cancelada' ? { tempo_obtido: '', uf_obtida: '' } : {}) }));
                       }}>{l}</span>
-                  ))}
+                    );
+                  })}
                 </div>
                 {dest === 'cancelada' && (
                   <div style={{ marginTop: 8 }}>
@@ -5428,7 +5497,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                 <div style={{ padding: graves.length + avisos.length ? '6px 14px' : '10px 14px', fontSize: 13.5 }}>
                   {graves.map((x, i) => (
                     <div key={'g' + i} style={{ padding: '8px 0', borderBottom: '1px solid #f5e3e0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                      <span onClick={() => { setModoConsulta(false); if (x.ctx) setSubCtx(x.ctx); if (x.sub) setSubRot(x.sub); if (x.v === 'conduta') setSubCond(x.id === 'conduta' ? 'dec' : 'presc'); setView(x.v); }}
+                      <span onClick={() => { setModoConsulta(false); if (x.ctx) setSubCtx(x.ctx); if (x.sub) setSubRot(x.sub); if (x.v === 'conduta') setSubCond(x.id === 'conduta' ? 'dec' : 'presc'); if (x.id === 'destino_ant') setHdSubAba('ultima'); setView(x.v); }}
                         style={{ color: '#c0392b', fontWeight: 700, cursor: 'pointer', flex: 1 }}>● {x.rot} <span style={{ color: '#999', fontWeight: 400 }}>· resolver ▸</span></span>
                       {x.destravavel && <span onClick={() => {
                           const s = prompt('Destravar "' + x.rot + '" — dado não disponível. Senha:');
@@ -5439,7 +5508,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                     </div>
                   ))}
                   {avisos.map((x, i) => (
-                    <div key={'a' + i} onClick={() => { setModoConsulta(false); if (x.ctx) setSubCtx(x.ctx); if (x.sub) setSubRot(x.sub); if (x.v === 'conduta') setSubCond(x.id === 'conduta' ? 'dec' : 'presc'); setView(x.v); }}
+                    <div key={'a' + i} onClick={() => { setModoConsulta(false); if (x.ctx) setSubCtx(x.ctx); if (x.sub) setSubRot(x.sub); if (x.v === 'conduta') setSubCond(x.id === 'conduta' ? 'dec' : 'presc'); if (x.id === 'destino_ant') setHdSubAba('ultima'); setView(x.v); }}
                       style={{ padding: '8px 0', color: '#8a6d3b', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', fontStyle: x.carimbo ? 'italic' : 'normal' }}>
                       <span>○ {x.rot}</span><span style={{ color: '#bbb' }}>ver ▸</span>
                     </div>
@@ -5539,7 +5608,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
             <Item k="1ª HD" v={pacAtual.dataPrimeiraHD} />
             <Item k="Data da sessão" v={avV.ultima_hd_data} />
             <Item k="Acesso" v={avV.acesso} />
-            <Item k="Sessão" v={avV.hd_destino === 'conforme' ? 'conforme prescrito' : avV.hd_destino === 'cancelada' ? 'não realizada' + (avV.hd_canc_motivo ? ' — ' + avV.hd_canc_motivo : '') : avV.hd_destino === 'parcial' ? 'parcial' + (avV.hd_parcial_motivo ? ' — ' + avV.hd_parcial_motivo : '') : ''} />
+            <Item k="Sessão" v={avV.hd_destino === 'realizada' ? 'realizada' : avV.hd_destino === 'conforme' ? 'conforme prescrito' : avV.hd_destino === 'cancelada' ? 'não realizada' + (avV.hd_canc_motivo ? ' — ' + avV.hd_canc_motivo : '') : avV.hd_destino === 'parcial' ? 'parcial' + (avV.hd_parcial_motivo ? ' — ' + avV.hd_parcial_motivo : '') : ''} />
             <Item k="Tempo obtido" v={avV.tempo_obtido ? `${avV.tempo_obtido}h` : ''} />
             <Item k="UF obtida" v={avV.uf_obtida ? `${avV.uf_obtida} ml` : ''} />
             <Item k="Anticoagulação" v={avV.anticoag_hd} />
