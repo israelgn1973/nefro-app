@@ -478,7 +478,6 @@ function FavRow({ campo, ativos, onPick, cor = '#1a3a5c', max = 5 }) {
     </div>
   );
 }
-const GATILHOS = GATILHOS_GRUPOS.flatMap(g => g[1]);
 const ATB_FLAT = [
   ['Ceftriaxona',0],['Cefepime',0],['Ceftazidima',0],['Piperacilina-tazobactam',0],['Ampicilina-sulbactam',0],['Ceftazidima-avibactam',0],
   ['Meropenem',0],['Imipenem',0],['Ertapenem',0],
@@ -705,8 +704,6 @@ function NefroApp() {
   const [showModal, setShowModal] = useState(false);
   const [editandoPacId, setEditandoPacId] = useState(null);
   const [novoPac, setNovoPac] = useState(novoPacVazio());
-  const [editandoNome, setEditandoNome] = useState(false);
-  const [nomeTemp, setNomeTemp] = useState('');
   const [copiado, setCopiado] = useState(false);
   const [previaTxt, setPrevia] = useState(null);
   const [numpad, setNumpad] = useState(null);
@@ -714,7 +711,6 @@ function NefroApp() {
   const [filtroHD, setFiltroHD] = useState(false);
   const [filtroCat, setFiltroCat] = useState(null);
   const [catAberto, setCatAberto] = useState(false);
-  const [verAmanha, setVerAmanha] = useState(false);
   const [verArquivados, setVerArquivados] = useState(false);
   const [buscaInativo, setBuscaInativo] = useState('');
   const [forcar, setForcar] = useState(0);
@@ -865,14 +861,12 @@ function NefroApp() {
     mostrarToast('✓ Relatório aplicado' + (avisos.length ? ' ⚠ ' + avisos.join(' | ') : ' a ' + (pac?.nome || '')));
   };
   const [modoConsulta, setModoConsulta] = useState(false);
-  const [escolhaPac, setEscolhaPac] = useState(null);
   const [buscaData, setBuscaData] = useState('');
   const [extAberto, setExtAberto] = useState(false);
   const [subRot, setSubRot] = useState('beira');
   const [subCtx, setSubCtx] = useState('eventos');
   const [gavetaCtx, setGavetaCtx] = useState('');
   const [gruposFechados, setGruposFechados] = useState({});
-  const [atbAberto, setAtbAberto] = useState(false);
   const [buscaAtb, setBuscaAtb] = useState('');
   const [colaDx, setColaDx] = useState(null);
   const [colaAv, setColaAv] = useState(null); // {raw, achados, pacId, sugestao}
@@ -882,14 +876,7 @@ function NefroApp() {
   const [estimDia, setEstimDia] = useState(0); // 0=hoje,1=amanhã,2=depois
   const [buscaDx, setBuscaDx] = useState('');
   const [subCond, setSubCond] = useState('fluidos');
-  const [doseDiurRef, setDoseDiurRef] = useState('');
   const [menuEncerrar, setMenuEncerrar] = useState(false);
-  React.useEffect(() => {
-    if (view === 'conduta' && subCond === 'diur' && avAtual) {
-      setDoseDiurRef(textoDoseDiur(avAtual));
-    }
-    // eslint-disable-next-line
-  }, [view, subCond]);
   const [origemResumo, setOrigemResumo] = useState(null);
   const [diaFolheado, setDiaFolheado] = useState(0);
   const [verOriginal, setVerOriginal] = useState(null);
@@ -899,7 +886,6 @@ function NefroApp() {
   const [hdSubAba, setHdSubAba] = useState('ultima');
   const [manualUltHdAberto, setManualUltHdAberto] = useState(false);
   useEffect(() => { if (avAtual?.hd_primeira_sessao && (hdSubAba === 'ultima' || hdSubAba === 'programada')) setHdSubAba('hoje'); }, [avAtual?.hd_primeira_sessao, hdSubAba]);
-  const swipeRef = React.useRef({ x: 0, y: 0 });
   const irResumo = (vOrigem) => { salvarAvaliacao(false); setOrigemResumo({ v: vOrigem, sub: subRot }); setDiaFolheado(0); setView('panorama'); };
   const concluirRegistro = () => {
     const u = { ...avAtual, concluidaEm: avAtual.concluidaEm || Date.now() };
@@ -1348,6 +1334,10 @@ function NefroApp() {
       }
       linhas.push(''); linhas.push('CONDUTA');
       add('Decisão', { hd_hoje: 'HD HOJE', hd_amanha: 'HD AMANHÃ', conservador: 'Conservador' }[d.conduta]);
+      if ((pacRef.urgencias || []).length) {
+        const us = pacRef.urgencias.map(u => (u === 'Intoxicação dialisável' && (pacRef.intoxSubst || []).length) ? u + ' (' + pacRef.intoxSubst.join(', ') + ')' : u);
+        linhas.push('Indicação dialítica de urgência: ' + us.join('; '));
+      }
       if (d.cond_mantida) {
         const outras = (d.cond_vol||[]).length || (d.cond_eletr||[]).length || (d.cond_outras_sel||[]).length || d.cond_bundle_ira || d.diur_ajuste || (d.med_revisar||[]).length || d.conduta === 'hd_hoje' || d.conduta === 'hd_amanha' || parseFloat(d.furo_bolus_n) > 0;
         linhas.push(outras ? 'Mantenho restante da conduta' : 'Conduta mantida — sem alterações no momento');
@@ -1465,10 +1455,6 @@ const ajRotulo = aj => {
       S.push({ n: 'ambar', t: 'Hipotenso com DVA em dose alta → considerar sódio do dialisato entre 145–150 e UF conservadora.' + (noraAlta ? ' (Nora ' + nora.vazao + ' ml/h' + (nora.dd ? ' DD' : '') + ')' : '') });
     if (ehHD && hipotenso && ventilandoMal && edemaImportante)
       S.push({ n: 'ambar', t: 'Hipotenso + ventilando mal + edema importante → considerar ESTENDER a sessão (5–6h) com UF horária menor' + (parseInt(pacAtual.idade) < 50 ? ' — paciente jovem tolera sessão longa.' : '.') });
-    if ((pacAtual.gatilhos || []).includes('Pré-operatório'))
-      S.push({ n: 'info', t: 'Parecer pré-operatório: "Paciente avaliado pela nefrologia. ' + (avAtual.conduta === 'hd_hoje' ? 'Programada HD pré-operatória; liberar para o procedimento após a sessão, se estabilidade.' : 'Sem indicação de diálise pré-operatória no momento; liberado do ponto de vista nefrológico.') + ' Manter controle de eletrólitos e volemia no per/pós-operatório." (sai pronto no Resumo)' });
-    if (avAtual.conduta === 'conservador' && (pacAtual.gatilhos || []).length > 0)
-      S.push({ n: 'info', t: 'Bundle de prevenção de IRA: suspender/ajustar nefrotóxicos · evitar contraste · otimizar volemia e PAM · balanço e diurese rigorosos · creatinina diária · evitar hiperglicemia.' });
     return S;
   };
 
@@ -2227,7 +2213,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.0</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.0.1</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -2872,6 +2858,10 @@ const ajRotulo = aj => {
               <input type="file" accept="application/json,.json" style={{ display: 'none' }}
                 onChange={e => { if (e.target.files[0]) importarDados(e.target.files[0]); e.target.value = ''; }} />
             </label>
+            <button onClick={gerarRelatorioHDs}
+              style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer', textAlign: 'center' }}>
+              📋 HDs do dia
+            </button>
             <button onClick={gerarResumoExternos}
               style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer', textAlign: 'center' }}>
               📱 Resumo externos (WhatsApp)
@@ -3103,11 +3093,7 @@ const ajRotulo = aj => {
               );
             })()}
             </div>
-            {(() => {
-              const hojeISO = dataLocalISO();
-              const avHojeF = avs.find(a => dataLocalISO(a.data) === hojeISO);
-              return <RodapeNav onPacientes={() => { setModoConsulta(false); setView('lista'); }} />;
-            })()}
+            <RodapeNav onPacientes={() => { setModoConsulta(false); setView('lista'); }} />
           </>
         )}
 
@@ -3163,6 +3149,43 @@ const ajRotulo = aj => {
             </div>
           </div>
           <div style={{ padding: '12px 16px 0' }}>
+            <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', fontWeight: 700, letterSpacing: 0.5, marginBottom: 6 }}>Indicação de diálise de urgência <span style={{ textTransform: 'none', fontWeight: 400, color: '#aaa' }}>· opcional</span></div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {URGENCIAS_DIALITICAS.map(u => {
+                const on = (pacAtual.urgencias || []).includes(u);
+                return (
+                  <span key={u} style={{ ...S.checkItem, fontSize: 12, ...(on ? { background: '#c0392b', color: 'white', borderColor: '#c0392b' } : {}) }}
+                    onClick={() => {
+                      const lista = on ? (pacAtual.urgencias || []).filter(x => x !== u) : [...(pacAtual.urgencias || []), u];
+                      const at = { ...pacAtual, urgencias: lista, updatedAt: Date.now() };
+                      if (!lista.includes('Intoxicação dialisável')) at.intoxSubst = [];
+                      setPacientes(ps => ps.map(p => p.id === pacAtual.id ? at : p));
+                      setPacAtual(at);
+                    }}>{u}</span>
+                );
+              })}
+            </div>
+            {(pacAtual.urgencias || []).includes('Intoxicação dialisável') && (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ fontSize: 10.5, color: '#8a6d3b', fontWeight: 700, marginBottom: 5 }}>↳ Substância</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {INTOXICACOES_DIALISAVEIS.map(s => {
+                    const onS = (pacAtual.intoxSubst || []).includes(s);
+                    return (
+                      <span key={s} style={{ ...S.checkItem, fontSize: 12, ...(onS ? { background: '#8a6d3b', color: 'white', borderColor: '#8a6d3b' } : {}) }}
+                        onClick={() => {
+                          const lista = onS ? (pacAtual.intoxSubst || []).filter(x => x !== s) : [...(pacAtual.intoxSubst || []), s];
+                          const at = { ...pacAtual, intoxSubst: lista, updatedAt: Date.now() };
+                          setPacientes(ps => ps.map(p => p.id === pacAtual.id ? at : p));
+                          setPacAtual(at);
+                        }}>{s}</span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+          <div style={{ padding: '12px 16px 0' }}>
             <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', fontWeight: 700, letterSpacing: 0.5, marginBottom: 6 }}>Creatinina basal <span style={{ textTransform: 'none', fontWeight: 400, color: '#aaa' }}>· opcional</span></div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <NumInput value={pacAtual.creatBasal} allowComma label="Creatinina basal (mg/dL)" style={{ ...S.input, width: 84, textAlign: 'center', fontWeight: 600 }}
@@ -3216,36 +3239,6 @@ const ajRotulo = aj => {
         <TabBar atual={view} />
         <div style={{ padding: '0 16px 30px' }}>
           <div style={{ pointerEvents: modoConsulta ? 'none' : 'auto' }}>
-          {false && (
-            <>
-            <div style={{ ...S.formGroup, marginTop: 12 }}>
-              <div style={{ padding: '10px 14px', background: '#fdf6ec' }}>
-                <div style={{ fontSize: 11, color: '#8a6d3b', textTransform: 'uppercase', fontWeight: 700, letterSpacing: 0.5, marginBottom: 6 }}>★ Causa básica da internação</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
-                  {CAUSAS_INTERNACAO.map(([c, coms]) => (
-                    <span key={c} style={{ ...S.checkItem, fontSize: 12, ...(pacAtual.causa_internacao === c ? { background: '#8a6d3b', color: 'white', borderColor: '#8a6d3b' } : {}) }}
-                      onClick={() => {
-                        const liga = pacAtual.causa_internacao !== c;
-                        const pend = liga ? [...new Set([...(pacAtual.comorb_pend || []), ...coms.filter(x => !(pacAtual.comorbidades || []).includes(x))])] : (pacAtual.comorb_pend || []);
-                        const atualizado = { ...pacAtual, causa_internacao: liga ? c : '', comorb_pend: pend, updatedAt: Date.now() };
-                        setPacientes(ps => ps.map(p => p.id === pacAtual.id ? atualizado : p));
-                        setPacAtual(atualizado);
-                        setNovoPac(n => ({ ...n, causa_internacao: atualizado.causa_internacao, comorb_pend: pend }));
-                      }}>{c}</span>
-                  ))}
-                </div>
-                <input style={{ ...S.input, textAlign: 'left', fontSize: 13, width: '100%', boxSizing: 'border-box' }} type="text"
-                  value={pacAtual.causa_internacao || ''}
-                  onChange={e => { const atualizado = { ...pacAtual, causa_internacao: e.target.value, updatedAt: Date.now() }; setPacientes(ps => ps.map(p => p.id === pacAtual.id ? atualizado : p)); setPacAtual(atualizado); }}
-                  placeholder="ou descreva a causa…" />
-                <input style={{ ...S.input, textAlign: 'left', fontSize: 13, width: '100%', boxSizing: 'border-box', marginTop: 6 }} type="text"
-                  value={pacAtual.causa_atual || ''}
-                  onChange={e => { const atualizado = { ...pacAtual, causa_atual: e.target.value, updatedAt: Date.now() }; setPacientes(ps => ps.map(p => p.id === pacAtual.id ? atualizado : p)); setPacAtual(atualizado); }}
-                  placeholder="atualização — motivo atual (se mudou)" />
-              </div>
-            </div>
-            </>
-          )}
           {true && (
             <>
             
@@ -4132,6 +4125,20 @@ const ajRotulo = aj => {
                 <span key={v} onClick={() => { setHdSubAba(v); if (v === 'hoje') upAv('conduta', 'hd_hoje'); else if (v === 'programada') upAv('conduta', 'hd_amanha'); }}
                   style={{ flex: 1, textAlign: 'center', padding: '8px 4px', fontSize: 12, fontWeight: 700, cursor: 'pointer', color: hdSubAba === v ? '#1a3a5c' : '#9aa7b4', borderBottom: hdSubAba === v ? '2px solid #1a3a5c' : '2px solid transparent', marginBottom: -2 }}>{lbl}</span>
               ))}
+            </div>
+          );
+        })()}
+
+        {(() => {
+          const sugs = sugestoesConduta();
+          if (!sugs.length) return null;
+          const cores = { vermelho: ['#c0392b', '#fdecea'], ambar: ['#8a6d3b', '#fdf6ec'], info: ['#1a3a5c', '#eef3f8'] };
+          return (
+            <div style={{ margin: '10px 16px 0' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6, padding: '0 2px' }}>💡 Sugestões</div>
+              {sugs.map((s, i) => { const [c, bg] = cores[s.n] || cores.info; return (
+                <div key={i} style={{ background: bg, border: '1px solid ' + c, borderRadius: 8, padding: '8px 10px', marginBottom: 6, fontSize: 12.5, color: '#333', lineHeight: 1.35 }}>{s.t}</div>
+              ); })}
             </div>
           );
         })()}
