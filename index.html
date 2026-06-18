@@ -182,7 +182,7 @@ const farejarPaciente = (texto) => {
   return r;
 };
 const CANC_LISTA = ['Cancelada pelo plantonista — sem informação adicional', 'Piora hemodinâmica', 'Família não autorizou', 'Paliativação', 'Recuperação de diurese', 'SVD desobstruída / débito recuperado', 'Instabilidade / arritmia', 'Acesso perdido / disfuncional', 'Recusa do paciente', 'Transferência / exame fora da unidade', 'Óbito antes da sessão', 'Falta de insumo / máquina', 'Falta de vaga / logística'];
-const novoPacVazio = () => ({ nome:'', idade:'', sexo:'', leito:'', temLeito:false, externo:false, teste:false, externoLocal:'', convenio:'SUS', convenioOutro:'', diag:'', trat:'', filaHD:'', uti:'', esquemaHD:'', preopTipos:[], preopOutro:'', creatBasal:'', creatBasalData:'', imgRinsCronico:'', comorbidades:[], perfilHemo:'', fe:'', comorbidades_outras:'', gatilhos:[], sepseFocos:[], sepseOutro:'', gatilhos_outros:'', atbs:[], urgenciaAdm:false, urgencias:[] });
+const novoPacVazio = () => ({ nome:'', idade:'', sexo:'', leito:'', temLeito:false, externo:false, teste:false, externoLocal:'', convenio:'SUS', convenioOutro:'', diag:'', trat:'', filaHD:'', uti:'', esquemaHD:'', preopTipos:[], preopOutro:'', creatBasal:'', creatBasalData:'', imgRinsCronico:'', comorbidades:[], perfilHemo:'', fe:'', comorbidades_outras:'', gatilhos:[], sepseFocos:[], sepseOutro:'', gatilhos_outros:'', atbs:[], urgenciaAdm:false, urgencias:[], intoxSubst:[], drcTerminalSit:'', dialLog:false, dialOutroOn:false, dialOutro:'' });
 const montarStatus = (diag, trat) => {
   if (diag === 'IRA revertida' || diag === 'Função renal normal') return diag;
   if (!diag && !trat) return '';
@@ -892,6 +892,8 @@ function NefroApp() {
   const [colaDx, setColaDx] = useState(null);
   const [colaAv, setColaAv] = useState(null); // {raw, achados, pacId, sugestao}
   const [pedirUTI, setPedirUTI] = useState(false);
+  const [modoTeste, setModoTeste] = useState(() => { try { return localStorage.getItem('nefro_modo_teste') === '1'; } catch { return false; } });
+  const aplicarModoTeste = (v) => { setModoTeste(v); try { localStorage.setItem('nefro_modo_teste', v ? '1' : '0'); } catch {} };
   const [verRelEnf, setVerRelEnf] = useState(false);
   const [verEstimativa, setVerEstimativa] = useState(false);
   const [estimDia, setEstimDia] = useState(0); // 0=hoje,1=amanhã,2=depois
@@ -969,7 +971,7 @@ function NefroApp() {
     setNovoPac(n => ({ ...n, atbs: nv }));
   };
   const gerarListaSeguimento = () => {
-    const ativos = pacientes.filter(p => p.nome && !infoHD[p.id]?.arquivado);
+    const ativos = pacientes.filter(p => p.nome && !infoHD[p.id]?.arquivado && (modoTeste || !p.teste));
     if (!ativos.length) { alert('Nenhum paciente em seguimento.'); return; }
     const linhas = [];
     linhas.push('PACIENTES EM SEGUIMENTO — NEFROLOGIA HRA');
@@ -995,7 +997,7 @@ function NefroApp() {
     else prompt('Copie:', txt);
   };
   const gerarRelatorioHDs = () => {
-    const hds = pacientes.filter(p => !p.externo && infoHD[p.id]?.hdHoje && !infoHD[p.id]?.arquivado);
+    const hds = pacientes.filter(p => !p.externo && infoHD[p.id]?.hdHoje && !infoHD[p.id]?.arquivado && (modoTeste || !p.teste));
     if (!hds.length) { alert('Nenhuma HD prescrita hoje.'); return; }
     const linhas = [];
     linhas.push('HEMODIÁLISES DO DIA — ' + new Date().toLocaleDateString('pt-BR') + ' (' + hds.length + ')');
@@ -1135,25 +1137,33 @@ function NefroApp() {
   };
   const faixaRef = (furo) => {
     const d = avAtual || {};
-    const al = { color: '#c0392b', fontWeight: 700 };
-    const na = d.labs?.sodio_hoje, k = d.labs?.pot_hoje, bic = d.labs?.bic_hoje;
-    const naN = parseFloat(String(na).replace(',', '.')), kN = parseFloat(String(k).replace(',', '.')), bicN = parseFloat(String(bic).replace(',', '.'));
+    const verm = { color: '#c0392b', fontWeight: 700 };
+    const amb = { color: '#b9770e', fontWeight: 700 };
+    const tier = (a, r) => r ? verm : a ? amb : {};
+    const num = x => parseFloat(String(x ?? '').replace(',', '.'));
     const itens = [];
-    if (na != null && na !== '') itens.push(<span key="na" style={!isNaN(naN) && naN < 135 ? al : {}}>Na {na}</span>);
-    if (k != null && k !== '') itens.push(<span key="k" style={!isNaN(kN) && kN < 3.5 ? al : {}}>K {k}</span>);
-    if (bic != null && bic !== '') itens.push(<span key="bic" style={!isNaN(bicN) && bicN < 18 ? al : {}}>Bic {bic}</span>);
+    // Hemodinâmica
+    if (d.pai && d.pam != null && d.pam !== '') { const m = num(d.pam); itens.push(<span key="pa" style={!isNaN(m) ? tier(m < 65, m < 55) : {}}>PAM {d.pam}</span>); }
+    else if (d.pa) { const mm = String(d.pa).match(/(\d{2,3})\s*[\/xX]\s*(\d{2,3})/); if (mm) { const s = +mm[1], di = +mm[2]; itens.push(<span key="pa" style={tier(s < 90 || di < 60, s < 70 || di < 40)}>PA {d.pa}</span>); } else itens.push(<span key="pa">PA {d.pa}</span>); }
+    else if (d.normotenso) itens.push(<span key="pa">PA normotenso</span>);
+    { const nora = (d.dvas || {})['Noradrenalina']; if (nora && nora.vazao != null && nora.vazao !== '') { const vz = num(nora.vazao); const l1 = nora.dd ? 8 : 15, l2 = nora.dd ? 16 : 30; itens.push(<span key="nora" style={!isNaN(vz) ? tier(vz > l1, vz > l2) : {}}>Nora {nora.vazao} ml/h{nora.dd ? ' (DD)' : ''}</span>); } }
+    // Respiração
+    if (d.fio2 != null && d.fio2 !== '') { const f = num(d.fio2); itens.push(<span key="fio2" style={!isNaN(f) ? tier(f > 50, f > 70) : {}}>FiO2 {d.fio2}%</span>); }
+    // Volume
     if (d.ganhos != null && d.ganhos !== '') itens.push(<span key="g">Ganhos {d.ganhos} ml</span>);
-    if (d.diurese != null && d.diurese !== '') itens.push(<span key="diu">Diurese {d.diurese} ml</span>);
-    if (d.uf_obtida != null && d.uf_obtida !== '') {
-      let qd = '';
-      if (d.ultima_hd_data) { const pd = _parseData(d.ultima_hd_data); qd = ' (' + DIAS_SEM[pd.getDay()] + ' ' + String(pd.getDate()).padStart(2, '0') + '/' + String(pd.getMonth() + 1).padStart(2, '0') + ')'; }
-      itens.push(<span key="uf">UF últ. HD {d.uf_obtida} ml{qd}</span>);
-    }
-    if (furo) {
-      const t = furoAvalTexto(d);
-      if (t) itens.push(<span key="furo"><b>{t}</b></span>);
-    }
-    if (d.edema) itens.push(<span key="ed">Edema: {d.edema}</span>);
+    if (d.diurese != null && d.diurese !== '') { const dv = num(d.diurese); let st = {}; if (!isNaN(dv)) st = tier(dv < 500, dv < 100); else { const t = String(d.diurese).toLowerCase(); if (t.includes('anúr') || t.includes('anur')) st = verm; else if (t.includes('olig')) st = amb; } itens.push(<span key="diu" style={st}>Diurese {d.diurese}{!isNaN(dv) ? ' ml' : ''}</span>); }
+    if (d.uf_obtida != null && d.uf_obtida !== '') { let qd = ''; if (d.ultima_hd_data) { const pd = _parseData(d.ultima_hd_data); qd = ' (' + DIAS_SEM[pd.getDay()] + ' ' + String(pd.getDate()).padStart(2, '0') + '/' + String(pd.getMonth() + 1).padStart(2, '0') + ')'; } itens.push(<span key="uf">UF últ. HD {d.uf_obtida} ml{qd}</span>); }
+    if (furo) { const t = furoAvalTexto(d); if (t) itens.push(<span key="furo"><b>{t}</b></span>); }
+    if (d.edema && d.edema !== 'ausente') { const st = d.edema === 'acentuado' ? verm : d.edema === 'moderado' ? amb : {}; itens.push(<span key="ed" style={st}>Edema: {d.edema}</span>); }
+    // Eletrólitos
+    { const k = d.labs?.pot_hoje; if (k != null && k !== '') { const kN = num(k); itens.push(<span key="k" style={!isNaN(kN) ? tier(kN > 6.0 || kN < 3.5, kN > 6.5 || kN < 3.0) : {}}>K {k}</span>); } }
+    { const na = d.labs?.sodio_hoje; if (na != null && na !== '') { const naN = num(na); itens.push(<span key="na" style={!isNaN(naN) ? tier(naN < 125 || naN > 155, naN < 120 || naN > 160) : {}}>Na {na}</span>); } }
+    { const bic = d.labs?.bic_hoje; if (bic != null && bic !== '') { const bicN = num(bic); itens.push(<span key="bic" style={!isNaN(bicN) ? tier(bicN < 18, bicN < 12) : {}}>Bic {bic}</span>); } }
+    // Sangramento
+    if (d.sangramento === 'ativo') itens.push(<span key="sang" style={verm}>⚠ Sangramento ativo{d.sangramento_sitio ? ' (' + d.sangramento_sitio + ')' : ''}</span>);
+    // Sem cor (basais altos nesta população)
+    { const ur = d.labs?.ureia_hoje; if (ur != null && ur !== '') itens.push(<span key="ur">Ureia {ur}</span>); }
+    { const cr = d.labs?.creat_hoje; if (cr != null && cr !== '') itens.push(<span key="cr">Creat {cr}</span>); }
     if (!itens.length) return null;
     return (
       <div style={{ background: '#f4f7fa', border: '1px solid #d8e2ec', borderRadius: 8, padding: '8px 10px', marginBottom: 10, fontSize: 12.5, lineHeight: 1.7, color: '#33485c' }}>
@@ -1407,7 +1417,7 @@ function NefroApp() {
 
       linhas.push('PELA NEFROLOGIA');
       if (pacRef?.nome) linhas.push(pacRef.nome + (pacRef.leito ? ' — Leito ' + pacRef.leito : '') + (pacRef.uti ? ' (UTI ' + pacRef.uti + ')' : ''));
-      if (d.emerg_dial) linhas.push('🚨 EMERGÊNCIA DIALÍTICA');
+      if (d.emerg_dial && !((pacRef?.dialLog || pacRef?.dialOutroOn) && !(pacRef?.urgencias || []).length)) linhas.push('🚨 EMERGÊNCIA DIALÍTICA');
       if (d.intercorrencia) linhas.push('REGISTRO ADICIONAL — INTERCORRÊNCIA (' + new Date(d.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + ')');
       linhas.push('');
       const comorb = [...(pacRef.comorbidades || []), pacRef.comorbidades_outras].filter(Boolean).join(', ');
@@ -1432,6 +1442,7 @@ function NefroApp() {
       const dvasTxtG = Object.entries(d.dvas || {}).map(([dv, c]) => `${dv} ${c.vazao || '?'}ml/h${c.dd ? ' (DD)' : ''}`).join(', ');
       if (d.semDvas) linhas.push('Drogas vasoativas: sem DVAs'); else add('Drogas vasoativas', dvasTxtG);
       add('Edema', d.edema);
+      if (d.sangramento === 'ativo') add('Sangramento ativo', d.sangramento_sitio || 'sim');
 
       linhas.push('');
       linhas.push('BH / DIURÉTICO');
@@ -1485,6 +1496,8 @@ function NefroApp() {
         const us = pacRef.urgencias.map(u => (u === 'Intoxicação dialisável' && (pacRef.intoxSubst || []).length) ? u + ' (' + pacRef.intoxSubst.join(', ') + ')' : u);
         linhas.push('Indicação dialítica de urgência: ' + us.join('; '));
       }
+      { const logs = []; if (pacRef.dialLog) logs.push('prioridade logística'); if (pacRef.dialOutroOn && (pacRef.dialOutro || '').trim()) logs.push(pacRef.dialOutro.trim()); if (logs.length) linhas.push('Prioridade dialítica (permanência): ' + logs.join('; ')); }
+      if (pacRef.drcTerminalSit) { const m = { tem_vaga: 'tem vaga externa', aguarda_sorologia: 'aguarda sorologias', aguarda_vaga: 'aguarda vaga externa' }; linhas.push('Permanência (DRC terminal): ' + (m[pacRef.drcTerminalSit] || pacRef.drcTerminalSit)); }
       if (d.cond_mantida) {
         const outras = (d.cond_vol||[]).length || (d.cond_eletr||[]).length || (d.cond_outras_sel||[]).length || d.cond_bundle_ira || d.diur_ajuste || (d.med_revisar||[]).length || d.conduta === 'hd_hoje' || d.conduta === 'hd_amanha' || parseFloat(d.furo_bolus_n) > 0;
         linhas.push(outras ? 'Mantenho restante da conduta' : 'Conduta mantida — sem alterações no momento');
@@ -1611,6 +1624,11 @@ const ajRotulo = aj => {
     const primeiraSessao = !hdPrevia;
     const cdlNovo = interc.includes('Implante de CDL pré-sessão') || (primeiraSessao && avAtual.acesso !== 'FAV');
     const ehHD = avAtual.conduta === 'hd_hoje';
+
+    if (ehHD && avAtual.sangramento === 'ativo') {
+      if (avAtual.anticoag === 'com') S.push({ n: 'vermelho', t: 'Sangramento ativo' + (avAtual.sangramento_sitio ? ' (' + avAtual.sangramento_sitio + ')' : '') + ' e prescrição COM heparina → reavaliar: HD SEM heparina.' });
+      else if (avAtual.anticoag !== 'sem') S.push({ n: 'ambar', t: 'Sangramento ativo' + (avAtual.sangramento_sitio ? ' (' + avAtual.sangramento_sitio + ')' : '') + ' → indicado HD SEM heparina (rinse rigoroso, cateter com bicarbonato).' });
+    }
 
     const motivoOntem = avAtual.hd_parcial_motivo || avAtual.hd_canc_motivo || '';
     if (ehHD && motivoOntem.includes('CDL sem fluxo') || ehHD && motivoOntem.includes('Calafrios'))
@@ -1889,7 +1907,7 @@ const ajRotulo = aj => {
       ...memoriaHD,
       ...(condutaSug ? { conduta_sugerida: condutaSug } : {}),
       conduta: condutaSug ? 'hd_hoje' : 'conservador', prioridade: 'nao', conclusao: 'acompanhamento', aj_diur: {}, cond_alertas: [], labs: {},
-      eg: (prev && ['estável','grave','gravíssimo'].includes(prev.eg)) ? prev.eg : 'estável', consciencia: (prev && prev.consciencia) ? prev.consciencia : flexSexo('consciente e orientado', pacN.sexo), padrao_resp: flexSexo('eupneico', pacN.sexo), resp:'', sat:'', pai:false, pam:'', pa:'', dvas:{}, fio2:'', peep:'', fluxoO2:'', edema:'ausente',
+      eg: (prev && ['estável','grave','gravíssimo'].includes(prev.eg)) ? prev.eg : 'estável', consciencia: (prev && prev.consciencia) ? prev.consciencia : flexSexo('consciente e orientado', pacN.sexo), padrao_resp: flexSexo('eupneico', pacN.sexo), resp:'', sat:'', pai:false, pam:'', pa:'', dvas:{}, fio2:'', peep:'', fluxoO2:'', edema:'ausente', sangramento:'', sangramento_sitio:'',
       ganhos:'', diurese:'', bh_parcial:false, bh_horas:'', svd:'', diureticos:[], diur_doses:{}, diurSem:{}, diurIniciar:{}, furo_cond:'', espiro_cond:'', hctz_cond:'', furo_acm:'', furo_manut:'sem', furo_dose_n:'', furo_int:'', furo_bolus_n:'', furo_bolus_amp:'', furo_bolus_av_n:'', furo_bolus_av_amp:'', espiro_cp:'', espiro_int:'', hctz_cp:'', hctz_int:'',
       ultima_hd_data:'', acesso:'CDL', tempo_obtido:'', uf_obtida:'',
       anticoag_hd:'sem heparina', cateter_pos:'Bic. Na 8,4%', interc:['Nenhuma'], interc_outro:'', observacoes:'',
@@ -2245,7 +2263,7 @@ const ajRotulo = aj => {
       const relDivergente = relAberto?.divergencia || null;
       const ultHDPrescrita = avsP.find(a => a.conduta === 'hd_hoje' && dataLocalISO(a.data) < dataLocalISO());
       const faltaRelatorio = !!(ultHDPrescrita && !(p.relEnf || []).some(r => r.criadoEm > ultHDPrescrita.data) && !avHoje?.hd_destino && (Date.now() - ultHDPrescrita.data) < 3 * 86400000);
-      m[p.id] = { concluidaHoje: !!avHoje?.concluidaEm, condutaHoje: !!avHoje?.conduta, hdHoje: avHoje?.conduta === 'hd_hoje', relPendente, relDivergente, faltaRelatorio, homonimo, vistoHoje: !!avHoje, arquivado, conclusaoFinal: ultAv?.conclusao, motivo: p.externo ? '' : motivo, amanha: p.externo ? '' : amanha, prioridadeOntem: !p.externo && avOntem?.prioridade === 'sim' && avHoje?.conduta !== 'hd_hoje', emergDial: !!avHoje?.emerg_dial, suspensa: p.esquemaHD === 'susp' };
+      m[p.id] = { concluidaHoje: !!avHoje?.concluidaEm, condutaHoje: !!avHoje?.conduta, hdHoje: avHoje?.conduta === 'hd_hoje', relPendente, relDivergente, faltaRelatorio, homonimo, vistoHoje: !!avHoje, arquivado, conclusaoFinal: ultAv?.conclusao, motivo: p.externo ? '' : motivo, amanha: p.externo ? '' : amanha, prioridadeOntem: !p.externo && avOntem?.prioridade === 'sim' && avHoje?.conduta !== 'hd_hoje', emergDial: !!avHoje?.emerg_dial && !((p.dialLog || p.dialOutroOn) && !(p.urgencias||[]).length), prioDialOnly: !!avHoje?.emerg_dial && ((p.dialLog || p.dialOutroOn) && !(p.urgencias||[]).length), suspensa: p.esquemaHD === 'susp' };
     });
     return m;
   })();
@@ -2324,7 +2342,7 @@ const ajRotulo = aj => {
     const todasAvs = Object.entries(avaliacoes).filter(([pid]) => !idsExternos.has(pid)).flatMap(([pid, avs]) => (avs || []).map(a => ({ ...a, pid })));
     const avsMes = todasAvs.filter(a => noMes(a.data));
     const pacsUnicos = [...new Set(avsMes.map(a => a.pid))];
-    const novos = pacientes.filter(p => noMes(parseInt((p.id || '').split('_')[1]) || p.updatedAt || 0)).length;
+    const novos = pacientes.filter(p => (modoTeste || !p.teste) && noMes(parseInt((p.id || '').split('_')[1]) || p.updatedAt || 0)).length;
     const hds = avsMes.filter(a => a.conduta === 'hd_hoje');
     const urgentes = hds.filter(a => a.prioridade === 'sim');
     const diasComAv = [...new Set(avsMes.map(a => dataLocalISO(a.data)))].length;
@@ -2397,13 +2415,13 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.4.1</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.6.1</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
 
       {(() => {
-        const ativos = pacientes.filter(p => !infoHD[p.id]?.arquivado && !p.externo);
+        const ativos = pacientes.filter(p => !infoHD[p.id]?.arquivado && !p.externo && (modoTeste || !p.teste));
         const todosVistos = ativos.length > 0 && ativos.every(p => infoHD[p.id]?.vistoHoje);
         const hojeISO = dataLocalISO();
         let ultBkp = '', devido = '';
@@ -2425,7 +2443,7 @@ const ajRotulo = aj => {
       
 
       {(() => {
-        const ativos = pacientes.filter(p => !infoHD[p.id]?.arquivado && !p.externo && !p.teste);
+        const ativos = pacientes.filter(p => !infoHD[p.id]?.arquivado && !p.externo && (modoTeste || !p.teste));
         if (!ativos.length) return null;
         const vistos = ativos.filter(p => infoHD[p.id]?.vistoHoje).length;
         const provaveis = ativos.filter(p => infoHD[p.id]?.motivo && !infoHD[p.id]?.condutaHoje).length;
@@ -2448,7 +2466,7 @@ const ajRotulo = aj => {
           hdPrescritas.forEach(p => { const ultHD = (avaliacoes[p.id] || []).find(a => a.conduta === 'hd_hoje'); if (ultHD && ultHD.data > maisRecente) maisRecente = ultHD.data; });
           return maisRecente ? new Date(maisRecente).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '—';
         })();
-        const hdHojePacs = pacientes.filter(p => infoHD[p.id]?.hdHoje && !infoHD[p.id]?.arquivado);
+        const hdHojePacs = pacientes.filter(p => infoHD[p.id]?.hdHoje && !infoHD[p.id]?.arquivado && (modoTeste || !p.teste));
         const prescritasN = hdHojePacs.length;
         const hojeISO3 = dataLocalISO();
         const faltamN = hdHojePacs.filter(p => {
@@ -2463,7 +2481,7 @@ const ajRotulo = aj => {
         );
       })()}
       {(() => {
-        const ativosR = pacientes.filter(p => p.nome && !infoHD[p.id]?.arquivado && !p.teste);
+        const ativosR = pacientes.filter(p => p.nome && !infoHD[p.id]?.arquivado && (modoTeste || !p.teste));
         // ciclo corrente: HDs prescritas como hd_hoje na data da última leva de prescrições
         const ultHDde = (p) => (avaliacoes[p.id] || []).find(a => a.conduta === 'hd_hoje');
         let dataAncora = 0;
@@ -2521,8 +2539,8 @@ const ajRotulo = aj => {
           </div>
         );
       })()}
-      {pacientes.filter(p => p.nome && !infoHD[p.id]?.arquivado && !p.teste && !p.externo).length > 0 && (() => {
-        const pop = pacientes.filter(p => p.nome && !infoHD[p.id]?.arquivado && !p.teste && !p.externo);
+      {pacientes.filter(p => p.nome && !infoHD[p.id]?.arquivado && (modoTeste || !p.teste) && !p.externo).length > 0 && (() => {
+        const pop = pacientes.filter(p => p.nome && !infoHD[p.id]?.arquivado && (modoTeste || !p.teste) && !p.externo);
         const cont = { hoje: 0, emhd: 0, susp: 0, cons: 0 };
         pop.forEach(p => { cont[catDe(p)]++; });
         const cats = [['hoje', 'HD HOJE', '#c0392b'], ['emhd', 'EM HD', '#2e6da4'], ['susp', 'Suspensa', '#8a6d3b'], ['cons', 'Conservador', '#27ae60']];
@@ -2589,7 +2607,7 @@ const ajRotulo = aj => {
             <button style={{ ...S.btn, width: '100%', marginTop: 6, background: '#1a3a5c', color: 'white' }}
               onClick={() => {
                 if (!colaAv.raw.trim()) return;
-                const ativos = pacientes.filter(p => p.nome && !infoHD[p.id]?.arquivado);
+                const ativos = pacientes.filter(p => p.nome && !infoHD[p.id]?.arquivado && (modoTeste || !p.teste));
                 const blocos = dividirPorPaciente(colaAv.raw, ativos);
                 if (blocos && blocos.length > 1) {
                   // múltiplos pacientes: ativar trava de confirmação
@@ -2606,7 +2624,7 @@ const ajRotulo = aj => {
           const A = colaAv.achados;
           const DX = colaAv.dxAchados || { eventos: [], comorb: [], status: [] };
           const totalDx = (DX.eventos||[]).length + (DX.comorb||[]).length + (DX.status||[]).length;
-          const ativos = pacientes.filter(p => p.nome && !infoHD[p.id]?.arquivado);
+          const ativos = pacientes.filter(p => p.nome && !infoHD[p.id]?.arquivado && (modoTeste || !p.teste));
           const tot = Object.keys(A.cat).length + Object.keys(A.num).length + Object.keys(A.lab).length;
           const guardar = () => {
             if (!colaAv.pacId) { alert('Escolha de qual paciente é esta resposta.'); return; }
@@ -2753,7 +2771,7 @@ const ajRotulo = aj => {
                   style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #ddd', borderRadius: 10, padding: 10, fontSize: 13 }} />
                 <button style={{ ...S.btn, background: '#1a3a5c', color: 'white', width: '100%', marginTop: 8 }}
                   onClick={() => {
-                    const ativosCx = pacientes.filter(p => !infoHD[p.id]?.arquivado);
+                    const ativosCx = pacientes.filter(p => !infoHD[p.id]?.arquivado && (modoTeste || !p.teste));
                     const parear = (cc) => {
                       let match = ativosCx.find(p => cc.nome && (nrmNome(p.nome) === nrmNome(cc.nome) || nomeContido(p.nome, cc.nome)));
                       let porSem = false;
@@ -2827,7 +2845,7 @@ const ajRotulo = aj => {
                         <select style={{ ...S.select, fontSize: 12, flex: 1, minWidth: 140 }} value={caixaRel.pacId || ''}
                           onChange={e => setCaixaRel(cr => ({ ...cr, pacId: e.target.value || null, confirmado: !!e.target.value }))}>
                           <option value="">— escolher outro —</option>
-                          {pacientes.filter(px => !infoHD[px.id]?.arquivado).map(px => <option key={px.id} value={px.id}>{px.nome}{px.uti ? ' · ' + px.uti : ''}</option>)}
+                          {pacientes.filter(px => !infoHD[px.id]?.arquivado && (modoTeste || !px.teste)).sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt', { sensitivity: 'base' })).map(px => <option key={px.id} value={px.id}>{px.nome}{px.uti ? ' · ' + px.uti : ''}</option>)}
                         </select>
                       </div>
                     </div>
@@ -2850,7 +2868,7 @@ const ajRotulo = aj => {
                   )}
                   <div style={{ fontSize: 11, color: '#999', margin: '8px 0 4px' }}>{pac ? 'PACIENTE IDENTIFICADO:' : 'NÃO ACHEI O NOME NA LISTA — toque no paciente correto:'}</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-                    {(pac ? [pac] : pacientes.filter(p => !infoHD[p.id]?.arquivado)).map(p => (
+                    {(pac ? [pac] : pacientes.filter(p => !infoHD[p.id]?.arquivado && (modoTeste || !p.teste)).sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt', { sensitivity: 'base' }))).map(p => (
                       <span key={p.id} style={{ ...S.checkItem, fontSize: 12, ...(caixaRel.pacId === p.id ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}
                         onClick={() => setCaixaRel({ ...caixaRel, pacId: caixaRel.pacId === p.id ? null : p.id })}>{p.nome}</span>
                     ))}
@@ -2913,10 +2931,10 @@ const ajRotulo = aj => {
       <div style={{ ...S.card, marginTop: 16 }}>
         {pacientes.length === 0
           ? <div style={S.emptyState}><div style={{ fontSize: 48 }}>🏥</div><p>Nenhum paciente</p></div>
-          : (() => { const ativos = pacientes.filter(p => modoExcluir || !infoHD[p.id]?.arquivado);
+          : (() => { const ativos = pacientes.filter(p => (modoExcluir || !infoHD[p.id]?.arquivado) && (modoTeste || !p.teste));
             const porData = buscaData ? ativos.filter(p => (avaliacoes[p.id] || []).some(a => dataLocalISO(a.data) === buscaData)) : ativos;
             let vis = filtroHD ? porData.filter(p => infoHD[p.id]?.motivo || infoHD[p.id]?.prioridadeOntem) : porData;
-            if (filtroCat) vis = vis.filter(p => !p.teste && !p.externo && catDe(p) === filtroCat);
+            if (filtroCat) vis = vis.filter(p => (modoTeste || !p.teste) && !p.externo && catDe(p) === filtroCat);
             const pert = (p, u) => u === '__EXT__' ? !!p.externo : (!p.externo && (p.uti || '') === u);
             const ordemTrajeto = [...ANDARES.flatMap(([, us]) => us), ...UTIs.filter(u => !ANDARES.some(([, us]) => us.includes(u))), '', '__EXT__'];
             const andarDe = (u) => { const a = ANDARES.find(([, us]) => us.includes(u)); return a ? a[0] : null; };
@@ -2945,8 +2963,10 @@ const ajRotulo = aj => {
                 <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 3 }}>
                   {infoHD[p.id]?.prioridadeOntem && <span style={{ fontSize: 10.5, fontWeight: 700, color: 'white', background: '#c0392b', borderRadius: 6, padding: '2px 7px' }}>⚠ PRIORIDADE ONTEM</span>}
                   {infoHD[p.id]?.emergDial && <span style={{ fontSize: 10.5, fontWeight: 800, color: 'white', background: '#c0392b', borderRadius: 6, padding: '2px 7px' }}>🚨 EMERGÊNCIA DIALÍTICA</span>}
+                  {infoHD[p.id]?.prioDialOnly && <span style={{ fontSize: 10.5, fontWeight: 800, color: 'white', background: '#b9770e', borderRadius: 6, padding: '2px 7px' }}>⏫ PRIORIDADE</span>}
                   {infoHD[p.id]?.motivo && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#c0392b', background: '#fdf0ef', border: '1px solid #f0c2bd', borderRadius: 6, padding: '2px 7px' }}>💧 {infoHD[p.id].motivo}</span>}
                   {infoHD[p.id]?.suspensa && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#666', background: '#eee', borderRadius: 6, padding: '2px 7px' }}>HD SUSPENSA ATÉ 2ª ORDEM</span>}
+                  {p.drcTerminalSit && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#1a6e5a', background: '#e6f4f0', border: '1px solid #b8ddd2', borderRadius: 6, padding: '2px 7px' }}>🏥 {({ tem_vaga: 'tem vaga externa', aguarda_sorologia: 'aguarda sorologias', aguarda_vaga: 'aguarda vaga externa' })[p.drcTerminalSit] || p.drcTerminalSit}</span>}
                   {infoHD[p.id]?.homonimo && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#7a4a1e', background: '#fdf6f0', border: '1px solid #ecd5c0', borderRadius: 6, padding: '2px 7px' }}>⚠ HOMÔNIMO — verificar duplicado</span>}
                   {infoHD[p.id]?.relPendente && !infoHD[p.id]?.relDivergente && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#1a3a5c', background: '#eef4fb', border: '1px solid #b9d2ee', borderRadius: 6, padding: '2px 7px' }}>📬 relatório da enfermagem</span>}
                   {infoHD[p.id]?.relDivergente && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#8a6d3b', background: '#fdf6ec', border: '1px solid #e8cfa8', borderRadius: 6, padding: '2px 7px' }}>📬⚠ sessão aquém do prescrito</span>}
@@ -3026,9 +3046,9 @@ const ajRotulo = aj => {
                 <span style={{ color: '#999' }}>{pedirUTI ? '▲' : '▼'}</span>
               </div>
               {pedirUTI && (() => {
-                const utisComPac = [...new Set(pacientes.filter(p => p.nome && p.uti && !infoHD[p.id]?.arquivado).map(p => p.uti))];
+                const utisComPac = [...new Set(pacientes.filter(p => p.nome && p.uti && (modoTeste || !p.teste) && !infoHD[p.id]?.arquivado).map(p => p.uti))];
                 const pedir = (uti) => {
-                  const ps = pacientes.filter(p => p.nome && p.uti === uti && !infoHD[p.id]?.arquivado);
+                  const ps = pacientes.filter(p => p.nome && p.uti === uti && (modoTeste || !p.teste) && !infoHD[p.id]?.arquivado);
                   const L = [saudacaoHora(), '', 'Não consigo falar agora. Consegue enviar as informações abaixo dos pacientes da UTI ' + uti + '?', ''];
                   ps.forEach((p, i) => { L.push('----------'); L.push((i + 1) + '. ' + p.nome + (p.leito ? ' (leito ' + p.leito + ')' : '')); L.push(''); MOLDE_PEDIDO.forEach(it => L.push(it)); L.push(''); });
                   L.push('Obrigado!');
@@ -3060,7 +3080,7 @@ const ajRotulo = aj => {
                 else prompt('Copie:', txt);
               }} style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #b9d2ee', background: '#f4f7fb', color: '#1a3a5c', fontWeight: 600, cursor: 'pointer', textAlign: 'center', gridColumn: '1 / -1' }}>🆕 Pedir dados — paciente novo</button>
             <button onClick={() => setVerEstimativa(v => !v)} style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer', textAlign: 'center', gridColumn: '1 / -1' }}>📅 Estimativa de sessões</button>
-            <button onClick={criarOuAbrirTeste} style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #e0c068', background: '#fdf6e3', color: '#8a6d00', cursor: 'pointer', textAlign: 'center', gridColumn: '1 / -1' }}>🧪 Paciente de testes</button>
+            <button onClick={() => { if (modoTeste) { aplicarModoTeste(false); mostrarToast('Modo teste desativado — paciente teste oculto'); } else { aplicarModoTeste(true); criarOuAbrirTeste(); } }} style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #e0c068', background: modoTeste ? '#8a6d00' : '#fdf6e3', color: modoTeste ? 'white' : '#8a6d00', fontWeight: modoTeste ? 700 : 400, cursor: 'pointer', textAlign: 'center', gridColumn: '1 / -1' }}>{modoTeste ? '🧪 Modo teste ATIVO — tocar para ocultar' : '🧪 Ativar modo teste'}</button>
             {verEstimativa && (() => {
               const diaSemana = (offset) => { const d = new Date(); d.setDate(d.getDate() + offset); return d; };
               const alvo = diaSemana(estimDia);
@@ -3071,7 +3091,7 @@ const ajRotulo = aj => {
                 if (esq === 'tqs') return [2,4,6].includes(dow); // ter/qui/sáb
                 return false; // susp, sos, sem esquema → fora da projeção
               };
-              const ativos = pacientes.filter(p => p.nome && !infoHD[p.id]?.arquivado && !p.teste);
+              const ativos = pacientes.filter(p => p.nome && !infoHD[p.id]?.arquivado && (modoTeste || !p.teste));
               const previstos = ativos.filter(p => preveHD(p.esquemaHD));
               const porUTI = {};
               previstos.forEach(p => { const u = p.uti || '?'; porUTI[u] = (porUTI[u] || 0) + 1; });
@@ -3203,18 +3223,7 @@ const ajRotulo = aj => {
                 ))}
               </div>
               <div style={{ padding: '0 14px 14px' }}>
-                <div style={{ color: '#888', fontSize: 14, marginBottom: 4 }}>Status: <b style={{ color: '#1a3a5c' }}>{pacAtual.status || '—'}</b></div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <select style={{ ...S.select, flex: 1 }} value={pacAtual.diag||''}
-                    onChange={e => {
-                      const atualizado = { ...pacAtual, diag: e.target.value };
-                      atualizado.status = montarStatus(atualizado.diag, atualizado.trat);
-                      setPacientes(ps => ps.map(p => p.id === pacAtual.id ? atualizado : p));
-                      setPacAtual(atualizado);
-                    }}>
-                    <option value="">Diagnóstico</option>
-                    {DIAG_OPCOES.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
                   <select style={{ ...S.select, flex: 1 }} value={pacAtual.trat||''}
                     onChange={e => {
                       const atualizado = { ...pacAtual, trat: e.target.value };
@@ -3417,43 +3426,24 @@ const ajRotulo = aj => {
               ))}
             </div>
           </div>
-          <div style={{ padding: '12px 16px 0' }}>
-            <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', fontWeight: 700, letterSpacing: 0.5, marginBottom: 6 }}>Indicação de diálise de urgência <span style={{ textTransform: 'none', fontWeight: 400, color: '#aaa' }}>· opcional</span></div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {URGENCIAS_DIALITICAS.map(u => {
-                const on = (pacAtual.urgencias || []).includes(u);
-                return (
-                  <span key={u} style={{ ...S.checkItem, fontSize: 12, ...(on ? { background: '#c0392b', color: 'white', borderColor: '#c0392b' } : {}) }}
-                    onClick={() => {
-                      const lista = on ? (pacAtual.urgencias || []).filter(x => x !== u) : [...(pacAtual.urgencias || []), u];
-                      const at = { ...pacAtual, urgencias: lista, updatedAt: Date.now() };
-                      if (!lista.includes('Intoxicação dialisável')) at.intoxSubst = [];
-                      setPacientes(ps => ps.map(p => p.id === pacAtual.id ? at : p));
-                      setPacAtual(at);
-                    }}>{u}</span>
-                );
-              })}
-            </div>
-            {(pacAtual.urgencias || []).includes('Intoxicação dialisável') && (
-              <div style={{ marginTop: 8 }}>
-                <div style={{ fontSize: 10.5, color: '#8a6d3b', fontWeight: 700, marginBottom: 5 }}>↳ Substância</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {INTOXICACOES_DIALISAVEIS.map(s => {
-                    const onS = (pacAtual.intoxSubst || []).includes(s);
-                    return (
-                      <span key={s} style={{ ...S.checkItem, fontSize: 12, ...(onS ? { background: '#8a6d3b', color: 'white', borderColor: '#8a6d3b' } : {}) }}
-                        onClick={() => {
-                          const lista = onS ? (pacAtual.intoxSubst || []).filter(x => x !== s) : [...(pacAtual.intoxSubst || []), s];
-                          const at = { ...pacAtual, intoxSubst: lista, updatedAt: Date.now() };
-                          setPacientes(ps => ps.map(p => p.id === pacAtual.id ? at : p));
-                          setPacAtual(at);
-                        }}>{s}</span>
-                    );
-                  })}
-                </div>
+          {pacAtual.diag === 'DRC dialítica (5D)' && (
+            <div style={{ padding: '12px 16px 0' }}>
+              <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', fontWeight: 700, letterSpacing: 0.5, marginBottom: 6 }}>DRC terminal — situação <span style={{ textTransform: 'none', fontWeight: 400, color: '#aaa' }}>· justifica permanência</span></div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {[['tem_vaga', 'Tem vaga externa'], ['aguarda_sorologia', 'Aguarda sorologias'], ['aguarda_vaga', 'Aguarda vaga externa']].map(([v, l]) => {
+                  const on = pacAtual.drcTerminalSit === v;
+                  return (
+                    <span key={v} style={{ ...S.checkItem, fontSize: 12, ...(on ? { background: '#1a6e5a', color: 'white', borderColor: '#1a6e5a' } : {}) }}
+                      onClick={() => {
+                        const at = { ...pacAtual, drcTerminalSit: on ? '' : v, updatedAt: Date.now() };
+                        setPacientes(ps => ps.map(p => p.id === pacAtual.id ? at : p));
+                        setPacAtual(at);
+                      }}>{l}</span>
+                  );
+                })}
               </div>
-            )}
-          </div>
+            </div>
+          )}
           <div style={{ padding: '12px 16px 0' }}>
             <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', fontWeight: 700, letterSpacing: 0.5, marginBottom: 6 }}>Creatinina basal <span style={{ textTransform: 'none', fontWeight: 400, color: '#aaa' }}>· opcional</span></div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -3614,7 +3604,7 @@ const ajRotulo = aj => {
           const sugs = [...new Set((pacAtual.comorbidades || []).flatMap(c => COMORB_EVENTOS[c] || []))];
           if (!sugs.length) return null;
           const freq = {};
-          sugs.forEach(s => { freq[s] = pacientes.filter(q => (q.gatilhos || []).includes(s) && (q.comorbidades || []).some(c => (COMORB_EVENTOS[c] || []).includes(s))).length; });
+          sugs.forEach(s => { freq[s] = pacientes.filter(q => (modoTeste || !q.teste) && (q.gatilhos || []).includes(s) && (q.comorbidades || []).some(c => (COMORB_EVENTOS[c] || []).includes(s))).length; });
           sugs.sort((a, b) => (freq[b] || 0) - (freq[a] || 0));
           const top = sugs[0] && freq[sugs[0]] >= 2 ? sugs[0] : null;
           return (
@@ -4078,6 +4068,20 @@ const ajRotulo = aj => {
               placeholder="120/80 → PANI · 85 → PAI" label="PA (4+ dígitos = PANI · até 3 = PAI)" mode="pa" />
           </div>
           <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', letterSpacing: 0.5, marginRight: 4 }}>Sangramento</span>
+              {[['', 'não'], ['ativo', '⚠ ativo']].map(([v, l]) => (
+                <span key={v || 'nao'} onClick={() => setAvAtual(a => ({ ...a, sangramento: v, ...(v !== 'ativo' ? { sangramento_sitio: '' } : {}) }))}
+                  style={{ ...S.checkItem, fontSize: 12, ...((avAtual.sangramento || '') === v ? (v === 'ativo' ? { background: '#c0392b', color: 'white', borderColor: '#c0392b' } : { background: '#27ae60', color: 'white', borderColor: '#27ae60' }) : {}) }}>{l}</span>
+              ))}
+              {avAtual.sangramento === 'ativo' && (
+                <input style={{ ...S.input, textAlign: 'left', fontSize: 13, flex: 1, minWidth: 120 }} type="text" value={avAtual.sangramento_sitio || ''}
+                  onChange={e => upAv('sangramento_sitio', e.target.value)} placeholder="sítio (opcional): TGI, CDL, nasal…" />
+              )}
+            </div>
+            {avAtual.sangramento === 'ativo' && <div style={{ fontSize: 11, color: '#8a6d3b', marginTop: 6 }}>→ sugerido HD sem heparina na conduta.</div>}
+          </div>
+          <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0' }}>
             <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 }}>Drogas vasoativas</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               <span style={{ ...S.checkItem, fontSize: 12, ...(avAtual.semDvas ? { background: '#27ae60', color: 'white', borderColor: '#27ae60' } : {}) }}
@@ -4335,11 +4339,18 @@ const ajRotulo = aj => {
         </div>
         <TabBar atual="hdview" />
         <div style={{ pointerEvents: modoConsulta ? 'none' : 'auto' }}>
-        {avAtual.emerg_dial && (
-          <div style={{ margin: '8px 16px 0', padding: '8px 12px', borderRadius: 10, background: '#fdecea', border: '1.5px solid #c0392b', fontSize: 12.5, fontWeight: 700, color: '#c0392b' }}>
-            🚨 Emergência dialítica sinalizada — considerar HD imediata
-          </div>
-        )}
+        {avAtual.emerg_dial && (() => {
+          const soLog = (pacAtual.dialLog || pacAtual.dialOutroOn) && !(pacAtual.urgencias || []).length;
+          return soLog ? (
+            <div style={{ margin: '8px 16px 0', padding: '8px 12px', borderRadius: 10, background: '#fdf9f0', border: '1.5px solid #e8d4a8', fontSize: 12.5, fontWeight: 700, color: '#b9770e' }}>
+              ⏫ Prioridade dialítica (logística) — sem caráter de emergência
+            </div>
+          ) : (
+            <div style={{ margin: '8px 16px 0', padding: '8px 12px', borderRadius: 10, background: '#fdecea', border: '1.5px solid #c0392b', fontSize: 12.5, fontWeight: 700, color: '#c0392b' }}>
+              🚨 Emergência dialítica sinalizada — considerar HD imediata
+            </div>
+          );
+        })()}
 
         {(() => {
           // SELETOR DE SITUAÇÃO HD (Camada 1 da reestruturação)
@@ -5034,9 +5045,60 @@ const ajRotulo = aj => {
 
 
             <div style={{ padding: '0 16px 10px' }}>
-              <span style={{ ...S.checkItem, fontSize: 12.5, fontWeight: 700, display: 'block', textAlign: 'center', ...(avAtual.emerg_dial ? { background: '#c0392b', color: 'white', borderColor: '#c0392b' } : { color: '#c0392b', borderColor: '#e0b4b0' }) }}
-                onClick={() => { const nv = !avAtual.emerg_dial; setAvAtual(a => ({ ...a, emerg_dial: nv, prioridade: nv ? 'sim' : a.prioridade })); }}>🚨 Emergência dialítica{avAtual.emerg_dial ? ' — PRIORIDADE' : ''}</span>
+              <span style={{ ...S.checkItem, fontSize: 12.5, fontWeight: 700, display: 'block', textAlign: 'center', ...(avAtual.emerg_dial ? { background: '#b9770e', color: 'white', borderColor: '#b9770e' } : { color: '#b9770e', borderColor: '#e0c068' }) }}
+                onClick={() => { const nv = !avAtual.emerg_dial; setAvAtual(a => ({ ...a, emerg_dial: nv, prioridade: nv ? 'sim' : a.prioridade })); }}>⏫ Prioridade dialítica</span>
             </div>
+            {avAtual.emerg_dial && (
+              <div style={{ margin: '0 16px 10px', padding: 12, borderRadius: 10, background: '#fdf9f0', border: '1.5px solid #e8d4a8' }}>
+                <div style={{ fontSize: 10.5, color: '#b9770e', textTransform: 'uppercase', fontWeight: 700, marginBottom: 6 }}>Indicação dialítica <span style={{ textTransform: 'none', fontWeight: 400, color: '#aaa' }}>· clássicas = emergência</span></div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {URGENCIAS_DIALITICAS.map(u => {
+                    const on = (pacAtual.urgencias || []).includes(u);
+                    return (
+                      <span key={u} style={{ ...S.checkItem, fontSize: 12, ...(on ? { background: '#c0392b', color: 'white', borderColor: '#c0392b' } : {}) }}
+                        onClick={() => {
+                          const lista = on ? (pacAtual.urgencias || []).filter(x => x !== u) : [...(pacAtual.urgencias || []), u];
+                          const at = { ...pacAtual, urgencias: lista, updatedAt: Date.now() };
+                          if (!lista.includes('Intoxicação dialisável')) at.intoxSubst = [];
+                          setPacientes(ps => ps.map(p => p.id === pacAtual.id ? at : p));
+                          setPacAtual(at);
+                        }}>{u}</span>
+                    );
+                  })}
+                  <span style={{ ...S.checkItem, fontSize: 12, ...(pacAtual.dialLog ? { background: '#8a6d3b', color: 'white', borderColor: '#8a6d3b' } : {}) }}
+                    onClick={() => { const at = { ...pacAtual, dialLog: !pacAtual.dialLog, updatedAt: Date.now() }; setPacientes(ps => ps.map(p => p.id === pacAtual.id ? at : p)); setPacAtual(at); }}>Prioridade logística</span>
+                  <span style={{ ...S.checkItem, fontSize: 12, ...(pacAtual.dialOutroOn ? { background: '#8a6d3b', color: 'white', borderColor: '#8a6d3b' } : {}) }}
+                    onClick={() => { const at = { ...pacAtual, dialOutroOn: !pacAtual.dialOutroOn, ...(pacAtual.dialOutroOn ? { dialOutro: '' } : {}), updatedAt: Date.now() }; setPacientes(ps => ps.map(p => p.id === pacAtual.id ? at : p)); setPacAtual(at); }}>Outros</span>
+                </div>
+                {(pacAtual.urgencias || []).includes('Intoxicação dialisável') && (
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ fontSize: 10.5, color: '#8a6d3b', fontWeight: 700, marginBottom: 5 }}>↳ Substância</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {INTOXICACOES_DIALISAVEIS.map(s => {
+                        const onS = (pacAtual.intoxSubst || []).includes(s);
+                        return (
+                          <span key={s} style={{ ...S.checkItem, fontSize: 12, ...(onS ? { background: '#8a6d3b', color: 'white', borderColor: '#8a6d3b' } : {}) }}
+                            onClick={() => {
+                              const lista = onS ? (pacAtual.intoxSubst || []).filter(x => x !== s) : [...(pacAtual.intoxSubst || []), s];
+                              const at = { ...pacAtual, intoxSubst: lista, updatedAt: Date.now() };
+                              setPacientes(ps => ps.map(p => p.id === pacAtual.id ? at : p));
+                              setPacAtual(at);
+                            }}>{s}</span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {pacAtual.dialOutroOn && (
+                  <input style={{ ...S.input, textAlign: 'left', fontSize: 13, width: '100%', boxSizing: 'border-box', marginTop: 8 }} type="text" value={pacAtual.dialOutro || ''}
+                    onChange={e => { const at = { ...pacAtual, dialOutro: e.target.value, updatedAt: Date.now() }; setPacientes(ps => ps.map(p => p.id === pacAtual.id ? at : p)); setPacAtual(at); }}
+                    placeholder="especificar (ex.: dialisar p/ cirurgia, alta antecipada)" />
+                )}
+                {((pacAtual.dialLog || pacAtual.dialOutroOn) && !(pacAtual.urgencias || []).length) && (
+                  <div style={{ fontSize: 11, color: '#8a6d3b', marginTop: 8 }}>ℹ Só logística/outros → sai como prioridade (permanência), não emergência.</div>
+                )}
+              </div>
+            )}
             <div style={{ padding: '0 16px' }}>
               <button style={{ ...S.btn, background: '#c0392b', color: 'white', width: '100%' }}
                 onClick={() => { registrarExportacao(pacAtual.id, avAtual.data); salvarAvaliacao(false); setView('prescricao'); }}>📄 Prescrição HD — texto e impressão</button>
