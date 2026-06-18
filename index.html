@@ -888,6 +888,15 @@ function NefroApp() {
   const [hdSubAba, setHdSubAba] = useState('ultima');
   const [manualUltHdAberto, setManualUltHdAberto] = useState(false);
   useEffect(() => { if (avAtual?.hd_primeira_sessao && (hdSubAba === 'ultima' || hdSubAba === 'programada')) setHdSubAba('hoje'); }, [avAtual?.hd_primeira_sessao, hdSubAba]);
+  // Visto automático: abrir a sub-aba Última HD marca o relatório como visto (tira o aviso 📬 da lista) — substitui o botão Visto.
+  useEffect(() => {
+    if (hdSubAba !== 'ultima' || !pacAtual) return;
+    const rels = pacAtual.relEnf || [];
+    if (!rels.some(r => !r.usadoEm)) return;
+    const m = { ...pacAtual, relEnf: rels.map(r => r.usadoEm ? r : { ...r, usadoEm: Date.now() }), updatedAt: Date.now() };
+    setPacientes(ps => ps.map(p => p.id === pacAtual.id ? m : p));
+    setPacAtual(m);
+  }, [hdSubAba, pacAtual?.id, pacAtual?.relEnf]);
   // Relatório enviado = sessão feita. Há relatório da sessão anterior e destino vazio ⟹ registra "realizada" (a priori) e puxa tempo/UF do relatório.
   useEffect(() => {
     if (!avAtual || avAtual.hd_destino || !pacAtual || modoConsulta) return;
@@ -1027,7 +1036,7 @@ function NefroApp() {
     if (ehHoje) {
       const prev = ((avaliacoes[pac.id] || []).filter(a => a.id !== av.id && dataLocalISO(a.data) !== dataLocalISO(av.data)))[0];
       const relPrev = (pac.relEnf || []).find(r => !r.usadoEm) || (pac.relEnf || [])[0];
-      if (prev && prev.conduta === 'hd_hoje' && !av.hd_destino && !relPrev) R('destino_ant', 'Destino da sessão anterior não marcado', 'hdview', null);
+      if (prev && prev.conduta === 'hd_hoje' && !av.hd_destino && !relPrev && !av.hd_primeira_sessao) R('destino_ant', 'Destino da sessão anterior não marcado', 'hdview', null);
     }
     const temLab = Object.values(av.labs || {}).some(v => v != null && v !== '');
     if (!temLab && !av.sem_exames_hoje) A('labs', 'Sem exames lançados hoje', 'roteiro', 'exames');
@@ -1083,6 +1092,28 @@ function NefroApp() {
     if (d.furo_bolus_n) out.push(`Furo bolus ${d.furo_bolus_amp || ''}amp x${d.furo_bolus_n}`);
     return out.join(' + ');
   };
+  const furoAvalTexto = (d) => {
+    const com = (d.diureticos || []).includes('Furosemida');
+    const dose = String((d.diur_doses || {})['Furosemida'] || '').trim();
+    const bn = parseInt(d.furo_bolus_av_n) || 0;
+    const bamp = String(d.furo_bolus_av_amp || '').trim();
+    const bolusTxt = bn > 0 ? `${bn} bolus de ${bamp || '?'} amp` : '';
+    if (com && dose && bolusTxt) return `Furosemida ${dose} + ${bolusTxt}`;
+    if (com && dose) return `Furosemida ${dose}`;
+    if (com && bolusTxt) return `Furosemida ${bolusTxt}, sem manutenção`;
+    if (d.semFuro || com) return 'Sem furosemida';
+    return '';
+  };
+  const diurAvalTexto = (d) => {
+    const partes = [];
+    const f = furoAvalTexto(d);
+    if (f) partes.push(f);
+    ['Espironolactona', 'Hidroclorotiazida'].forEach(n => {
+      const dose = String((d.diur_doses || {})[n] || '').trim();
+      if ((d.diureticos || []).includes(n) && dose) partes.push(`${n} ${dose}`);
+    });
+    return partes.join(' · ');
+  };
   const faixaRef = (furo) => {
     const d = avAtual || {};
     const al = { color: '#c0392b', fontWeight: 700 };
@@ -1099,7 +1130,10 @@ function NefroApp() {
       if (d.ultima_hd_data) { const pd = _parseData(d.ultima_hd_data); qd = ' (' + DIAS_SEM[pd.getDay()] + ' ' + String(pd.getDate()).padStart(2, '0') + '/' + String(pd.getMonth() + 1).padStart(2, '0') + ')'; }
       itens.push(<span key="uf">UF últ. HD {d.uf_obtida} ml{qd}</span>);
     }
-    if (furo) { const fd = textoDoseFuro(d); if (fd) itens.push(<span key="furo"><b>{fd}</b></span>); }
+    if (furo) {
+      const t = furoAvalTexto(d);
+      if (t) itens.push(<span key="furo"><b>{t}</b></span>);
+    }
     if (d.edema) itens.push(<span key="ed">Edema: {d.edema}</span>);
     if (!itens.length) return null;
     return (
@@ -1108,32 +1142,49 @@ function NefroApp() {
       </div>
     );
   };
-  const blocoDiureticos = (comBanner = true) => (
+  const blocoDiureticos = (contexto = 'aval', comBanner = true) => (
           <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0' }}>
             {comBanner && faixaRef(true)}
-            <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 }}>Diureticoterapia</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              <span style={{ ...S.checkItem, fontSize: 12, ...(avAtual.semFuro ? { background: '#27ae60', color: 'white', borderColor: '#27ae60' } : {}) }}
-                onClick={() => setAvAtual(a => ({ ...a, semFuro: !a.semFuro, diureticos: !a.semFuro ? (a.diureticos||[]).filter(x => x !== 'Furosemida') : (a.diureticos||[]), furo_manut: !a.semFuro ? 'sem' : a.furo_manut, furo_dose_n: !a.semFuro ? '' : a.furo_dose_n, furo_bolus_n: !a.semFuro ? '' : a.furo_bolus_n }))}>Sem furosemida</span>
-              {(avAtual.diureticos||[]).includes('Hidroclorotiazida') && (
-                <div style={{ padding: '0 14px 4px' }}><ChipLab rotulo="Na" chave="sodio_hoje" unid="mEq/l" riscoBaixo={135} /><ChipLab rotulo="K" chave="pot_hoje" unid="mEq/l" riscoBaixo={3.5} /></div>
-              )}
-              {['Furosemida','Espironolactona','Hidroclorotiazida'].map(d => (
-                <span key={d} style={{ ...S.checkItem, fontSize: 12, ...((avAtual.diureticos||[]).includes(d) ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}
-                  onClick={() => setAvAtual(a => ({ ...a, diureticos: (a.diureticos||[]).includes(d) ? a.diureticos.filter(x => x!==d) : [...(a.diureticos||[]), d], semFuro: d === 'Furosemida' && !(a.diureticos||[]).includes(d) ? false : a.semFuro }))}>{d}</span>
-              ))}
-              {(avAtual.diureticos||[]).map(d => (
-                <div key={'dose_' + d} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', marginTop: 4 }}>
-                  <span style={{ fontSize: 12.5, width: 130 }}>{d} — dose em uso:</span>
-                  <input style={{ ...S.input, textAlign: 'left', fontSize: 13, flex: 1 }} type="text"
-                    value={(avAtual.diur_doses||{})[d] || ''}
-                    onChange={e => setAvAtual(a => ({ ...a, diur_doses: { ...(a.diur_doses||{}), [d]: e.target.value } }))}
-                    placeholder="ex.: 40mg IV 12/12h (a que está correndo HOJE)" />
-                </div>
-              ))}
-            </div>
+            <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 }}>{contexto === 'cond' ? 'Diuréticos — conduta' : 'Diuréticos em uso'}</div>
+            {contexto !== 'cond' && <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {['Furosemida','Espironolactona','Hidroclorotiazida'].map(nome => {
+                const com = (avAtual.diureticos||[]).includes(nome);
+                const semExplicito = nome === 'Furosemida' ? !!avAtual.semFuro : !!(avAtual.diurSem||{})[nome];
+                const setCom = () => setAvAtual(a => ({ ...a, diureticos: [...new Set([...(a.diureticos||[]), nome])], ...(nome === 'Furosemida' ? { semFuro: false } : { diurSem: { ...(a.diurSem||{}), [nome]: false } }) }));
+                const setSem = () => setAvAtual(a => {
+                  const limpa = nome === 'Furosemida' ? { semFuro: true, furo_manut: 'sem', furo_dose_n: '', furo_int: '', furo_bolus_n: '' } : nome === 'Espironolactona' ? { espiro_cp: '', espiro_int: '', diurSem: { ...(a.diurSem||{}), [nome]: true } } : { hctz_cp: '', hctz_int: '', diurSem: { ...(a.diurSem||{}), [nome]: true } };
+                  return { ...a, diureticos: (a.diureticos||[]).filter(x => x !== nome), diur_doses: { ...(a.diur_doses||{}), [nome]: '' }, ...limpa };
+                });
+                return (
+                  <div key={nome}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 12.5, fontWeight: 600, minWidth: 96 }}>{nome}</span>
+                      <span style={{ ...S.checkItem, fontSize: 12, ...(com ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }} onClick={setCom}>Com</span>
+                      <span style={{ ...S.checkItem, fontSize: 12, ...(semExplicito ? { background: '#27ae60', color: 'white', borderColor: '#27ae60' } : {}) }} onClick={setSem}>Sem</span>
+                    </div>
+                    {com && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5, paddingLeft: 4 }}>
+                        <span style={{ fontSize: 12, color: '#888' }}>dose em uso:</span>
+                        <input style={{ ...S.input, textAlign: 'left', fontSize: 13, flex: 1 }} type="text" value={(avAtual.diur_doses||{})[nome] || ''} onChange={e => setAvAtual(a => ({ ...a, diur_doses: { ...(a.diur_doses||{}), [nome]: e.target.value } }))} placeholder="ex.: 40mg IV 12/12h (a que está correndo HOJE)" />
+                      </div>
+                    )}
+                    {com && nome === 'Furosemida' && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, paddingLeft: 4, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 12, color: '#888' }}>bolus já feito:</span>
+                        <input style={{ ...S.input, width: 46, textAlign: 'center', fontSize: 13 }} type="text" inputMode="numeric" value={avAtual.furo_bolus_av_n || ''} onChange={e => setAvAtual(a => ({ ...a, furo_bolus_av_n: e.target.value.replace(/[^0-9]/g, '') }))} placeholder="0" />
+                        <span style={{ fontSize: 12, color: '#888' }}>bolus de</span>
+                        <input style={{ ...S.input, width: 46, textAlign: 'center', fontSize: 13 }} type="text" inputMode="numeric" value={avAtual.furo_bolus_av_amp || ''} onChange={e => setAvAtual(a => ({ ...a, furo_bolus_av_amp: e.target.value.replace(/[^0-9]/g, '') }))} placeholder="0" />
+                        <span style={{ fontSize: 12, color: '#888' }}>amp</span>
+                        <span style={{ fontSize: 11, color: '#aaa' }}>(stress test)</span>
+                      </div>
+                    )}
+                    {com && nome === 'Hidroclorotiazida' && <div style={{ padding: '4px 0 0' }}><ChipLab rotulo="Na" chave="sodio_hoje" unid="mEq/l" riscoBaixo={135} /><ChipLab rotulo="K" chave="pot_hoje" unid="mEq/l" riscoBaixo={3.5} /></div>}
+                  </div>
+                );
+              })}
+            </div>}
 
-            {(avAtual.diureticos||[]).includes('Furosemida') && (
+            {contexto === 'cond' && (avAtual.diureticos||[]).includes('Furosemida') && (
               <div style={{ marginTop: 10, paddingLeft: 12, borderLeft: '2px solid #c8d4e0' }}>
                 <div style={{ fontSize: 10, color: '#999', textTransform: 'uppercase', marginBottom: 5 }}>Furosemida — manutenção</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -1174,10 +1225,10 @@ function NefroApp() {
               </div>
             )}
 
-            {(avAtual.diureticos||[]).includes('Espironolactona') && (
+            {contexto === 'cond' && (avAtual.diureticos||[]).includes('Espironolactona') && (
               <div style={{ padding: '4px 14px 0' }}><ChipLab rotulo="K" chave="pot_hoje" unid="mEq/l" riscoAlto={5.0} /></div>
             )}
-            {(avAtual.diureticos||[]).includes('Espironolactona') && (
+            {contexto === 'cond' && (avAtual.diureticos||[]).includes('Espironolactona') && (
               <div style={{ marginTop: 10, paddingLeft: 12, borderLeft: '2px solid #c8d4e0' }}>
                 <div style={{ fontSize: 10, color: '#999', textTransform: 'uppercase', marginBottom: 5 }}>Espironolactona (cp 25mg)</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -1196,7 +1247,7 @@ function NefroApp() {
               </div>
             )}
 
-            {(avAtual.diureticos||[]).includes('Hidroclorotiazida') && (
+            {contexto === 'cond' && (avAtual.diureticos||[]).includes('Hidroclorotiazida') && (
               <div style={{ marginTop: 10, paddingLeft: 12, borderLeft: '2px solid #c8d4e0' }}>
                 <div style={{ fontSize: 10, color: '#999', textTransform: 'uppercase', marginBottom: 5 }}>Hidroclorotiazida (cp 25mg)</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -1262,12 +1313,11 @@ function NefroApp() {
       const d = avX || avAtual; const pacRef = pacX || pacAtual;
       const diurTxt = (() => {
         const det = [];
-        if ((d.diureticos || []).includes('Furosemida') && d.furo_manut !== 'sem') det.push(`Furosemida ${d.furo_dose_n || ''}${d.furo_manut === 'amp' ? 'amp' : 'cp'} ${d.furo_int || ''}`.trim());
-        if (d.furo_bolus_n) det.push(`Furosemida bolus ${d.furo_bolus_amp || ''}amp x${d.furo_bolus_n}`);
-        if ((d.diureticos || []).includes('Espironolactona')) det.push(`Espironolactona ${(parseInt(d.espiro_cp) || 1) * 25}mg ${d.espiro_int || ''}`);
-        if ((d.diureticos || []).includes('Hidroclorotiazida')) det.push(`Hidroclorotiazida ${(parseInt(d.hctz_cp) || 1) * 25}mg ${d.hctz_int || ''}`);
-        const base = det.length ? det.join('; ') : (d.diureticos || []).join(', ');
-        return d.semFuro ? ['sem furosemida', base].filter(Boolean).join('; ') : base;
+        if ((d.diureticos || []).includes('Furosemida') && d.furo_manut && d.furo_manut !== 'sem') det.push(`Furosemida ${d.furo_dose_n || ''}${d.furo_manut === 'amp' ? 'amp' : 'cp'}${d.furo_int ? ' ' + d.furo_int : ''}`);
+        if (parseInt(d.furo_bolus_n) > 0) det.push(`Furosemida ${d.furo_bolus_n} bolus de ${d.furo_bolus_amp || '?'} amp`);
+        if ((d.diureticos || []).includes('Espironolactona') && d.espiro_cp) det.push(`Espironolactona ${(parseInt(d.espiro_cp) || 1) * 25}mg${d.espiro_int ? ' ' + d.espiro_int : ''}`);
+        if ((d.diureticos || []).includes('Hidroclorotiazida') && d.hctz_cp) det.push(`Hidroclorotiazida ${(parseInt(d.hctz_cp) || 1) * 25}mg${d.hctz_int ? ' ' + d.hctz_int : ''}`);
+        return det.join('; ');
       })();
       const linhas = [];
       const add = (k, v) => { if (v != null && v !== '' && v !== 'ausente' && !(Array.isArray(v) && v.length === 0)) linhas.push(`${k}: ${Array.isArray(v) ? v.join(', ') : v}`); };
@@ -1304,17 +1354,8 @@ function NefroApp() {
       linhas.push('BH / DIURÉTICO');
       add('Ganhos', d.ganhos ? `${d.ganhos} ml${d.bh_parcial && d.bh_horas ? ` (parcial ${d.bh_horas}h)` : ''}` : '');
       add('Diurese', d.diurese ? `${d.diurese} ml${d.bh_parcial && d.bh_horas ? ` (parcial ${d.bh_horas}h)` : ''}` : (d.diurese_qual || ''));
-      if ((d.diureticos || []).length) add('Diurético (em uso)', d.diureticos.map(x => x + ((d.diur_doses || {})[x] ? ' ' + d.diur_doses[x] : '')).join(' · '));
+      { const dt = diurAvalTexto(d); if (dt) add('Diurético (em uso)', dt); }
       add('SVD', d.svd);
-      if (d.semFuro && !(d.diureticos || []).length) add('Diuréticos', 'sem furosemida');
-      if ((d.diureticos || []).length) {
-        const det = [];
-        if (d.diureticos.includes('Furosemida') && d.furo_manut !== 'sem') det.push(`Furosemida ${d.furo_dose_n || ''}${d.furo_manut === 'amp' ? 'amp' : 'cp'} ${d.furo_int || ''}`);
-        if (d.furo_bolus_n) det.push(`Furosemida bolus ${d.furo_bolus_amp || ''}amp x${d.furo_bolus_n}`);
-        if (d.diureticos.includes('Espironolactona')) det.push(`Espironolactona ${(parseInt(d.espiro_cp) || 1) * 25}mg ${d.espiro_int || ''}`);
-        if (d.diureticos.includes('Hidroclorotiazida')) det.push(`Hidroclorotiazida ${(parseInt(d.hctz_cp) || 1) * 25}mg ${d.hctz_int || ''}`);
-        add('Diuréticos', [d.semFuro ? 'sem furosemida' : null, det.length ? det.join('; ') : d.diureticos.join(', ')].filter(Boolean).join('; '));
-      }
 
       const L = d.labs || {};
       const num = x => parseFloat(String(x == null ? '' : x).replace(',', '.')) || 0;
@@ -1417,6 +1458,13 @@ const ajRotulo = aj => {
         if (sel.includes('Bicarbonato')) { det.push('Bicarbonato de sódio' + (d.bic_ml ? ` ${d.bic_ml} ml${d.bic_h ? ` a cada ${d.bic_h}h` : ''}` : ' (definir volume/intervalo)') + '.'); }
         if (sel.includes('Glicoinsulina')) { det.push('Glicoinsulina: Insulina regular 10 UI + glicose 50% 100 ml EV 15–30 min. HGT 1/1h por 4–6h.'); }
         add('Eletrólitos', det.length ? det : sel);
+      }
+      { const cd = [];
+        if ((d.diureticos || []).includes('Furosemida') && d.furo_manut && d.furo_manut !== 'sem') cd.push(`manter furosemida ${d.furo_dose_n || ''}${d.furo_manut === 'amp' ? 'amp' : 'cp'}${d.furo_int ? ' ' + d.furo_int : ''}`);
+        if (parseInt(d.furo_bolus_n) > 0) cd.push(`furosemida ${d.furo_bolus_n} bolus de ${d.furo_bolus_amp || '?'} amp`);
+        if ((d.diureticos || []).includes('Espironolactona') && d.espiro_cp) cd.push(`espironolactona ${(parseInt(d.espiro_cp) || 1) * 25}mg${d.espiro_int ? ' ' + d.espiro_int : ''}`);
+        if ((d.diureticos || []).includes('Hidroclorotiazida') && d.hctz_cp) cd.push(`hidroclorotiazida ${(parseInt(d.hctz_cp) || 1) * 25}mg${d.hctz_int ? ' ' + d.hctz_int : ''}`);
+        if (cd.length) add('Diurético (conduta)', cd.join('; '));
       }
       if (d.diur_ajuste) add('Diurético (ajuste)', d.diur_ajuste + (d.diur_ajuste_obs ? ' — ' + d.diur_ajuste_obs : ''));
       if ((d.med_revisar || []).length) add('Revisar/suspender', d.med_revisar);
@@ -1737,7 +1785,7 @@ const ajRotulo = aj => {
       ...(condutaSug ? { conduta_sugerida: condutaSug } : {}),
       conduta: condutaSug ? 'hd_hoje' : 'conservador', prioridade: 'nao', conclusao: 'acompanhamento', aj_diur: {}, cond_alertas: [], labs: {},
       eg: (prev && ['estável','grave','gravíssimo'].includes(prev.eg)) ? prev.eg : 'estável', consciencia: (prev && prev.consciencia) ? prev.consciencia : flexSexo('consciente e orientado', pacN.sexo), padrao_resp: flexSexo('eupneico', pacN.sexo), resp:'', sat:'', pai:false, pam:'', pa:'', dvas:{}, fio2:'', peep:'', fluxoO2:'', edema:'ausente',
-      ganhos:'', diurese:'', bh_parcial:false, bh_horas:'', svd:'', diureticos:[], furo_manut:'sem', furo_dose_n:'', furo_int:'', furo_bolus_n:'', furo_bolus_amp:'', espiro_cp:'', espiro_int:'', hctz_cp:'', hctz_int:'',
+      ganhos:'', diurese:'', bh_parcial:false, bh_horas:'', svd:'', diureticos:[], diur_doses:{}, diurSem:{}, furo_manut:'sem', furo_dose_n:'', furo_int:'', furo_bolus_n:'', furo_bolus_amp:'', furo_bolus_av_n:'', furo_bolus_av_amp:'', espiro_cp:'', espiro_int:'', hctz_cp:'', hctz_int:'',
       ultima_hd_data:'', acesso:'CDL', tempo_obtido:'', uf_obtida:'',
       anticoag_hd:'sem heparina', cateter_pos:'Bic. Na 8,4%', interc:['Nenhuma'], interc_outro:'', observacoes:'',
       ...(prev ? {
@@ -1756,7 +1804,7 @@ const ajRotulo = aj => {
         })(),
         espiro_cp: prev.espiro_cp || '', espiro_int: prev.espiro_int || '', hctz_cp: prev.hctz_cp || '', hctz_int: prev.hctz_int || '',
         dvas: { ...(prev.dvas || {}) }, semDvas: prev.semDvas || false,
-        diur_doses: { ...(prev.diur_doses || {}) },
+        diur_doses: { ...(prev.diur_doses || {}) }, diurSem: { ...(prev.diurSem || {}) }, semFuro: prev.semFuro || false,
         acesso: prev.acesso || 'CDL', anticoag_hd: prev.anticoag_hd || 'sem heparina', cateter_pos: prev.cateter_pos || 'Bic. Na 8,4%',
         med_revisar: [...(prev.med_revisar || [])],
         // Marca de campos herdados (para destaque "de ontem" e checagem no panorama)
@@ -1967,6 +2015,8 @@ const ajRotulo = aj => {
 
   const avs = pacAtual ? (avaliacoes[pacAtual.id] || []) : [];
   const ultimaAv = avs[0];
+  // Item: "última HD prescrita foi realizada?" — fonte única = chip Cancelada (hd_destino de um dia posterior). Mantém compat com o campo antigo hd_nao_realizada.
+  const hdUltimaRealizada = (p, u) => !!u && !u.hd_nao_realizada && !((avaliacoes[p.id] || []).some(a => a.data > u.data && a.hd_destino === 'cancelada'));
 
   // ── VIEWS ──
   const modalPaciente = showModal ? (
@@ -2242,7 +2292,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.1.5</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.2.0</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -2282,7 +2332,7 @@ const ajRotulo = aj => {
         // contador de ciclo de relatórios de enfermagem (vínculo = data da prescrição da última HD)
         const hdPrescritas = ativos.filter(p => {
           const ultHD = (avaliacoes[p.id] || []).find(a => a.conduta === 'hd_hoje');
-          return ultHD && !ultHD.hd_nao_realizada;
+          return hdUltimaRealizada(p, ultHD);
         });
         const relRecebidos = hdPrescritas.filter(p => {
           const ultHD = (avaliacoes[p.id] || []).find(a => a.conduta === 'hd_hoje');
@@ -2312,10 +2362,10 @@ const ajRotulo = aj => {
         // ciclo corrente: HDs prescritas como hd_hoje na data da última leva de prescrições
         const ultHDde = (p) => (avaliacoes[p.id] || []).find(a => a.conduta === 'hd_hoje');
         let dataAncora = 0;
-        ativosR.forEach(p => { const u = ultHDde(p); if (u && !u.hd_nao_realizada && u.data > dataAncora) dataAncora = u.data; });
+        ativosR.forEach(p => { const u = ultHDde(p); if (hdUltimaRealizada(p, u) && u.data > dataAncora) dataAncora = u.data; });
         const mesmoDia = (t1, t2) => { const d1 = new Date(t1), d2 = new Date(t2); return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate(); };
         const naoDisp = (p) => { const u = ultHDde(p); return u && p.relNaoDisp && mesmoDia(p.relNaoDisp, u.data); };
-        const hdCicloTodos = dataAncora ? ativosR.filter(p => { const u = ultHDde(p); return u && !u.hd_nao_realizada && mesmoDia(u.data, dataAncora); }) : [];
+        const hdCicloTodos = dataAncora ? ativosR.filter(p => { const u = ultHDde(p); return hdUltimaRealizada(p, u) && mesmoDia(u.data, dataAncora); }) : [];
         const hdCiclo = hdCicloTodos.filter(p => !naoDisp(p)); // abate os marcados como não disponível
         const recebido = (p) => { const u = ultHDde(p); return u && (p.relEnf || []).some(r => r.criadoEm >= u.data); };
         const nRec = hdCiclo.filter(recebido).length;
@@ -3990,7 +4040,7 @@ const ajRotulo = aj => {
               </div>
             ) : null;
           })()}
-          {blocoDiureticos(false)}
+          {blocoDiureticos('aval', false)}
         </Section>
 
         {/* ÚLTIMA HD */}
@@ -4224,6 +4274,18 @@ const ajRotulo = aj => {
 
         {hdSubAba !== 'ultima' && (() => { const fx = faixaRef(true); return fx ? <div style={{ margin: '10px 16px 0' }}>{fx}</div> : null; })()}
 
+        {hdSubAba !== 'ultima' && (() => {
+          const relUlt = (pacAtual.relEnf || []).find(r => !r.usadoEm) || (pacAtual.relEnf || [])[0];
+          if (!relUlt || !relUlt.raw) return null;
+          const rcd = relUlt.campos || {};
+          return (
+            <div style={{ margin: '8px 16px 0' }}>
+              <span style={{ ...S.checkItem, fontSize: 12, color: '#1a3a5c', borderColor: '#b9d2ee' }}
+                onClick={() => { setVerOriginal(relUlt.raw); if (!relUlt.usadoEm) { const m = { ...pacAtual, relEnf: (pacAtual.relEnf || []).map(r => r.id === relUlt.id ? { ...r, usadoEm: Date.now() } : r), updatedAt: Date.now() }; setPacientes(ps => ps.map(p => p.id === pacAtual.id ? m : p)); setPacAtual(m); } }}>📄 ver relatório da última sessão{rcd.data ? ' · ' + rcd.data : ''}</span>
+            </div>
+          );
+        })()}
+
         {hdSubAba === 'ultima' && dULT && (
           <div style={{ margin: '10px 16px 0', padding: '10px 14px', borderRadius: 10, background: '#eef4fb', border: '1px solid #b9d2ee', fontSize: 14, fontWeight: 800, color: '#1a3a5c' }}>
             🩸 Última HD: {dULT.split('-').reverse().join('/')} · {DIAS_SEM[_parseData(dULT).getDay()]}{intervaloTxt && intervaloTxt !== 'hoje' ? <span style={{ fontWeight: 600 }}> · {intervaloTxt}</span> : null}
@@ -4415,13 +4477,6 @@ const ajRotulo = aj => {
           return (
         <Section title="☐ Última HD">
           <div style={{ padding: '8px 14px', borderBottom: '1px solid #f0f0f0' }}>
-            <span style={{ ...S.checkItem, fontSize: 12.5, marginBottom: 8, display: 'inline-block', ...(avAtual.hd_nao_realizada ? { background: '#c0392b', color: 'white', borderColor: '#c0392b' } : { color: '#c0392b', borderColor: '#e0b4b0' }) }}
-              onClick={() => {
-                if (!avAtual.hd_nao_realizada) { const j = prompt('HD não realizada — justificativa (opcional):'); upAv('hd_nao_realizada', true); if (j) upAv('hd_nao_realizada_obs', j.trim()); }
-                else { upAv('hd_nao_realizada', false); upAv('hd_nao_realizada_obs', ''); }
-              }}>{avAtual.hd_nao_realizada ? '✓ HD não realizada' + (avAtual.hd_nao_realizada_obs ? ' — ' + avAtual.hd_nao_realizada_obs : '') : '○ HD não realizada'}</span>
-          </div>
-          <div style={{ padding: '8px 14px', borderBottom: '1px solid #f0f0f0' }}>
             <button style={{ ...S.btn, background: '#eef4fb', color: '#1a3a5c', border: '1px solid #b9d2ee', width: '100%', fontSize: 13 }}
               onClick={() => setRelEnf({ raw: '', campos: null })}>📋 Colar relatório da enfermagem (WhatsApp)</button>
           </div>
@@ -4515,7 +4570,6 @@ const ajRotulo = aj => {
                   const rel = (pacAtual.relEnf || []).find(r => !r.usadoEm) || (pacAtual.relEnf || [])[0];
                   if (!rel) return null;
                   const rc = rel.campos || {};
-                  const novoRel2 = !rel.usadoEm;
                   return (
                     <div style={{ padding: '8px 12px', borderRadius: 8, background: '#f4f7fb', border: '1.5px solid #b9d2ee', marginBottom: 8, fontSize: 12.5 }}>
                       📋 <b>Relatório da sessão</b> {rc.data ? 'de ' + rc.data : ''} (enfermagem) 🔒
@@ -4543,13 +4597,7 @@ const ajRotulo = aj => {
                       <div style={{ marginTop: 4, fontSize: 11, color: '#999' }}>Registro da sessão — não edita a evolução. Marque o destino abaixo com base nele.</div>
                       <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
                         {rel.raw && <span style={{ ...S.checkItem, fontSize: 12, color: '#1a3a5c', borderColor: '#b9d2ee' }}
-                          onClick={() => setVerOriginal(rel.raw)}>📄 ver original</span>}
-                        {novoRel2 && <span style={{ ...S.checkItem, fontSize: 12 }}
-                          onClick={() => {
-                            const marcado = { ...pacAtual, relEnf: (pacAtual.relEnf || []).map(r => r.id === rel.id ? { ...r, usadoEm: Date.now() } : r), updatedAt: Date.now() };
-                            setPacientes(ps => ps.map(p => p.id === pacAtual.id ? marcado : p));
-                            setPacAtual(marcado);
-                          }}>✓ Visto</span>}
+                          onClick={() => { setVerOriginal(rel.raw); if (!rel.usadoEm) { const m = { ...pacAtual, relEnf: (pacAtual.relEnf || []).map(r => r.id === rel.id ? { ...r, usadoEm: Date.now() } : r), updatedAt: Date.now() }; setPacientes(ps => ps.map(p => p.id === pacAtual.id ? m : p)); setPacAtual(m); } }}>📄 ver original</span>}
                         <span style={{ ...S.checkItem, fontSize: 12, color: '#c0392b', borderColor: '#e8c8c4' }}
                           onClick={() => {
                             if (!confirm('Este é o registro da sessão' + (rc.data ? ' de ' + rc.data : '') + '. Corrigir SOMENTE se houve erro de decodificação ou erro de registro do técnico. Continuar?')) return;
@@ -4558,7 +4606,16 @@ const ajRotulo = aj => {
                             setPacientes(ps => ps.map(p => p.id === pacAtual.id ? semEle : p));
                             setPacAtual(semEle);
                             mostrarToast('Registro removido — cole o corrigido na caixa 📬');
-                          }}>corrigir registro</span>
+                          }}>✏️ corrigir</span>
+                        <span style={{ ...S.checkItem, fontSize: 12, color: '#c0392b', borderColor: '#e8c8c4' }}
+                          onClick={() => {
+                            if (!confirm('Apagar este relatório' + (rc.data ? ' de ' + rc.data : '') + '?')) return;
+                            if (!confirm('Tem certeza? O relatório será apagado e NÃO dá pra desfazer.')) return;
+                            const semEle = { ...pacAtual, relEnf: (pacAtual.relEnf || []).filter(r => r.id !== rel.id), updatedAt: Date.now() };
+                            setPacientes(ps => ps.map(p => p.id === pacAtual.id ? semEle : p));
+                            setPacAtual(semEle);
+                            mostrarToast('Relatório apagado');
+                          }}>🗑 apagar</span>
                       </div>
                     </div>
                   );
@@ -4920,7 +4977,7 @@ const ajRotulo = aj => {
                           </div>
 
             </div>)}
-            {subCond === 'diur' && blocoDiureticos()}
+            {subCond === 'diur' && blocoDiureticos('cond')}
         {subCond === 'outras' && (<div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0' }}>
               {faixaRef(true)}
               <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 }}>Bundle</div>
@@ -5386,12 +5443,11 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
     const dvasTxt = avV.semDvas ? 'sem DVAs' : Object.entries(avV.dvas || {}).map(([d, c]) => `${d} ${c.vazao || '?'}ml/h${c.dd ? ' (DD)' : ''}`).join(', ');
     const diurTxt = (() => {
       const d = avV; const det = [];
-      if ((d.diureticos || []).includes('Furosemida') && d.furo_manut !== 'sem') det.push(`Furosemida ${d.furo_dose_n || ''}${d.furo_manut === 'amp' ? 'amp' : 'cp'} ${d.furo_int || ''}`);
-      if (d.furo_bolus_n) det.push(`Furosemida bolus ${d.furo_bolus_amp || ''}amp x${d.furo_bolus_n}`);
-      if ((d.diureticos || []).includes('Espironolactona')) det.push(`Espironolactona ${(parseInt(d.espiro_cp) || 1) * 25}mg ${d.espiro_int || ''}`);
-      if ((d.diureticos || []).includes('Hidroclorotiazida')) det.push(`Hidroclorotiazida ${(parseInt(d.hctz_cp) || 1) * 25}mg ${d.hctz_int || ''}`);
-      const base = det.length ? det.join('; ') : (d.diureticos || []).join(', ');
-      return d.semFuro ? ['sem furosemida', base].filter(Boolean).join('; ') : base;
+      if ((d.diureticos || []).includes('Furosemida') && d.furo_manut && d.furo_manut !== 'sem') det.push(`Furosemida ${d.furo_dose_n || ''}${d.furo_manut === 'amp' ? 'amp' : 'cp'}${d.furo_int ? ' ' + d.furo_int : ''}`);
+      if (parseInt(d.furo_bolus_n) > 0) det.push(`Furosemida ${d.furo_bolus_n} bolus de ${d.furo_bolus_amp || '?'} amp`);
+      if ((d.diureticos || []).includes('Espironolactona') && d.espiro_cp) det.push(`Espironolactona ${(parseInt(d.espiro_cp) || 1) * 25}mg${d.espiro_int ? ' ' + d.espiro_int : ''}`);
+      if ((d.diureticos || []).includes('Hidroclorotiazida') && d.hctz_cp) det.push(`Hidroclorotiazida ${(parseInt(d.hctz_cp) || 1) * 25}mg${d.hctz_int ? ' ' + d.hctz_int : ''}`);
+      return det.join('; ');
     })();
     const Bloco = ({ titulo, children, ir }) => (
       ir && !modoConsulta ? (
@@ -5497,7 +5553,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                 <div style={{ padding: graves.length + avisos.length ? '6px 14px' : '10px 14px', fontSize: 13.5 }}>
                   {graves.map((x, i) => (
                     <div key={'g' + i} style={{ padding: '8px 0', borderBottom: '1px solid #f5e3e0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                      <span onClick={() => { setModoConsulta(false); if (x.ctx) setSubCtx(x.ctx); if (x.sub) setSubRot(x.sub); if (x.v === 'conduta') setSubCond(x.id === 'conduta' ? 'dec' : 'presc'); if (x.id === 'destino_ant') setHdSubAba('ultima'); setView(x.v); }}
+                      <span onClick={() => { setModoConsulta(false); if (x.ctx) setSubCtx(x.ctx); if (x.sub) setSubRot(x.sub); if (x.v === 'conduta') setSubCond(x.id === 'conduta' ? 'dec' : 'presc'); if (x.v === 'hdview') setHdSubAba(x.id === 'destino_ant' ? 'ultima' : 'hoje'); setView(x.v); }}
                         style={{ color: '#c0392b', fontWeight: 700, cursor: 'pointer', flex: 1 }}>● {x.rot} <span style={{ color: '#999', fontWeight: 400 }}>· resolver ▸</span></span>
                       {x.destravavel && <span onClick={() => {
                           const s = prompt('Destravar "' + x.rot + '" — dado não disponível. Senha:');
@@ -5508,7 +5564,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                     </div>
                   ))}
                   {avisos.map((x, i) => (
-                    <div key={'a' + i} onClick={() => { setModoConsulta(false); if (x.ctx) setSubCtx(x.ctx); if (x.sub) setSubRot(x.sub); if (x.v === 'conduta') setSubCond(x.id === 'conduta' ? 'dec' : 'presc'); if (x.id === 'destino_ant') setHdSubAba('ultima'); setView(x.v); }}
+                    <div key={'a' + i} onClick={() => { setModoConsulta(false); if (x.ctx) setSubCtx(x.ctx); if (x.sub) setSubRot(x.sub); if (x.v === 'conduta') setSubCond(x.id === 'conduta' ? 'dec' : 'presc'); if (x.v === 'hdview') setHdSubAba(x.id === 'destino_ant' ? 'ultima' : 'hoje'); setView(x.v); }}
                       style={{ padding: '8px 0', color: '#8a6d3b', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', fontStyle: x.carimbo ? 'italic' : 'normal' }}>
                       <span>○ {x.rot}</span><span style={{ color: '#bbb' }}>ver ▸</span>
                     </div>
@@ -5551,9 +5607,8 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           <Bloco ir="roteiro" titulo="BH & Diurético">
             <Item k="Ganhos" v={avV.ganhos ? `${avV.ganhos} ml` : ''} />
             <Item k="Diurese" v={avV.diurese ? `${avV.diurese} ml${avV.bh_parcial && avV.bh_horas ? ` (parcial ${avV.bh_horas}h)` : ''}` : (avV.diurese_qual || '')} />
-            <Item k="Diurético (em uso)" v={(avV.diureticos||[]).length ? avV.diureticos.map(d => d + ((avV.diur_doses||{})[d] ? ' ' + avV.diur_doses[d] : '')).join(' · ') : (avV.semFuro ? 'sem furosemida' : '')} />
+            <Item k="Diurético (em uso)" v={diurAvalTexto(avV)} />
             <Item k="SVD" v={avV.svd} />
-            <Item k="Diuréticos" v={diurTxt} />
           </Bloco>
 
           <Bloco ir="roteiro" titulo="Laboratório (hoje)">
@@ -5651,6 +5706,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                 });
                 const detOutras = (avV.cond_outras_sel || []).map(c => c === 'Troca de diluições' && avV.troca_diluicoes ? `Troca de diluições → ${avV.troca_diluicoes}` : c);
                 return (<>
+                  {diurTxt && <Item k="Diurético (conduta)" v={diurTxt} />}
                   {nomeAj && <Item k="Ajuste de diurético" v={`dose atual: ${diurTxt || 'sem diurético'} → ajustar para: ${nomeAj}`} />}
                   {detVol.length > 0 && <Item k="Volemia" v={detVol.join('; ')} />}
                   {(avV.cond_eletr || []).length > 0 && <Item k="Eletrólitos" v={(avV.cond_eletr || []).join(', ')} />}
