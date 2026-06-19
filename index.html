@@ -2502,9 +2502,19 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
       if (av) itens.push({ p, av });
     });
     const rotDia = d => d.split('-').reverse().slice(0, 2).join('/');
+    const textoUm = (p, av) => p.nome + ' — ' + new Date(av.data).toLocaleDateString('pt-BR') + '\n\n' + gerarTextoPanorama(av, p);
     const copiarUm = (p, av) => {
-      const txt = p.nome + ' — ' + new Date(av.data).toLocaleDateString('pt-BR') + '\n\n' + gerarTextoPanorama(av, p);
+      const txt = textoUm(p, av);
       navigator.clipboard?.writeText(txt).then(() => alert('Evolução de ' + p.nome + ' copiada — cole no PEP.'), () => alert('Não foi possível copiar.'));
+    };
+    const SEP_PEP = '\n\n──────── PRÓXIMA EVOLUÇÃO ────────\n\n';
+    const copiarBloco = () => {
+      const reais = itens.filter(({ p }) => !p.teste);
+      if (!reais.length) { alert('Nenhuma evolução (não-teste) neste dia.'); return; }
+      const txt = reais.map(({ p, av }) => textoUm(p, av)).join(SEP_PEP);
+      navigator.clipboard?.writeText(txt).then(
+        () => alert(reais.length + ' evolução(ões) de ' + (dia === diasDisp[0] ? 'hoje' : rotDia(dia)) + ' copiadas em bloco.\n\nCole no PEP — as evoluções vêm separadas por um marcador, para colar uma a uma (ou via colar ritmado).'),
+        () => alert('Não foi possível copiar.'));
     };
     return (
       <div style={S.app}>
@@ -2526,6 +2536,12 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
               style={{ ...S.input, textAlign: 'left', fontSize: 13, flex: 1 }} />
             <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>retroativa (faturamento)</span>
           </div>
+          {itens.filter(({ p }) => !p.teste).length > 0 && (
+            <button onClick={copiarBloco}
+              style={{ width: '100%', padding: '12px', borderRadius: 8, border: 'none', background: '#1a3a5c', color: 'white', fontWeight: 700, fontSize: 14, cursor: 'pointer', marginBottom: 12 }}>
+              📋 Copiar todas em bloco ({itens.filter(({ p }) => !p.teste).length})
+            </button>
+          )}
           {!itens.length
             ? <div style={{ color: '#888', fontSize: 13, padding: 20, textAlign: 'center' }}>Nenhuma evolução neste dia.</div>
             : itens.map(({ p, av }) => (
@@ -2539,7 +2555,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                 </div>
               </div>
             ))}
-          <div style={{ fontSize: 11.5, color: '#999', marginTop: 6 }}>Um toque em Copiar por paciente → colar no PEP. A prévia é truncada; o texto copiado é completo.</div>
+          <div style={{ fontSize: 11.5, color: '#999', marginTop: 6 }}>Copiar por paciente, ou "Copiar todas em bloco" (evoluções separadas por um marcador, para colar uma a uma). A prévia é truncada; o texto copiado é completo.</div>
         </div>
       </div>
     );
@@ -2630,7 +2646,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.13.2</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.13.3</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
