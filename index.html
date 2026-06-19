@@ -1548,7 +1548,18 @@ function NefroApp() {
         linhas.push('Apesar do risco aumentado de complicações renais e sistêmicas, do ponto de vista nefrológico não há contraindicação absoluta à realização do procedimento proposto. Recomenda-se avaliação criteriosa da relação risco-benefício pela equipe assistente.');
       }
       linhas.push(''); linhas.push('CONDUTA');
-      add('Decisão', { hd_hoje: 'HD HOJE', hd_amanha: 'HD AMANHÃ', conservador: 'Conservador' }[d.conduta]);
+      let decTxt = { hd_hoje: 'HD HOJE', hd_amanha: 'HD AMANHÃ', conservador: 'Conservador' }[d.conduta];
+      if (d.conduta === 'conservador' && pacRef.esquemaHD === 'susp') decTxt = 'Desmame de HD — recuperação de função renal (em prova)';
+      else if (d.conduta === 'conservador' && d.cons_motivo === 'adequacao') decTxt = 'Tratamento conservador — adequação do esforço terapêutico';
+      else if (d.conduta === 'conservador' && d.cons_motivo === 'recusa') decTxt = 'Tratamento conservador — recusa do paciente/família';
+      add('Decisão', decTxt);
+      if (d.conduta === 'conservador' && pacRef.esquemaHD === 'susp') {
+        let provaTxt = '';
+        if (d.hd_desmame_desde) { const d0 = new Date(d.hd_desmame_desde + 'T00:00'); const hj = new Date(); hj.setHours(0, 0, 0, 0); const dd = Math.round((hj - d0) / 86400000); provaTxt = dd <= 0 ? ' (iniciado hoje)' : ' (em prova há ' + dd + (dd === 1 ? ' dia' : ' dias') + ')'; }
+        linhas.push('Suporte renal extracorpóreo suspenso para avaliar recuperação de função renal' + provaTxt + '. Vigiar K, escórias, pH/bicarbonato e volume; retomar HD se descompensar.');
+      }
+      if (d.conduta === 'conservador' && d.cons_motivo === 'adequacao') linhas.push('Diálise não indicada no contexto de adequação do esforço terapêutico (alinhamento à meta de cuidado).');
+      if (d.conduta === 'conservador' && d.cons_motivo === 'recusa') linhas.push('Recusa do paciente/família à diálise após esclarecimento. Mantido suporte clínico.');
       if ((pacRef.urgencias || []).length) {
         const us = pacRef.urgencias.map(u => (u === 'Intoxicação dialisável' && (pacRef.intoxSubst || []).length) ? u + ' (' + pacRef.intoxSubst.join(', ') + ')' : u);
         linhas.push('Indicação dialítica de urgência: ' + us.join('; '));
@@ -1972,7 +1983,7 @@ const ajRotulo = aj => {
         // HERDADOS (estáveis) — marcados como "de ontem" até confirmar
         padrao_resp: prev.padrao_resp || '', resp: prev.resp || '', fio2: prev.fio2 || '', peep: prev.peep || '', fluxoO2: prev.fluxoO2 || '',
         edema: prev.edema || 'ausente', svd: prev.svd || '', peso_est: prev.peso_est || '',
-        ultima_hd_data: prev.ultima_hd_data || '', tempo_obtido: prev.tempo_obtido || '', uf_obtida: prev.uf_obtida || '',
+        ultima_hd_data: prev.ultima_hd_data || '', tempo_obtido: prev.tempo_obtido || '', uf_obtida: prev.uf_obtida || '', hd_desmame_desde: prev.hd_desmame_desde || '', cons_motivo: prev.cons_motivo || '',
         ...(() => {
           const aj = prev.aj_diur || {};
           const base = { diureticos: [...(prev.diureticos || [])], furo_manut: prev.furo_manut || 'sem', furo_dose_n: prev.furo_dose_n || '', furo_int: prev.furo_int || '' };
@@ -2473,7 +2484,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.8.3</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.9.0</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -2601,7 +2612,7 @@ const ajRotulo = aj => {
         const pop = pacientes.filter(p => p.nome && !infoHD[p.id]?.arquivado && (modoTeste || !p.teste) && !p.externo);
         const cont = { hoje: 0, emhd: 0, susp: 0, cons: 0 };
         pop.forEach(p => { cont[catDe(p)]++; });
-        const cats = [['hoje', 'HD HOJE', '#c0392b'], ['emhd', 'EM HD', '#2e6da4'], ['susp', 'Suspensa', '#8a6d3b'], ['cons', 'Conservador', '#27ae60']];
+        const cats = [['hoje', 'HD HOJE', '#c0392b'], ['emhd', 'EM HD', '#2e6da4'], ['susp', 'Desmame', '#8a6d3b'], ['cons', 'Conservador', '#27ae60']];
         const ativoLbl = filtroCat ? (cats.find(c => c[0] === filtroCat) || [])[1] : null;
         return (
           <div style={{ margin: '8px 16px 0' }}>
@@ -3023,7 +3034,7 @@ const ajRotulo = aj => {
                   {infoHD[p.id]?.emergDial && <span style={{ fontSize: 10.5, fontWeight: 800, color: 'white', background: '#c0392b', borderRadius: 6, padding: '2px 7px' }}>🚨 EMERGÊNCIA DIALÍTICA</span>}
                   {infoHD[p.id]?.prioDialOnly && <span style={{ fontSize: 10.5, fontWeight: 800, color: 'white', background: '#b9770e', borderRadius: 6, padding: '2px 7px' }}>⏫ PRIORIDADE</span>}
                   {infoHD[p.id]?.motivo && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#c0392b', background: '#fdf0ef', border: '1px solid #f0c2bd', borderRadius: 6, padding: '2px 7px' }}>💧 {infoHD[p.id].motivo}</span>}
-                  {infoHD[p.id]?.suspensa && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#666', background: '#eee', borderRadius: 6, padding: '2px 7px' }}>HD SUSPENSA ATÉ 2ª ORDEM</span>}
+                  {infoHD[p.id]?.suspensa && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#666', background: '#eee', borderRadius: 6, padding: '2px 7px' }}>DESMAME · RFR EM PROVA</span>}
                   {p.drcTerminalSit && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#1a6e5a', background: '#e6f4f0', border: '1px solid #b8ddd2', borderRadius: 6, padding: '2px 7px' }}>🏥 {({ tem_vaga: 'tem vaga externa', aguarda_sorologia: 'aguarda sorologias', aguarda_vaga: 'aguarda vaga externa' })[p.drcTerminalSit] || p.drcTerminalSit}</span>}
                   {infoHD[p.id]?.homonimo && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#7a4a1e', background: '#fdf6f0', border: '1px solid #ecd5c0', borderRadius: 6, padding: '2px 7px' }}>⚠ HOMÔNIMO — verificar duplicado</span>}
                   {infoHD[p.id]?.relPendente && !infoHD[p.id]?.relDivergente && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#1a3a5c', background: '#eef4fb', border: '1px solid #b9d2ee', borderRadius: 6, padding: '2px 7px' }}>📬 relatório da enfermagem</span>}
@@ -4418,23 +4429,52 @@ const ajRotulo = aj => {
 
         {(() => {
           // SELETOR DE SITUAÇÃO HD (Camada 1 da reestruturação)
-          const opcoes = [['conservador','Tratamento conservador'],['hd','HD'],['suspensa','HD suspensa']];
+          const opcoes = [['conservador','Tratamento conservador'],['hd','HD'],['desmame','Desmame de HD']];
           // dedução inicial só pra sugerir (não trava): se já tem HD interna → continuidade
           const temHDi = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido;
-          const sit = hdSituacao || (pacAtual.esquemaHD === 'susp' ? 'suspensa' : temHDi ? 'continuidade' : null);
+          const sit = hdSituacao || (pacAtual.esquemaHD === 'susp' ? 'desmame' : temHDi ? 'continuidade' : null);
           return (
             <div style={{ margin: '10px 16px 0' }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {opcoes.map(([v, lbl]) => (
                   <span key={v} onClick={() => {
                     setHdSituacao(v);
-                    if (v === 'conservador') { upAv('conduta', 'conservador'); }
-                    else if (v === 'hd') { setHdSubAba('hoje'); upAv('conduta', 'hd_hoje'); }
-                    else if (v === 'suspensa') { upAv('conduta', 'conservador'); setPacientes(ps => ps.map(x => x.id === pacAtual.id ? { ...x, esquemaHD: 'susp' } : x)); setPacAtual(pa => ({ ...pa, esquemaHD: 'susp' })); }
+                    const limpaSusp = () => { if (pacAtual.esquemaHD === 'susp') { setPacientes(ps => ps.map(x => x.id === pacAtual.id ? { ...x, esquemaHD: '' } : x)); setPacAtual(pa => ({ ...pa, esquemaHD: '' })); } };
+                    if (v === 'conservador') { upAv('conduta', 'conservador'); upAv('hd_desmame_desde', ''); limpaSusp(); }
+                    else if (v === 'hd') { setHdSubAba('hoje'); upAv('conduta', 'hd_hoje'); upAv('hd_desmame_desde', ''); limpaSusp(); }
+                    else if (v === 'desmame') { upAv('conduta', 'conservador'); setPacientes(ps => ps.map(x => x.id === pacAtual.id ? { ...x, esquemaHD: 'susp' } : x)); setPacAtual(pa => ({ ...pa, esquemaHD: 'susp' })); if (!avAtual.hd_desmame_desde) upAv('hd_desmame_desde', dataLocalISO(Date.now())); }
                   }}
                     style={{ ...S.checkItem, fontSize: 12.5, ...(sit === v ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}>{lbl}</span>
                 ))}
               </div>
+            </div>
+          );
+        })()}
+
+        {(() => {
+          const _temHDc = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido;
+          const _sitC = hdSituacao || (pacAtual.esquemaHD === 'susp' ? 'desmame' : _temHDc ? 'continuidade' : null);
+          if (_sitC !== 'conservador') return null;
+          const motivos = [['', 'Sem ressalva'], ['adequacao', 'Adequação do esforço terapêutico'], ['recusa', 'Recusa do paciente/família']];
+          return (
+            <div style={{ ...S.card, margin: '10px 16px 0', padding: 14 }}>
+              <div style={{ fontSize: 11, color: '#7a8a9a', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Situação do tratamento conservador</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {motivos.map(([v, lbl]) => (
+                  <span key={v || 'puro'} onClick={() => upAv('cons_motivo', v)}
+                    style={{ ...S.checkItem, fontSize: 12.5, ...((avAtual.cons_motivo || '') === v ? { background: '#1a6b3a', color: 'white', borderColor: '#1a6b3a' } : {}) }}>{lbl}</span>
+                ))}
+              </div>
+              {avAtual.cons_motivo === 'adequacao' && (
+                <div style={{ marginTop: 10, fontSize: 12.5, color: '#7a8a9a', lineHeight: 1.5 }}>
+                  Diálise não indicada no contexto de adequação do esforço terapêutico (alinhamento à meta de cuidado). Conforto e controle de sintomas.
+                </div>
+              )}
+              {avAtual.cons_motivo === 'recusa' && (
+                <div style={{ marginTop: 10, fontSize: 12.5, color: '#7a8a9a', lineHeight: 1.5 }}>
+                  Recusa do paciente/família à diálise após esclarecimento (autonomia). Registrar decisão e manter suporte clínico.
+                </div>
+              )}
             </div>
           );
         })()}
@@ -4602,14 +4642,26 @@ const ajRotulo = aj => {
 
         {(() => {
           const _temHDi3 = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido;
-          const _sit3 = hdSituacao || (pacAtual.esquemaHD === 'susp' ? 'suspensa' : _temHDi3 ? 'continuidade' : null);
-          // HD suspensa
-          if (_sit3 === 'suspensa') {
+          const _sit3 = hdSituacao || (pacAtual.esquemaHD === 'susp' ? 'desmame' : _temHDi3 ? 'continuidade' : null);
+          // Desmame de HD (RFR em prova)
+          if (_sit3 === 'desmame') {
+            const desde = avAtual.hd_desmame_desde;
+            let provaTxt = '';
+            if (desde) {
+              const d0 = _parseData(desde); d0.setHours(0, 0, 0, 0);
+              const hj = new Date(); hj.setHours(0, 0, 0, 0);
+              const dias = Math.round((hj - d0) / 86400000);
+              provaTxt = dias <= 0 ? 'iniciado hoje' : 'em prova há ' + dias + (dias === 1 ? ' dia' : ' dias');
+            }
             return (
               <div style={{ ...S.card, margin: '12px 16px' }}>
                 <div style={{ padding: 16, fontSize: 14, color: '#444', lineHeight: 1.6 }}>
-                  <b>HD suspensa até 2ª ordem.</b><br/>
-                  Diálise suspensa. Reavaliar necessidade conforme evolução clínica e laboratorial.
+                  <b>Desmame de HD — recuperação de função renal (em prova).</b><br/>
+                  Suporte renal extracorpóreo suspenso para avaliar se a função nativa mantém a homeostase.
+                  {provaTxt && <span style={{ display: 'inline-block', marginTop: 8, fontSize: 12.5, fontWeight: 700, color: '#1a6b3a', background: '#e6f4ec', borderRadius: 7, padding: '3px 10px' }}>🟢 {provaTxt}</span>}
+                  <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #eee', fontSize: 12.5, color: '#7a8a9a' }}>
+                    Vigiar: <b style={{ color: '#c0392b' }}>K⁺</b> · <b style={{ color: '#c0392b' }}>escórias</b> (ureia/creat) · <b style={{ color: '#c0392b' }}>pH/bic</b> · <b style={{ color: '#c0392b' }}>volume/diurese</b>. Retomar HD se descompensar.
+                  </div>
                   <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #eee', fontSize: 13.5, color: '#1a3a5c' }}>
                     <b>Última sessão realizada:</b> {dULT ? dULT.split('-').reverse().join('/') + (intervaloTxt && intervaloTxt !== 'hoje' ? ' (' + intervaloTxt + ')' : '') : '— sem registro —'}
                   </div>
