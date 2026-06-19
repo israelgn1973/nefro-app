@@ -1577,9 +1577,8 @@ function NefroApp() {
       } else if (d.conduta === 'hd_hoje') {
         if (d.prioridade === 'sim') linhas.push('** SESSÃO URGENTE **');
         const ufEf = num(d.uf_hd) + num(d.uf_isolada);
-        const lavG = d.anticoag === 'com' ? (num(d.lavagens) || 0) : (num(d.lavagens) || Math.max(100, ((durHoras(d.hd_dur || d.hd_horas) || 4) * 2 - 1) * 100));
-        const ufTotG = ufEf + (num(d.priming) || 400) + lavG;
-        add('HD', `${d.hd_dur || d.hd_horas || '?'}h, UF efetiva ${ufEf} ml, priming ${num(d.priming) || 400} ml, lavagens ${lavG} ml — UF TOTAL ${ufTotG} ml`);
+        const hep = d.anticoag === 'com' ? 'com heparina' : d.anticoag === 'sem' ? 'sem heparina' : '';
+        add('HD', `${d.hd_dur || d.hd_horas || '?'}h, UF efetiva ${ufEf} ml${hep ? ', ' + hep : ''}`);
       }
 const ajRotulo = aj => {
         if (!aj || !aj.droga) return '';
@@ -1992,7 +1991,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   const TabBar = ({ atual }) => (
     <div style={{ display: 'flex', gap: 0, background: '#142e49', position: 'sticky', top: 0, zIndex: 50 }}>
       {[['eventos','Dx'],['renal','Renal'],['roteiro','Avaliação'],['hdview','HD'],['conduta','Conduta']].map(([v, l]) => (
-        <div key={v} onClick={() => { if (avAtual && pacAtual && (view === 'roteiro' || view === 'conduta' || view === 'hdview' || view === 'prescricao')) salvarAvaliacao(false); setView(v); }}
+        <div key={v} onClick={() => { if (!modoConsulta && avAtual && pacAtual && (view === 'roteiro' || view === 'conduta' || view === 'hdview' || view === 'prescricao')) salvarAvaliacao(false); setView(v); }}
           style={{ flex: 1, textAlign: 'center', padding: '10px 2px', fontSize: 11, fontWeight: 700, cursor: 'pointer',
             color: atual === v ? '#1a3a5c' : 'rgba(255,255,255,0.75)', background: atual === v ? '#f4f4f0' : 'transparent',
             borderRadius: '10px 10px 0 0' }}>{l}</div>
@@ -2655,7 +2654,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.15.1</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.16.0</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -5733,9 +5732,9 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
       return det.join('; ');
     })();
     const Bloco = ({ titulo, children, ir }) => (
-      ir && !modoConsulta ? (
-        <div style={{ ...S.card, marginBottom: 12, cursor: 'pointer' }} onClick={() => { salvarAvaliacao(false); setView(ir); }}>
-          <div style={{ ...S.cardHeader, display: 'flex', justifyContent: 'space-between' }}><span>{titulo}</span><span style={{ color: '#b9c6d6', fontSize: 13 }}>✎ editar</span></div>
+      ir ? (
+        <div style={{ ...S.card, marginBottom: 12, cursor: 'pointer' }} onClick={() => { if (!modoConsulta) salvarAvaliacao(false); setView(ir); }}>
+          <div style={{ ...S.cardHeader, display: 'flex', justifyContent: 'space-between' }}><span>{titulo}</span><span style={{ color: '#b9c6d6', fontSize: 13 }}>{modoConsulta ? '👁 ver' : '✎ editar'}</span></div>
           <div style={{ padding: 14, fontSize: 14, lineHeight: 1.7 }}>{children}</div>
         </div>
       ) : (
@@ -5995,7 +5994,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 2px 2px', fontSize: 12.5, flexWrap: 'wrap', gap: 8 }}>
                   <span style={{ fontWeight: 700, color: dest === 'cancelada' ? '#c0392b' : dest === 'parcial' ? '#e67e22' : dest === 'realizada' ? '#1d7a45' : '#8a6d3b' }}>{dest === 'cancelada' ? '✕ não realizada' + (avV.hd_canc_motivo ? ' — ' + avV.hd_canc_motivo : '') : dest === 'parcial' ? '⚠ parcial' + (avV.hd_parcial_motivo ? ' — ' + avV.hd_parcial_motivo : '') : dest === 'realizada' ? '✓ realizada' : '— destino não marcado'}</span>
-                  {rel && rel.raw && <span style={{ color: '#1a3a5c', fontWeight: 700, cursor: 'pointer' }} onClick={() => setVerOriginal(rel.raw)}>📄 ver original</span>}
+                  {(() => { const _r = (rel && rel.raw) ? rel : ((pacAtual.relEnf || []).find(x => x.raw)); return _r && _r.raw ? <span style={{ color: '#1a3a5c', fontWeight: 700, cursor: 'pointer' }} onClick={() => setVerOriginal(_r.raw)}>📄 ver original</span> : null; })()}
                 </div>
                 {intRO.length ? <div style={{ padding: '4px 2px', fontSize: 13, color: '#c0392b' }}><b>Intercorrências:</b> {intRO.join(', ')}{(avV.interc || []).includes('Outro') && avV.interc_outro ? ' — ' + avV.interc_outro : ''}</div> : null}
               </Bloco>
