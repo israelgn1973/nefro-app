@@ -1517,7 +1517,17 @@ function NefroApp() {
       linhas.push('BH / DIURÉTICO');
       add('Ganhos', d.ganhos ? `${d.ganhos} ml${d.bh_parcial && d.bh_horas ? ` (parcial ${d.bh_horas}h)` : ''}` : '');
       add('Diurese', d.diurese ? `${d.diurese} ml${d.bh_parcial && d.bh_horas ? ` (parcial ${d.bh_horas}h)` : ''}` : (d.diurese_qual || ''));
-      { const dt = diurAvalTexto(d); if (dt) add('Diurético (em uso)', dt); }
+      {
+        const furoEmUso = (d.diureticos || []).includes('Furosemida');
+        const fForm = d.fu_via === 'cp' ? 'comp' : 'amp';
+        const fDose = (d.fu_n && d.fu_via) ? `${d.fu_n} ${fForm}${d.fu_int ? ' de ' + d.fu_int : ''}` : String((d.diur_doses || {})['Furosemida'] || '').trim();
+        if (furoEmUso) linhas.push('Em uso de furosemida' + (fDose ? ' ' + fDose : ''));
+        else linhas.push('sem furosemida');
+        ['Espironolactona', 'Hidroclorotiazida'].forEach(n => {
+          const dose = String((d.diur_doses || {})[n] || '').trim();
+          if ((d.diureticos || []).includes(n) && dose) linhas.push(`${n} ${dose}`);
+        });
+      }
       add('SVD', d.svd);
 
       const L = d.labs || {};
@@ -1612,8 +1622,6 @@ const ajRotulo = aj => {
         add('Parecer pré-operatório', txtP);
       }
       if (d.ultima_hd_obs) add('Última HD — intercorrências', d.ultima_hd_obs);
-      if ((pacRef.atbs || []).length) add('Antibióticos em uso', pacRef.atbs);
-      // alertas genéricos NÃO entram no texto; condutas concretas vêm dos campos selecionados (med_revisar etc.)
       if ((d.cond_eletr || []).length) {
         const sel = d.cond_eletr || [];
         const det = [];
@@ -1657,7 +1665,7 @@ const ajRotulo = aj => {
           else if (d.hctz_cond === 'manter') cd.push(`manter hidroclorotiazida${dd['Hidroclorotiazida'] ? ' ' + dd['Hidroclorotiazida'] : ''}`);
           else if (d.hctz_cond === 'ajustar' && d.hctz_cp) cd.push(`ajustar hidroclorotiazida ${regH}`);
         }
-        if (cd.length) add('Diurético (conduta)', cd.join('; '));
+        if (cd.length) linhas.push(cd.join('; '));
       }
       if (d.diur_ajuste) add('Diurético (ajuste)', d.diur_ajuste + (d.diur_ajuste_obs ? ' — ' + d.diur_ajuste_obs : ''));
       if ((d.med_revisar || []).length) add('Revisar/suspender', d.med_revisar);
@@ -2654,7 +2662,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.16.0</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.16.2</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
