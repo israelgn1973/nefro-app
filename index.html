@@ -1628,7 +1628,7 @@ const ajRotulo = aj => {
         if (sel.includes('Ajustar tonicidade das diluições')) { det.push('Ajustar tonicidade das diluições conforme o Na sérico.'); }
         if (sel.includes('Água livre')) { det.push('Reposição de água livre (hipernatremia): SG 5% EV ou água VO/SNG conforme déficit.'); }
         if (sel.includes('NaCl 3%')) { det.push('NaCl 3% (hiponatremia sintomática): subir 4–6 mEq nas primeiras horas; respeitar teto de 24h.'); }
-        if (sel.includes('DDAVP')) { det.push('DDAVP: freio à correção rápida demais da hiponatremia.'); }
+        if (sel.includes('DDAVP')) { det.push('DDAVP (poliúria com hipernatremia / DI central): desmopressina intranasal 10 mcg 1–2x/dia, titular pela diurese e Na (10–40 mcg/dia).'); }
         add('Eletrólitos', det.length ? det : sel);
       }
       { const cd = []; const ini = d.diurIniciar || {}; const dd = d.diur_doses || {};
@@ -1779,15 +1779,16 @@ const ajRotulo = aj => {
       () => alert('Não foi possível copiar.'));
   };
 
-  const gerarColetivoDia = () => {
+  const gerarColetivoDia = (soPacienteId) => {
     const hojeISO = dataLocalISO();
     const itens = [];
     pacientes.forEach(p => {
       if (p.externo) return;
+      if (soPacienteId && p.id !== soPacienteId) return;
       const av = (avaliacoes[p.id] || []).find(a => a.conduta === 'hd_hoje' && !a.hd_pausa_instab && dataLocalISO(a.data) === hojeISO);
       if (av) itens.push({ p, av });
     });
-    if (!itens.length) { alert('Nenhuma prescricao de HD hoje.'); return; }
+    if (!itens.length) { alert(soPacienteId ? 'Sem prescrição de HD de hoje para este paciente.' : 'Nenhuma prescricao de HD hoje.'); return; }
     const num = x => parseFloat(String(x == null ? '' : x).replace(',', '.')) || 0;
     const pagina = it => {
       const p = it.p, av = it.av;
@@ -2005,6 +2006,18 @@ const ajRotulo = aj => {
         fu_via: prev.fu_via || '', fu_n: prev.fu_n || '', fu_int: prev.fu_int || '', es_cp: prev.es_cp || '', es_int: prev.es_int || '', hz_cp: prev.hz_cp || '', hz_int: prev.hz_int || '',
         dvas: { ...(prev.dvas || {}) }, semDvas: prev.semDvas || false,
         diur_doses: { ...(prev.diur_doses || {}) }, diurSem: { ...(prev.diurSem || {}) }, semFuro: prev.semFuro || false,
+        ...(() => {
+          const fc = prev.furo_cond;
+          const tinha = (prev.diureticos || []).includes('Furosemida');
+          const inicia = !tinha && (prev.diurIniciar || {}).Furosemida && prev.furo_manut && prev.furo_manut !== 'sem';
+          const ajusta = fc === 'ajustar' && prev.furo_manut && prev.furo_manut !== 'sem';
+          let via = prev.fu_via || '', n = prev.fu_n || '', int = prev.fu_int || '';
+          let dl = [...(prev.diureticos || [])];
+          if (fc === 'suspender') { via = ''; n = ''; int = ''; dl = dl.filter(x => x !== 'Furosemida'); }
+          else if (ajusta || inicia) { via = prev.furo_manut; n = prev.furo_dose_n || ''; int = prev.furo_int || ''; if (!dl.includes('Furosemida')) dl = [...dl, 'Furosemida']; }
+          const str = (via && n) ? (n + ' ' + (via === 'amp' ? 'amp' : 'cp') + (int ? ' ' + int : '')) : '';
+          return { fu_via: via, fu_n: n, fu_int: int, diureticos: dl, diur_doses: { ...(prev.diur_doses || {}), Furosemida: str } };
+        })(),
         acesso: prev.acesso || 'CDL', anticoag_hd: prev.anticoag_hd || 'sem heparina', cateter_pos: prev.cateter_pos || 'Bic. Na 8,4%',
         med_revisar: [...(prev.med_revisar || [])],
         // Marca de campos herdados (para destaque "de ontem" e checagem no panorama)
@@ -2494,7 +2507,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.12.1</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.13.0</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -2788,7 +2801,7 @@ const ajRotulo = aj => {
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#fff', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', gap: 10, padding: '12px 14px', paddingTop: 'max(12px, env(safe-area-inset-top))', background: '#1a3a5c', alignItems: 'center' }}>
             <button style={{ ...S.btn, background: '#f0f0f0', flex: '0 0 auto', padding: '10px 16px' }} onClick={() => setColetivoHtml(null)}>X Fechar</button>
-            <button style={{ ...S.btn, background: '#27ae60', color: 'white', flex: 1 }} onClick={() => { const f = document.getElementById('coletivoFrame'); if (f && f.contentWindow) { f.contentWindow.focus(); f.contentWindow.print(); } }}>Salvar PDF ({coletivoHtml.n} prescricoes)</button>
+            <button style={{ ...S.btn, background: '#27ae60', color: 'white', flex: 1 }} onClick={() => { const f = document.getElementById('coletivoFrame'); if (f && f.contentWindow) { f.contentWindow.focus(); f.contentWindow.print(); } }}>Salvar PDF ({coletivoHtml.n} {coletivoHtml.n === 1 ? 'prescrição' : 'prescrições'})</button>
           </div>
           <iframe id="coletivoFrame" srcDoc={coletivoHtml.html} style={{ flex: 1, border: 'none', width: '100%', background: '#fff' }} title="Coletivo" />
         </div>
@@ -3056,6 +3069,7 @@ const ajRotulo = aj => {
                 </div>
               </div>
               <Badge conduta={p.ultimaAvaliacao?.conduta} />
+              {infoHD[p.id]?.hdHoje && <span onClick={(e) => { e.stopPropagation(); gerarColetivoDia(p.id); }} title="Reimprimir prescrição de HD" style={{ marginLeft: 8, fontSize: 17, cursor: 'pointer', padding: '2px 4px', lineHeight: 1 }}>🖨</span>}
               <span style={{ marginLeft: 8, color: '#ccc', fontSize: 20 }}>›</span>
             </div>
               ))}
@@ -5445,7 +5459,7 @@ const ajRotulo = aj => {
                 if (sel.includes('Ajustar tonicidade das diluições')) caixas.push(['Tonicidade das diluições', '↑Na sérico → diluições mais hipotônicas; ↓Na → mais isotônicas. Reavaliar Na seriado.']);
                 if (sel.includes('Água livre')) { const na = num(avAtual.labs?.sodio_hoje); caixas.push(['Água livre' + (isNaN(na) ? '' : ` (Na ${na})`), 'Hipernatremia: repor água livre (VO/SNG ou SG 5% EV). Ver calculadora p/ déficit. Descida do Na é segura — sem teto rígido na crônica do adulto.']); }
                 if (sel.includes('NaCl 3%')) caixas.push(['NaCl 3%', 'HipoNa sintomática/grave: 100–150 ml EV em 10–20 min, pode repetir até melhora neurológica. Subir 4–6 mEq nas 1ªs horas e RESPEITAR o teto de 24h (desmielinização).']);
-                if (sel.includes('DDAVP')) caixas.push(['DDAVP', 'Desmopressina: freio à correção rápida demais da hiponatremia (DDAVP clamp). Uso raro/seletivo.']);
+                if (sel.includes('DDAVP')) caixas.push(['DDAVP', 'Desmopressina — poliúria hipotônica com hipernatremia (DI central): repõe ADH e reduz a diurese. Intranasal 10 mcg (1 jato) 1–2x/dia; titular pela diurese e Na sérico (faixa 10–40 mcg/dia).']);
                 return caixas.length ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
                     {caixas.map(([t, txt], i) => (
