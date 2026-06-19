@@ -1135,6 +1135,8 @@ function NefroApp() {
     });
     return partes.join(' · ');
   };
+  const montaFuroUso = (via, n, int) => (via && n) ? `${n} ${via === 'amp' ? 'amp' : 'cp'}${int ? ' ' + int : ''}` : '';
+  const montaCpUso = (cp, int) => cp ? `${parseInt(cp) * 25}mg${int ? ' ' + int : ''}` : '';
   const faixaRef = (furo) => {
     const d = avAtual || {};
     const verm = { color: '#c0392b', fontWeight: 700 };
@@ -1175,13 +1177,13 @@ function NefroApp() {
           <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0' }}>
             {comBanner && faixaRef(true)}
             <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 }}>{contexto === 'cond' ? 'Diuréticos — conduta' : 'Diuréticos em uso'}</div>
-            {contexto !== 'cond' && <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {contexto !== 'cond' && <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {['Furosemida','Espironolactona','Hidroclorotiazida'].map(nome => {
                 const com = (avAtual.diureticos||[]).includes(nome);
                 const semExplicito = nome === 'Furosemida' ? !!avAtual.semFuro : !!(avAtual.diurSem||{})[nome];
                 const setCom = () => setAvAtual(a => ({ ...a, diureticos: [...new Set([...(a.diureticos||[]), nome])], ...(nome === 'Furosemida' ? { semFuro: false } : { diurSem: { ...(a.diurSem||{}), [nome]: false } }) }));
                 const setSem = () => setAvAtual(a => {
-                  const limpa = nome === 'Furosemida' ? { semFuro: true, furo_manut: 'sem', furo_dose_n: '', furo_int: '', furo_bolus_n: '' } : nome === 'Espironolactona' ? { espiro_cp: '', espiro_int: '', diurSem: { ...(a.diurSem||{}), [nome]: true } } : { hctz_cp: '', hctz_int: '', diurSem: { ...(a.diurSem||{}), [nome]: true } };
+                  const limpa = nome === 'Furosemida' ? { semFuro: true, furo_manut: 'sem', furo_dose_n: '', furo_int: '', furo_bolus_n: '', fu_via:'', fu_n:'', fu_int:'', furo_bolus_av_n:'', furo_bolus_av_amp:'' } : nome === 'Espironolactona' ? { espiro_cp: '', espiro_int: '', es_cp:'', es_int:'', diurSem: { ...(a.diurSem||{}), [nome]: true } } : { hctz_cp: '', hctz_int: '', hz_cp:'', hz_int:'', diurSem: { ...(a.diurSem||{}), [nome]: true } };
                   return { ...a, diureticos: (a.diureticos||[]).filter(x => x !== nome), diur_doses: { ...(a.diur_doses||{}), [nome]: '' }, ...limpa };
                 });
                 return (
@@ -1191,23 +1193,77 @@ function NefroApp() {
                       <span style={{ ...S.checkItem, fontSize: 12, ...(com ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }} onClick={setCom}>Com</span>
                       <span style={{ ...S.checkItem, fontSize: 12, ...(semExplicito ? { background: '#27ae60', color: 'white', borderColor: '#27ae60' } : {}) }} onClick={setSem}>Sem</span>
                     </div>
-                    {com && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5, paddingLeft: 4 }}>
-                        <span style={{ fontSize: 12, color: '#888' }}>dose em uso:</span>
-                        <input style={{ ...S.input, textAlign: 'left', fontSize: 13, flex: 1 }} type="text" value={(avAtual.diur_doses||{})[nome] || ''} onChange={e => setAvAtual(a => ({ ...a, diur_doses: { ...(a.diur_doses||{}), [nome]: e.target.value } }))} placeholder="ex.: 40mg IV 12/12h (a que está correndo HOJE)" />
-                      </div>
-                    )}
                     {com && nome === 'Furosemida' && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, paddingLeft: 4, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 12, color: '#888' }}>bolus já feito:</span>
-                        <input style={{ ...S.input, width: 46, textAlign: 'center', fontSize: 13 }} type="text" inputMode="numeric" value={avAtual.furo_bolus_av_n || ''} onChange={e => setAvAtual(a => ({ ...a, furo_bolus_av_n: e.target.value.replace(/[^0-9]/g, '') }))} placeholder="0" />
-                        <span style={{ fontSize: 12, color: '#888' }}>bolus de</span>
-                        <input style={{ ...S.input, width: 46, textAlign: 'center', fontSize: 13 }} type="text" inputMode="numeric" value={avAtual.furo_bolus_av_amp || ''} onChange={e => setAvAtual(a => ({ ...a, furo_bolus_av_amp: e.target.value.replace(/[^0-9]/g, '') }))} placeholder="0" />
-                        <span style={{ fontSize: 12, color: '#888' }}>amp</span>
-                        <span style={{ fontSize: 11, color: '#aaa' }}>(stress test)</span>
+                      <div style={{ marginTop: 6, paddingLeft: 4 }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                          {[['amp','ampola'],['cp','comprimido']].map(([v,l]) => (
+                            <span key={v} style={{ ...S.checkItem, fontSize: 12, ...(avAtual.fu_via === v ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}
+                              onClick={() => setAvAtual(a => ({ ...a, fu_via: v, fu_n: '', fu_int: '', diur_doses: { ...(a.diur_doses||{}), Furosemida: '' } }))}>{l}</span>
+                          ))}
+                        </div>
+                        {(avAtual.fu_via === 'amp' || avAtual.fu_via === 'cp') && (
+                          <div style={{ marginTop: 8 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: 12, color: '#888' }}>{avAtual.fu_via === 'amp' ? 'Amp' : 'Cp'} por tomada:</span>
+                              {['1','2','3','4'].map(n => (
+                                <span key={n} style={{ ...S.checkItem, fontSize: 12, minWidth: 32, textAlign: 'center', ...(avAtual.fu_n === n ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}
+                                  onClick={() => setAvAtual(a => ({ ...a, fu_n: n, diur_doses: { ...(a.diur_doses||{}), Furosemida: montaFuroUso(a.fu_via, n, a.fu_int) } }))}>{n}</span>
+                              ))}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                              <span style={{ fontSize: 12, color: '#888' }}>Intervalo:</span>
+                              {(avAtual.fu_via === 'amp' ? ['1x/dia','12/12h','8/8h','6/6h','4/4h'] : ['1x cedo','12/12h','8/8h','6/6h']).map(i => (
+                                <span key={i} style={{ ...S.checkItem, fontSize: 12, ...(avAtual.fu_int === i ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}
+                                  onClick={() => setAvAtual(a => ({ ...a, fu_int: i, diur_doses: { ...(a.diur_doses||{}), Furosemida: montaFuroUso(a.fu_via, a.fu_n, i) } }))}>{i}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 12, color: '#888' }}>bolus já feito:</span>
+                          {[['','nenhum'],['1','1 bolus'],['2','2 bolus']].map(([v,l]) => (
+                            <span key={l} style={{ ...S.checkItem, fontSize: 12, ...((avAtual.furo_bolus_av_n||'') === v ? { background: '#c0392b', color: 'white', borderColor: '#c0392b' } : {}) }}
+                              onClick={() => setAvAtual(a => ({ ...a, furo_bolus_av_n: v, ...(v ? {} : { furo_bolus_av_amp: '' }) }))}>{l}</span>
+                          ))}
+                          {avAtual.furo_bolus_av_n && (<>
+                            <NumInput style={{ ...S.input, width: 56 }} value={avAtual.furo_bolus_av_amp} onSet={v => upAv('furo_bolus_av_amp', v)} placeholder="4" label="Amp por bolus" />
+                            <span style={{ fontSize: 12, color: '#888' }}>amp/bolus</span>
+                          </>)}
+                          <span style={{ fontSize: 11, color: '#aaa' }}>(stress test)</span>
+                        </div>
                       </div>
                     )}
-                    {com && nome === 'Hidroclorotiazida' && <div style={{ padding: '4px 0 0' }}><ChipLab rotulo="Na" chave="sodio_hoje" unid="mEq/l" riscoBaixo={135} /><ChipLab rotulo="K" chave="pot_hoje" unid="mEq/l" riscoBaixo={3.5} /></div>}
+                    {com && nome === 'Espironolactona' && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 6, paddingLeft: 4 }}>
+                        <span style={{ fontSize: 12, color: '#888' }}>Cp por tomada:</span>
+                        {['1','2'].map(n => (
+                          <span key={n} style={{ ...S.checkItem, fontSize: 12, minWidth: 32, textAlign: 'center', ...(avAtual.es_cp === n ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}
+                            onClick={() => setAvAtual(a => ({ ...a, es_cp: n, diur_doses: { ...(a.diur_doses||{}), Espironolactona: montaCpUso(n, a.es_int) } }))}>{n}</span>
+                        ))}
+                        {avAtual.es_cp && <span style={{ fontSize: 12, fontWeight: 600, color: '#1a3a5c' }}>{parseInt(avAtual.es_cp)*25}mg</span>}
+                        <span style={{ fontSize: 12, color: '#888', marginLeft: 6 }}>Intervalo:</span>
+                        {['1x/dia','12/12h'].map(i => (
+                          <span key={i} style={{ ...S.checkItem, fontSize: 12, ...(avAtual.es_int === i ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}
+                            onClick={() => setAvAtual(a => ({ ...a, es_int: i, diur_doses: { ...(a.diur_doses||{}), Espironolactona: montaCpUso(a.es_cp, i) } }))}>{i}</span>
+                        ))}
+                      </div>
+                    )}
+                    {com && nome === 'Hidroclorotiazida' && (<>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 6, paddingLeft: 4 }}>
+                        <span style={{ fontSize: 12, color: '#888' }}>Cp por tomada:</span>
+                        {['1','2'].map(n => (
+                          <span key={n} style={{ ...S.checkItem, fontSize: 12, minWidth: 32, textAlign: 'center', ...(avAtual.hz_cp === n ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}
+                            onClick={() => setAvAtual(a => ({ ...a, hz_cp: n, diur_doses: { ...(a.diur_doses||{}), Hidroclorotiazida: montaCpUso(n, a.hz_int) } }))}>{n}</span>
+                        ))}
+                        {avAtual.hz_cp && <span style={{ fontSize: 12, fontWeight: 600, color: '#1a3a5c' }}>{parseInt(avAtual.hz_cp)*25}mg</span>}
+                        <span style={{ fontSize: 12, color: '#888', marginLeft: 6 }}>Intervalo:</span>
+                        {['1x cedo','12/12h'].map(i => (
+                          <span key={i} style={{ ...S.checkItem, fontSize: 12, ...(avAtual.hz_int === i ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}
+                            onClick={() => setAvAtual(a => ({ ...a, hz_int: i, diur_doses: { ...(a.diur_doses||{}), Hidroclorotiazida: montaCpUso(a.hz_cp, i) } }))}>{i}</span>
+                        ))}
+                      </div>
+                      <div style={{ padding: '4px 0 0' }}><ChipLab rotulo="Na" chave="sodio_hoje" unid="mEq/l" riscoBaixo={135} /><ChipLab rotulo="K" chave="pot_hoje" unid="mEq/l" riscoBaixo={3.5} /></div>
+                    </>)}
                   </div>
                 );
               })}
@@ -1908,7 +1964,7 @@ const ajRotulo = aj => {
       ...(condutaSug ? { conduta_sugerida: condutaSug } : {}),
       conduta: condutaSug ? 'hd_hoje' : 'conservador', prioridade: 'nao', conclusao: 'acompanhamento', aj_diur: {}, cond_alertas: [], labs: {},
       eg: (prev && ['estável','grave','gravíssimo'].includes(prev.eg)) ? prev.eg : 'estável', consciencia: (prev && prev.consciencia) ? prev.consciencia : flexSexo('consciente e orientado', pacN.sexo), padrao_resp: flexSexo('eupneico', pacN.sexo), resp:'', sat:'', pai:false, pam:'', pa:'', dvas:{}, fio2:'', peep:'', fluxoO2:'', edema:'ausente', sangramento:'', sangramento_sitio:'',
-      ganhos:'', diurese:'', bh_parcial:false, bh_horas:'', svd:'', diureticos:[], diur_doses:{}, diurSem:{}, diurIniciar:{}, furo_cond:'', espiro_cond:'', hctz_cond:'', furo_acm:'', furo_manut:'sem', furo_dose_n:'', furo_int:'', furo_bolus_n:'', furo_bolus_amp:'', furo_bolus_av_n:'', furo_bolus_av_amp:'', espiro_cp:'', espiro_int:'', hctz_cp:'', hctz_int:'',
+      ganhos:'', diurese:'', bh_parcial:false, bh_horas:'', svd:'', diureticos:[], diur_doses:{}, diurSem:{}, diurIniciar:{}, furo_cond:'', espiro_cond:'', hctz_cond:'', furo_acm:'', furo_manut:'sem', furo_dose_n:'', furo_int:'', furo_bolus_n:'', furo_bolus_amp:'', furo_bolus_av_n:'', furo_bolus_av_amp:'', espiro_cp:'', espiro_int:'', hctz_cp:'', hctz_int:'', fu_via:'', fu_n:'', fu_int:'', es_cp:'', es_int:'', hz_cp:'', hz_int:'',
       ultima_hd_data:'', acesso:'CDL', tempo_obtido:'', uf_obtida:'',
       anticoag_hd:'sem heparina', cateter_pos:'Bic. Na 8,4%', interc:['Nenhuma'], interc_outro:'', observacoes:'',
       ...(prev ? {
@@ -1926,6 +1982,7 @@ const ajRotulo = aj => {
           return base;
         })(),
         espiro_cp: prev.espiro_cp || '', espiro_int: prev.espiro_int || '', hctz_cp: prev.hctz_cp || '', hctz_int: prev.hctz_int || '',
+        fu_via: prev.fu_via || '', fu_n: prev.fu_n || '', fu_int: prev.fu_int || '', es_cp: prev.es_cp || '', es_int: prev.es_int || '', hz_cp: prev.hz_cp || '', hz_int: prev.hz_int || '',
         dvas: { ...(prev.dvas || {}) }, semDvas: prev.semDvas || false,
         diur_doses: { ...(prev.diur_doses || {}) }, diurSem: { ...(prev.diurSem || {}) }, semFuro: prev.semFuro || false,
         acesso: prev.acesso || 'CDL', anticoag_hd: prev.anticoag_hd || 'sem heparina', cateter_pos: prev.cateter_pos || 'Bic. Na 8,4%',
@@ -2415,7 +2472,7 @@ const ajRotulo = aj => {
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.6.1</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.7.0</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -4016,6 +4073,20 @@ const ajRotulo = aj => {
               return upd;
             })} />
           <ChipSelect label="Nível de consciência" options={['consciente e orientado','sonolento','torporoso','comatoso','confuso/agitado','sedado','sedação suspensa','rebaixado'].map(fx)} value={avAtual.consciencia} onSelect={v => upAv('consciencia', v)} />
+          <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', letterSpacing: 0.5, marginRight: 4 }}>Sangramento</span>
+              {[['', 'não'], ['ativo', '⚠ ativo']].map(([v, l]) => (
+                <span key={v || 'nao'} onClick={() => setAvAtual(a => ({ ...a, sangramento: v, ...(v !== 'ativo' ? { sangramento_sitio: '' } : {}) }))}
+                  style={{ ...S.checkItem, fontSize: 12, ...((avAtual.sangramento || '') === v ? (v === 'ativo' ? { background: '#c0392b', color: 'white', borderColor: '#c0392b' } : { background: '#27ae60', color: 'white', borderColor: '#27ae60' }) : {}) }}>{l}</span>
+              ))}
+              {avAtual.sangramento === 'ativo' && (
+                <input style={{ ...S.input, textAlign: 'left', fontSize: 13, flex: 1, minWidth: 120 }} type="text" value={avAtual.sangramento_sitio || ''}
+                  onChange={e => upAv('sangramento_sitio', e.target.value)} placeholder="sítio (opcional): TGI, CDL, nasal…" />
+              )}
+            </div>
+            {avAtual.sangramento === 'ativo' && <div style={{ fontSize: 11, color: '#8a6d3b', marginTop: 6 }}>→ sugerido HD sem heparina na conduta.</div>}
+          </div>
           </>)}
           {subRot === 'resp' && (<>
           <ChipSelect herdado={(avAtual._herdados||[]).includes('padrao_resp')} label="Padrão respiratório" options={(String(avAtual.eg || '').includes('grav') ? ['dispneico'] : ['eupneico','dispneico']).map(fx)} value={avAtual.padrao_resp} onSelect={v => upAv('padrao_resp', v)} />
@@ -4066,20 +4137,6 @@ const ajRotulo = aj => {
                 return { ...a, pam: dig, pa: '', pai: true, pani: false, normotenso: false };
               })}
               placeholder="120/80 → PANI · 85 → PAI" label="PA (4+ dígitos = PANI · até 3 = PAI)" mode="pa" />
-          </div>
-          <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', letterSpacing: 0.5, marginRight: 4 }}>Sangramento</span>
-              {[['', 'não'], ['ativo', '⚠ ativo']].map(([v, l]) => (
-                <span key={v || 'nao'} onClick={() => setAvAtual(a => ({ ...a, sangramento: v, ...(v !== 'ativo' ? { sangramento_sitio: '' } : {}) }))}
-                  style={{ ...S.checkItem, fontSize: 12, ...((avAtual.sangramento || '') === v ? (v === 'ativo' ? { background: '#c0392b', color: 'white', borderColor: '#c0392b' } : { background: '#27ae60', color: 'white', borderColor: '#27ae60' }) : {}) }}>{l}</span>
-              ))}
-              {avAtual.sangramento === 'ativo' && (
-                <input style={{ ...S.input, textAlign: 'left', fontSize: 13, flex: 1, minWidth: 120 }} type="text" value={avAtual.sangramento_sitio || ''}
-                  onChange={e => upAv('sangramento_sitio', e.target.value)} placeholder="sítio (opcional): TGI, CDL, nasal…" />
-              )}
-            </div>
-            {avAtual.sangramento === 'ativo' && <div style={{ fontSize: 11, color: '#8a6d3b', marginTop: 6 }}>→ sugerido HD sem heparina na conduta.</div>}
           </div>
           <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0' }}>
             <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 }}>Drogas vasoativas</div>
@@ -4156,14 +4213,18 @@ const ajRotulo = aj => {
                 onSet={v => setAvAtual(a => ({ ...a, diurese: v, diurese_qual: v ? '' : a.diurese_qual }))} placeholder="1500" label="Diurese (ml)" />
             </div>
           </div>
-          {avAtual.svd !== 'com SVD' && (
-          <div style={{ padding: '4px 14px 10px', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {['preservada', 'oligúria', 'anúria'].map(q => (
+          {(() => {
+            const qualOpts = avAtual.svd === 'com SVD' ? ['anúria'] : ['preservada', 'oligúria', 'anúria'];
+            return (
+          <div style={{ padding: '4px 14px 10px', display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            {avAtual.svd === 'com SVD' && <span style={{ fontSize: 11, color: '#aaa' }}>com SVD:</span>}
+            {qualOpts.map(q => (
               <span key={q} style={{ ...S.checkItem, fontSize: 12, ...(avAtual.diurese_qual === q ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}
                 onClick={() => setAvAtual(a => ({ ...a, diurese_qual: a.diurese_qual === q ? '' : q, diurese: a.diurese_qual === q ? a.diurese : '' }))}>{q}</span>
             ))}
           </div>
-          )}
+            );
+          })()}
           <ChipSelect herdado={(avAtual._herdados||[]).includes('edema')} label="Edema" options={['ausente','discreto','moderado','acentuado']} value={avAtual.edema} onSelect={v => upAv('edema', v)} />
           <ChipSelect herdado={(avAtual._herdados||[]).includes('svd')} label="SVD" options={['com SVD','sem SVD']} value={avAtual.svd} onSelect={v => upAv('svd', v)} />
           {(() => {
