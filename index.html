@@ -1555,11 +1555,6 @@ function NefroApp() {
       else if (d.conduta === 'conservador' && d.cons_motivo === 'adequacao') decTxt = 'Tratamento conservador — adequação do esforço terapêutico';
       else if (d.conduta === 'conservador' && d.cons_motivo === 'recusa') decTxt = 'Tratamento conservador — recusa do paciente/família';
       add('Decisão', decTxt);
-      if (d.conduta === 'conservador' && pacRef.esquemaHD === 'susp') {
-        let provaTxt = '';
-        if (d.hd_desmame_desde) { const d0 = new Date(d.hd_desmame_desde + 'T00:00'); const hj = new Date(); hj.setHours(0, 0, 0, 0); const dd = Math.round((hj - d0) / 86400000); provaTxt = dd <= 0 ? ' (iniciado hoje)' : ' (em prova há ' + dd + (dd === 1 ? ' dia' : ' dias') + ')'; }
-        linhas.push('Suporte renal extracorpóreo suspenso para avaliar recuperação de função renal' + provaTxt + '. Vigiar K, escórias, pH/bicarbonato e volume; retomar HD se descompensar.');
-      }
       if (d.conduta === 'conservador' && d.cons_motivo === 'adequacao') linhas.push('Diálise não indicada no contexto de adequação do esforço terapêutico (alinhamento à meta de cuidado).');
       if (d.conduta === 'conservador' && d.cons_motivo === 'recusa') linhas.push('Recusa do paciente/família à diálise após esclarecimento. Mantido suporte clínico.');
       if ((pacRef.urgencias || []).length) {
@@ -2635,7 +2630,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.13.1</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.13.2</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
