@@ -1016,24 +1016,23 @@ function NefroApp() {
     const hds = pacientes.filter(p => !p.externo && infoHD[p.id]?.hdHoje && !infoHD[p.id]?.arquivado && (modoTeste || !p.teste));
     if (!hds.length) { alert('Nenhuma HD prescrita hoje.'); return; }
     const linhas = [];
-    linhas.push('HEMODIÁLISES DO DIA — ' + new Date().toLocaleDateString('pt-BR') + ' (' + hds.length + ')');
+    linhas.push('🩸 HEMODIÁLISES DO DIA');
+    linhas.push(new Date().toLocaleDateString('pt-BR') + ' · ' + hds.length + (hds.length === 1 ? ' sessão' : ' sessões'));
     const blocos = [...ANDARES, ['OUTRAS / SEM UTI', null]];
     blocos.forEach(([rotulo, us]) => {
       const grupo = hds.filter(p => us ? us.includes(p.uti) : !ANDARES.some(([, l]) => l.includes(p.uti)));
       if (!grupo.length) return;
       linhas.push('');
       linhas.push('━━ ' + rotulo + ' ━━');
+      linhas.push('');
       grupo.sort((a, b) => (us ? us.indexOf(a.uti) - us.indexOf(b.uti) : 0) || (a.leito || '').localeCompare(b.leito || ''));
       grupo.forEach(p => {
         const av = (avaliacoes[p.id] || []).find(a => dataLocalISO(a.data) === dataLocalISO() && a.conduta === 'hd_hoje') || {};
-        const partes = [
-          'UTI ' + (p.uti || '?') + (p.leito ? ' · Leito ' + p.leito : ''),
-          p.nome + (p.idade ? ', ' + p.idade + 'a' : ''),
-          av.acesso || null,
-          (av.hd_dur || av.hd_horas) ? (av.hd_dur || av.hd_horas) + 'h' : null,
-          p.convenio || null,
-        ].filter(Boolean);
-        linhas.push(partes.join(' — '));
+        linhas.push('📍 UTI ' + (p.uti || '?') + (p.leito ? ' · Leito ' + p.leito : ''));
+        linhas.push('   ' + p.nome + (p.idade ? ', ' + p.idade + 'a' : ''));
+        const det = [av.acesso, (av.hd_dur || av.hd_horas) ? (av.hd_dur || av.hd_horas) + 'h' : null, p.convenio].filter(Boolean);
+        if (det.length) linhas.push('   ' + det.join(' · '));
+        linhas.push('');
       });
     });
     const txt = linhas.join('\n');
@@ -2679,7 +2678,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.17.2</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.17.3</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -3316,6 +3315,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
         );
       })()}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, maxWidth: 420, margin: '0 auto' }}>
+            <div style={{ gridColumn: '1 / -1', fontSize: 10.5, fontWeight: 800, color: '#9aa7b4', letterSpacing: 0.6, margin: '2px 2px 2px' }}>PACIENTES & DADOS</div>
             <button onClick={gerarListaSeguimento} style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer', textAlign: 'center', gridColumn: '1 / -1' }}>👥 Pacientes ativos</button>
             <div style={{ gridColumn: '1 / -1', border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden' }}>
               <div onClick={() => setPedirUTI(v => !v)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', cursor: 'pointer', fontSize: 12, color: '#555', background: 'white' }}>
@@ -3357,7 +3357,6 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                 else prompt('Copie:', txt);
               }} style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #b9d2ee', background: '#f4f7fb', color: '#1a3a5c', fontWeight: 600, cursor: 'pointer', textAlign: 'center', gridColumn: '1 / -1' }}>🆕 Pedir dados — paciente novo</button>
             <button onClick={() => setVerEstimativa(v => !v)} style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer', textAlign: 'center', gridColumn: '1 / -1' }}>📅 Estimativa de sessões</button>
-            <button onClick={() => { if (modoTeste) { aplicarModoTeste(false); mostrarToast('Modo teste desativado — paciente teste oculto'); } else { aplicarModoTeste(true); criarOuAbrirTeste(); } }} style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #e0c068', background: modoTeste ? '#8a6d00' : '#fdf6e3', color: modoTeste ? 'white' : '#8a6d00', fontWeight: modoTeste ? 700 : 400, cursor: 'pointer', textAlign: 'center', gridColumn: '1 / -1' }}>{modoTeste ? '🧪 Modo teste ATIVO — tocar para ocultar' : '🧪 Ativar modo teste'}</button>
             {verEstimativa && (() => {
               const diaSemana = (offset) => { const d = new Date(); d.setDate(d.getDate() + offset); return d; };
               const alvo = diaSemana(estimDia);
@@ -3392,6 +3391,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                 </div>
               );
             })()}
+            <div style={{ gridColumn: '1 / -1', fontSize: 10.5, fontWeight: 800, color: '#9aa7b4', letterSpacing: 0.6, margin: '12px 2px 2px' }}>BACKUP</div>
             <button onClick={exportarDados}
               style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer', textAlign: 'center' }}>
               ⬆ Exportar backup
@@ -3401,6 +3401,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
               <input type="file" accept="application/json,.json" style={{ display: 'none' }}
                 onChange={e => { if (e.target.files[0]) importarDados(e.target.files[0]); e.target.value = ''; }} />
             </label>
+            <div style={{ gridColumn: '1 / -1', fontSize: 10.5, fontWeight: 800, color: '#9aa7b4', letterSpacing: 0.6, margin: '12px 2px 2px' }}>RELATÓRIOS DO DIA</div>
             <button onClick={gerarRelatorioHDs}
               style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer', textAlign: 'center' }}>
               📋 HDs do dia
@@ -3418,11 +3419,13 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
               Prescricoes do dia (PDF p/ assinar)
             </button>
             <button onClick={() => setView('stats')}
-              style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer', textAlign: 'center' }}>
+              style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer', textAlign: 'center', gridColumn: '1 / -1' }}>
               📊 Estatística
             </button>
+            <div style={{ gridColumn: '1 / -1', fontSize: 10.5, fontWeight: 800, color: '#9aa7b4', letterSpacing: 0.6, margin: '12px 2px 2px' }}>MANUTENÇÃO</div>
+            <button onClick={() => { if (modoTeste) { aplicarModoTeste(false); mostrarToast('Modo teste desativado — paciente teste oculto'); } else { aplicarModoTeste(true); criarOuAbrirTeste(); } }} style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #e0c068', background: modoTeste ? '#8a6d00' : '#fdf6e3', color: modoTeste ? 'white' : '#8a6d00', fontWeight: modoTeste ? 700 : 400, cursor: 'pointer', textAlign: 'center', gridColumn: '1 / -1' }}>{modoTeste ? '🧪 Modo teste ATIVO — tocar para ocultar' : '🧪 Ativar modo teste'}</button>
             <button onClick={() => { setModoExcluir(true); setSelExcluir([]); setVerDados(false); }}
-              style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #e8c8c4', background: 'white', color: '#c0392b', cursor: 'pointer', textAlign: 'center' }}>
+              style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #e8c8c4', background: 'white', color: '#c0392b', cursor: 'pointer', textAlign: 'center', gridColumn: '1 / -1' }}>
               🗑 Excluir pacientes…
             </button>
           </div>
