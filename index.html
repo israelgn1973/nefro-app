@@ -930,6 +930,7 @@ function NefroApp() {
     const lista = avaliacoes[pacAtual.id] || [];
     const prevHD = lista.find(a => a.id !== avAtual.id && a.conduta === 'hd_hoje');
     if (!prevHD || dataLocalISO(prevHD.data) === dataLocalISO()) return;
+    if (pacAtual.reativadoEm && prevHD.data < pacAtual.reativadoEm) return;
     const rel = (pacAtual.relEnf || []).find(r => !r.usadoEm) || (pacAtual.relEnf || [])[0];
     if (!rel) return;
     const rc = rel.campos || {};
@@ -2107,6 +2108,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
       setAvAtual(jaHoje); setAvSnapshot(JSON.stringify(jaHoje)); setView('roteiro'); return;
     }
     const prev = avs[0];
+    const ehReativacao = !!(prev && pacN.reativadoEm && prev.data < pacN.reativadoEm);
     // automação 1: memória da última prescrição de HD (parâmetros estáveis; UF do dia fica em branco)
     const ultHD = avs.find(a => a.conduta?.startsWith('hd') && (a.hd_dur || a.hd_horas || a.dialisato_sodio || a.fluxo_sangue));
     const PADRAO_HD = { fluxo_sangue: '200', fluxo_banho: '300', anticoag: 'sem', cateter: 'bic', dialisato_bic: '34' };
@@ -2137,7 +2139,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
         // HERDADOS (estáveis) — marcados como "de ontem" até confirmar
         padrao_resp: prev.padrao_resp || '', resp: prev.resp || '', fio2: prev.fio2 || '', peep: prev.peep || '', fluxoO2: prev.fluxoO2 || '',
         edema: prev.edema || 'ausente', svd: prev.svd || '', peso_est: prev.peso_est || '',
-        ultima_hd_data: prev.ultima_hd_data || '', tempo_obtido: prev.tempo_obtido || '', uf_obtida: prev.uf_obtida || '', hd_desmame_desde: prev.hd_desmame_desde || '', cons_motivo: prev.cons_motivo || '',
+        ultima_hd_data: ehReativacao ? '' : (prev.ultima_hd_data || ''), tempo_obtido: ehReativacao ? '' : (prev.tempo_obtido || ''), uf_obtida: ehReativacao ? '' : (prev.uf_obtida || ''), hd_desmame_desde: prev.hd_desmame_desde || '', cons_motivo: prev.cons_motivo || '',
         ...(() => {
           const aj = prev.aj_diur || {};
           const base = { diureticos: [...(prev.diureticos || [])], furo_manut: prev.furo_manut || 'sem', furo_dose_n: prev.furo_dose_n || '', furo_int: prev.furo_int || '' };
@@ -2677,7 +2679,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.17.1</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.17.2</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -4774,9 +4776,11 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
 
         {hdSubAba === 'ultima' && (() => {
           const avsPac = (avaliacoes[pacAtual?.id] || []).filter(a => a.id !== avAtual.id);
-          const prevHD = avsPac.find(a => a.conduta === 'hd_hoje' && dataLocalISO(a.data) !== dataLocalISO());
+          const prevHD = avsPac.find(a => a.conduta === 'hd_hoje' && dataLocalISO(a.data) !== dataLocalISO() && !(pacAtual?.reativadoEm && avAtual.data >= pacAtual.reativadoEm && a.data < pacAtual.reativadoEm));
           const dISO = avAtual.ultima_hd_data || (prevHD ? dataLocalISO(prevHD.data) : '');
-          if (!dISO) return null;
+          if (!dISO) return (pacAtual?.reativadoEm && avAtual.data >= pacAtual.reativadoEm) ? (
+            <div style={{ margin: '10px 16px 0', padding: '10px 12px', background: '#fff7ec', border: '1px solid #e8cfa8', borderRadius: 10, fontSize: 12.5, color: '#8a6d3b', lineHeight: 1.5 }}>↻ Reativado — informe a última diálise (externa/domiciliar ou hospitalar). A sessão da internação anterior não é carregada automaticamente.</div>
+          ) : null;
           const presc = avsPac.find(a => a.conduta && a.conduta.startsWith('hd') && dataLocalISO(a.data) === dISO) || prevHD;
           const ddmmyy = dISO.slice(8, 10) + '/' + dISO.slice(5, 7) + '/' + dISO.slice(0, 4);
           const _dS = _parseData(dISO); if (_dS) _dS.setHours(0, 0, 0, 0);
@@ -5967,7 +5971,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
 
           {(() => {
             const avsP = (avaliacoes[pacAtual?.id] || []).filter(a => a.id !== avV.id);
-            const prevHD = avsP.find(a => a.conduta === 'hd_hoje' && dataLocalISO(a.data) !== dataLocalISO(avV.data));
+            const prevHD = avsP.find(a => a.conduta === 'hd_hoje' && dataLocalISO(a.data) !== dataLocalISO(avV.data) && !(pacAtual?.reativadoEm && avV.data >= pacAtual.reativadoEm && a.data < pacAtual.reativadoEm));
             const dISO = avV.ultima_hd_data || (prevHD ? dataLocalISO(prevHD.data) : '');
             if (!dISO && !avV.tempo_obtido && !avV.uf_obtida) return null;
             const _n = x => { const n = parseFloat(String(x ?? '').replace(',', '.')); return isNaN(n) ? null : n; };
