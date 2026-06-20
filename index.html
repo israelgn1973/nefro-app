@@ -912,6 +912,7 @@ function NefroApp() {
   const [origemResumo, setOrigemResumo] = useState(null);
   const [diaFolheado, setDiaFolheado] = useState(0);
   const [hdDiaNav, setHdDiaNav] = useState(0);
+  const [cancMotivoAberto, setCancMotivoAberto] = useState(false);
   const [verOriginal, setVerOriginal] = useState(null);
   const verOrigTs = React.useRef(0);
   const abrirRelatorio = (raw) => { verOrigTs.current = Date.now(); setVerOriginal(raw); };
@@ -922,7 +923,7 @@ function NefroApp() {
   const [manualUltHdAberto, setManualUltHdAberto] = useState(false);
   const [destinoExcAberto, setDestinoExcAberto] = useState(false);
   useEffect(() => { if (avAtual?.hd_primeira_sessao && (hdSubAba === 'ultima' || hdSubAba === 'programada')) setHdSubAba('hoje'); }, [avAtual?.hd_primeira_sessao, hdSubAba]);
-  useEffect(() => { setHdDiaNav(0); }, [pacAtual?.id, hdSubAba]);
+  useEffect(() => { setHdDiaNav(0); setCancMotivoAberto(false); }, [pacAtual?.id, hdSubAba]);
   // Visto automático: estar na aba HD (Última HD), em modo edição, marca o relatório como visto (tira o aviso 📬 da lista) — substitui o botão Visto.
   useEffect(() => {
     if (view !== 'hdview' || modoConsulta || hdSubAba !== 'ultima' || !pacAtual) return;
@@ -2704,7 +2705,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.20.0</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.20.2</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -4880,7 +4881,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
               )}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 8px', background: '#1a3a5c', color: 'white', fontSize: 13, fontWeight: 800 }}>
                 {_hdDias.length > 1 ? <span onClick={() => _podeAntigo && setHdDiaNav(d => Math.min(_hdDias.length - 1 - _baseIdx, d + 1))} style={{ cursor: _podeAntigo ? 'pointer' : 'default', opacity: _podeAntigo ? 1 : 0.3, padding: '0 8px', fontSize: 20, pointerEvents: 'auto', userSelect: 'none' }}>‹</span> : <span style={{ width: 20 }} />}
-                <span style={{ textAlign: 'center', flex: 1 }}>🩸 {_RO ? 'HD' : 'Última HD'} · {ddmmyy}{_dow ? ' · ' + _dow : ''}{_intTxt && _intTxt !== 'hoje' ? ' · ' + _intTxt : ''}{_RO ? ' · revisão' : ''}</span>
+                <span style={{ textAlign: 'center', flex: 1 }}>🩸 {_RO ? '' : 'Última hemodiálise · '}{ddmmyy}{_intTxt ? ' · ' + _intTxt : ''}</span>
                 {_hdDias.length > 1 ? <span onClick={() => _podeRecente && setHdDiaNav(d => Math.max(-_baseIdx, d - 1))} style={{ cursor: _podeRecente ? 'pointer' : 'default', opacity: _podeRecente ? 1 : 0.3, padding: '0 8px', fontSize: 20, pointerEvents: 'auto', userSelect: 'none' }}>›</span> : <span style={{ width: 20 }} />}
               </div>
               {_cancelada && (
@@ -4917,12 +4918,18 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                 </span>
               </div>
               {_cancelada && !_RO && (
-                <div style={{ padding: '8px 12px', borderTop: '1px solid #f3c5bf', background: '#fff8f7' }}>
-                  <div style={{ fontSize: 11, color: '#a05a52', marginBottom: 6, fontWeight: 700, letterSpacing: 0.3 }}>MOTIVO DO CANCELAMENTO</div>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {CANC_LISTA.map(m => { const _sel = _cancMotivo === m; return <span key={m} style={{ ...S.checkItem, fontSize: 11.5, ...(_sel ? { background: '#c0392b', color: 'white', borderColor: '#c0392b' } : {}) }} onClick={() => { const _id = presc?.id; if (_id) setAvaliacoes(prev => ({ ...prev, [pacAtual.id]: (prev[pacAtual.id] || []).map(a => a.id === _id ? { ...a, hd_canc_motivo: (_sel ? '' : m) } : a) })); }}>{m}</span>; })}
+                (!_cancMotivo || cancMotivoAberto) ? (
+                  <div style={{ padding: '8px 12px', borderTop: '1px solid #f3c5bf', background: '#fff8f7' }}>
+                    <div style={{ fontSize: 11, color: '#a05a52', marginBottom: 6, fontWeight: 700, letterSpacing: 0.3 }}>MOTIVO DO CANCELAMENTO</div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {CANC_LISTA.map(m => { const _sel = _cancMotivo === m; return <span key={m} style={{ ...S.checkItem, fontSize: 11.5, ...(_sel ? { background: '#c0392b', color: 'white', borderColor: '#c0392b' } : {}) }} onClick={() => { const _id = presc?.id; if (_id) setAvaliacoes(prev => ({ ...prev, [pacAtual.id]: (prev[pacAtual.id] || []).map(a => a.id === _id ? { ...a, hd_canc_motivo: (_sel ? '' : m) } : a) })); setCancMotivoAberto(false); }}>{m}</span>; })}
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div style={{ padding: '7px 12px', borderTop: '1px solid #f3c5bf', background: '#fff8f7', display: 'flex', justifyContent: 'flex-end' }}>
+                    <span style={{ fontSize: 12, color: '#a05a52', cursor: 'pointer', fontWeight: 600, textDecoration: 'underline', pointerEvents: 'auto' }} onClick={() => setCancMotivoAberto(true)}>✎ alterar motivo</span>
+                  </div>
+                )
               )}
               {!_cancelada && !_RO && destinoExcAberto && (() => {
                 const PARC = ['Instabilidade hemodinâmica', 'Rebaixamento', 'PCR', 'Coagulação do circuito', 'Sangramento', 'CDL sem fluxo', 'Calafrios/reação', 'Agitação', 'Saída para exame/cirurgia'];
