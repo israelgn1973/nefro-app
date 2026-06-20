@@ -914,15 +914,15 @@ function NefroApp() {
   const [manualUltHdAberto, setManualUltHdAberto] = useState(false);
   const [destinoExcAberto, setDestinoExcAberto] = useState(false);
   useEffect(() => { if (avAtual?.hd_primeira_sessao && (hdSubAba === 'ultima' || hdSubAba === 'programada')) setHdSubAba('hoje'); }, [avAtual?.hd_primeira_sessao, hdSubAba]);
-  // Visto automático: abrir a sub-aba Última HD marca o relatório como visto (tira o aviso 📬 da lista) — substitui o botão Visto.
+  // Visto automático: estar na aba HD (Última HD), em modo edição, marca o relatório como visto (tira o aviso 📬 da lista) — substitui o botão Visto.
   useEffect(() => {
-    if (hdSubAba !== 'ultima' || !pacAtual) return;
+    if (view !== 'hdview' || modoConsulta || hdSubAba !== 'ultima' || !pacAtual) return;
     const rels = pacAtual.relEnf || [];
     if (!rels.some(r => !r.usadoEm)) return;
     const m = { ...pacAtual, relEnf: rels.map(r => r.usadoEm ? r : { ...r, usadoEm: Date.now() }), updatedAt: Date.now() };
     setPacientes(ps => ps.map(p => p.id === pacAtual.id ? m : p));
     setPacAtual(m);
-  }, [hdSubAba, pacAtual?.id, pacAtual?.relEnf]);
+  }, [view, modoConsulta, hdSubAba, pacAtual?.id, pacAtual?.relEnf]);
   // Relatório enviado = sessão feita. Há relatório da sessão anterior e destino vazio ⟹ registra "realizada" (a priori) e puxa tempo/UF do relatório.
   useEffect(() => {
     if (!avAtual || avAtual.hd_destino || !pacAtual || modoConsulta) return;
@@ -2677,7 +2677,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.17.0</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.17.1</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
