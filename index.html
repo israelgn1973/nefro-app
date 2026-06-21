@@ -748,6 +748,8 @@ function NefroApp() {
   const [verDisna, setVerDisna] = useState(false);
   const [verMedRev, setVerMedRev] = useState(false);
   const [verDados, setVerDados] = useState(false);
+  const [verDiasSemHD, setVerDiasSemHD] = useState(false);
+  const [diasHDsoAtiva, setDiasHDsoAtiva] = useState(true);
   const [verLixeira, setVerLixeira] = useState(false);
   const [mesStats, setMesStats] = useState(null);
   const [modoExcluir, setModoExcluir] = useState(false);
@@ -924,6 +926,28 @@ function NefroApp() {
   const [destinoExcAberto, setDestinoExcAberto] = useState(false);
   useEffect(() => { if (avAtual?.hd_primeira_sessao && (hdSubAba === 'ultima' || hdSubAba === 'programada')) setHdSubAba('hoje'); }, [avAtual?.hd_primeira_sessao, hdSubAba]);
   useEffect(() => { setHdDiaNav(0); setCancMotivoAberto(false); }, [pacAtual?.id, hdSubAba]);
+  // Navegação da Última HD (setas ‹ ›) — fonte única, usada pela tabela e pelo painel de intercorrências.
+  const calcHdNav = () => {
+    if (!pacAtual || !avAtual) return { avsPac: [], prevHD: null, _prevISO: '', _dISObase: '', _hdDias: [], _baseIdx: 0, _navIdx: 0, dISO: '', _RO: false, _podeAntigo: false, _podeRecente: false };
+    const avsPac = (avaliacoes[pacAtual.id] || []).filter(a => a.id !== avAtual.id);
+    const prevHD = avsPac.find(a => a.conduta === 'hd_hoje' && dataLocalISO(a.data) !== dataLocalISO() && !(pacAtual.reativadoEm && avAtual.data >= pacAtual.reativadoEm && a.data < pacAtual.reativadoEm));
+    const _hojeISO = dataLocalISO();
+    const _reativISO = pacAtual.reativadoEm ? dataLocalISO(pacAtual.reativadoEm) : '';
+    const _repISO = ultRelISO(pacAtual, _hojeISO, _reativISO);
+    const _prevISO = prevHD ? dataLocalISO(prevHD.data) : '';
+    const _dISObase = ([avAtual.ultima_hd_data, _prevISO, _repISO].filter(Boolean).sort().pop() || '');
+    const _ddmmISO = s => (!s || s.length < 10) ? '' : (s.slice(6, 10) + '-' + s.slice(3, 5) + '-' + s.slice(0, 2));
+    const _boundOK = iso => !(_reativISO && _hojeISO >= _reativISO && iso < _reativISO);
+    const _hdDias = [...new Set([
+      ...avsPac.filter(a => a.conduta === 'hd_hoje' && dataLocalISO(a.data) < _hojeISO && _boundOK(dataLocalISO(a.data))).map(a => dataLocalISO(a.data)),
+      ...(pacAtual.relEnf || []).map(r => _ddmmISO(r.campos?.data)).filter(iso => iso && iso < _hojeISO && _boundOK(iso)),
+      ...(_dISObase ? [_dISObase] : [])
+    ])].sort().reverse();
+    const _baseIdx = Math.max(0, _hdDias.indexOf(_dISObase));
+    const _navIdx = Math.min(Math.max(_hdDias.length - 1, 0), Math.max(0, _baseIdx + hdDiaNav));
+    const dISO = _hdDias[_navIdx] || _dISObase;
+    return { avsPac, prevHD, _prevISO, _dISObase, _hdDias, _baseIdx, _navIdx, dISO, _RO: dISO !== _dISObase, _podeAntigo: _navIdx < _hdDias.length - 1, _podeRecente: _navIdx > 0 };
+  };
   // Visto automático: estar na aba HD (Última HD), em modo edição, marca o relatório como visto (tira o aviso 📬 da lista) — substitui o botão Visto.
   useEffect(() => {
     if (view !== 'hdview' || modoConsulta || hdSubAba !== 'ultima' || !pacAtual) return;
@@ -933,6 +957,25 @@ function NefroApp() {
     setPacientes(ps => ps.map(p => p.id === pacAtual.id ? m : p));
     setPacAtual(m);
   }, [view, modoConsulta, hdSubAba, pacAtual?.id, pacAtual?.relEnf]);
+  // Auto-esquema: confirma a troca provisória se o relatório chegar; reverte se a sessão for cancelada ou o dia passar sem relatório.
+  useEffect(() => {
+    const _toISO = s => (!s || s.length < 10) ? '' : (s.slice(6, 10) + '-' + s.slice(3, 5) + '-' + s.slice(0, 2));
+    const hojeISO = dataLocalISO();
+    let changed = false;
+    const novos = pacientes.map(p => {
+      if (!p.esqProv) return p;
+      const { de, data } = p.esqProv;
+      const temRel = (p.relEnf || []).some(r => _toISO(r.campos?.data) === data);
+      if (temRel) { changed = true; const { esqProv, ...rest } = p; return rest; }
+      const cancel = (avaliacoes[p.id] || []).some(a => a.conduta === 'hd_hoje' && dataLocalISO(a.data) === data && a.hd_cancelada);
+      if (cancel || hojeISO > data) { changed = true; const { esqProv, ...rest } = p; return { ...rest, esquemaHD: de }; }
+      return p;
+    });
+    if (changed) {
+      setPacientes(novos);
+      setPacAtual(pa => { if (!pa) return pa; const np = novos.find(p => p.id === pa.id); return np || pa; });
+    }
+  }, [pacientes, avaliacoes]);
   // Relatório enviado = sessão feita. Há relatório da sessão anterior e destino vazio ⟹ registra "realizada" (a priori) e puxa tempo/UF do relatório.
   useEffect(() => {
     if (!avAtual || avAtual.hd_destino || !pacAtual || modoConsulta) return;
@@ -2275,6 +2318,23 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
     setAvAtual(av2);
     if (avSnapshot) setAvSnapshot(JSON.stringify(av2));
     setAvaliacoes(prev => { const avs = prev[pacAtual.id] || []; const has = avs.some(a => a.id === avAtual.id); return { ...prev, [pacAtual.id]: has ? avs.map(a => a.id === avAtual.id ? av2 : a) : [{ ...av2, _herdados: [] }, ...avs] }; });
+    // Auto-esquema (referência): prescrição de HD de hoje, paciente em 3×/sem, num dia FORA do esquema → troca provisória para o 3×/sem do dia. Revertida se o relatório não chegar.
+    if (avAtual.conduta === 'hd_hoje' && (pacAtual.esquemaHD === 'sqs' || pacAtual.esquemaHD === 'tqs')) {
+      const dataISO = dataLocalISO(avAtual.data);
+      if (dataISO === dataLocalISO()) {
+        const dow = new Date(dataISO + 'T12:00').getDay();
+        const diasAtual = pacAtual.esquemaHD === 'sqs' ? [1, 3, 5] : [2, 4, 6];
+        if (!diasAtual.includes(dow)) {
+          const novo = (dow % 2 === 1) ? 'sqs' : 'tqs';
+          if (novo !== pacAtual.esquemaHD) {
+            const de = pacAtual.esqProv ? pacAtual.esqProv.de : pacAtual.esquemaHD;
+            const patch = { esquemaHD: novo, esqProv: { de, data: dataISO } };
+            setPacientes(ps => ps.map(p => p.id === pacAtual.id ? { ...p, ...patch, updatedAt: Date.now() } : p));
+            setPacAtual(pa => ({ ...pa, ...patch }));
+          }
+        }
+      }
+    }
   };
 
   function abrirEdicaoPaciente(comExcluir) {
@@ -2705,7 +2765,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.20.3</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.1</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -3302,6 +3362,45 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
             }} style={{ ...S.checkItem, fontSize: 13, background: '#1d7a45', color: 'white', borderColor: '#1d7a45', fontWeight: 700 }}>📋 Copiar para WhatsApp</span>
           </div>
           {(() => {
+            const _hojeISOb = dataLocalISO();
+            const _toISO = s => (!s || s.length < 10) ? '' : (s.slice(6, 10) + '-' + s.slice(3, 5) + '-' + s.slice(0, 2));
+            const _ultHDdata = (p) => {
+              const ds = [
+                ...(avaliacoes[p.id] || []).filter(a => a.conduta === 'hd_hoje' && !a.hd_cancelada).map(a => dataLocalISO(a.data)),
+                ...(p.relEnf || []).map(r => _toISO(r.campos?.data)).filter(Boolean)
+              ].filter(d => d && d <= _hojeISOb).sort();
+              return ds.length ? ds[ds.length - 1] : '';
+            };
+            const _emHD = (p) => !infoHD[p.id]?.arquivado && ((avaliacoes[p.id] || []).some(a => a.conduta === 'hd_hoje') || (p.esquemaHD && ['sqs', 'tqs', 'diaria', 'sos'].includes(p.esquemaHD)));
+            const lista = pacientes
+              .filter(p => _emHD(p) && (diasHDsoAtiva ? p.esquemaHD !== 'susp' : true))
+              .map(p => { const u = _ultHDdata(p); const dias = u ? Math.round((new Date(_hojeISOb + 'T12:00') - new Date(u + 'T12:00')) / 86400000) : null; return { p, dias }; })
+              .sort((a, b) => (b.dias == null ? -1 : b.dias) - (a.dias == null ? -1 : a.dias));
+            return (
+              <div style={{ ...S.card, marginTop: 10 }}>
+                <div onClick={() => setVerDiasSemHD(v => !v)} style={{ padding: '10px 16px', background: '#f1f1ee', fontSize: 13, fontWeight: 700, color: '#777', cursor: 'pointer', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>🩸 Dias sem HD ({lista.length})</span>
+                  <span>{verDiasSemHD ? '▲' : '▼'}</span>
+                </div>
+                {verDiasSemHD && (
+                  <div style={{ padding: '8px 12px 10px' }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <span onClick={() => setDiasHDsoAtiva(v => !v)} style={{ ...S.checkItem, fontSize: 12, ...(diasHDsoAtiva ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}>{diasHDsoAtiva ? '✓ só HD ativa' : 'incluindo desmame'}</span>
+                    </div>
+                    {lista.length === 0 ? (
+                      <div style={{ fontSize: 12.5, color: '#999', padding: '4px 2px' }}>Nenhum paciente em HD.</div>
+                    ) : lista.map(({ p, dias }) => (
+                      <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 4px', borderBottom: '1px solid #f0f0ee', fontSize: 13.5 }}>
+                        <span style={{ color: '#1a3a5c', fontWeight: 600 }}>{p.nome || '—'}{p.esquemaHD === 'susp' ? ' · desmame' : ''}</span>
+                        <span style={{ fontWeight: 700, color: dias == null ? '#aaa' : dias >= 4 ? '#c0392b' : dias >= 3 ? '#e67e22' : '#1d7a45' }}>{dias == null ? 'sem registro' : dias === 0 ? 'hoje' : dias + 'd'}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+          {(() => {
         const arq = pacientes.filter(p => infoHD[p.id]?.arquivado).sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt', { sensitivity: 'base' }));
         if (!arq.length) return null;
         const ROT = { alta_nefro: 'Alta da nefro', alta_hosp: 'Alta hospitalar', paliativo: 'Paliativo', obito: 'Óbito' };
@@ -3418,16 +3517,6 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                 </div>
               );
             })()}
-            <div style={{ gridColumn: '1 / -1', fontSize: 10.5, fontWeight: 800, color: '#9aa7b4', letterSpacing: 0.6, margin: '12px 2px 2px' }}>BACKUP</div>
-            <button onClick={exportarDados}
-              style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer', textAlign: 'center' }}>
-              ⬆ Exportar backup
-            </button>
-            <label style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer', textAlign: 'center' }}>
-              ⬇ Importar
-              <input type="file" accept="application/json,.json" style={{ display: 'none' }}
-                onChange={e => { if (e.target.files[0]) importarDados(e.target.files[0]); e.target.value = ''; }} />
-            </label>
             <div style={{ gridColumn: '1 / -1', fontSize: 10.5, fontWeight: 800, color: '#9aa7b4', letterSpacing: 0.6, margin: '12px 2px 2px' }}>RELATÓRIOS DO DIA</div>
             <button onClick={gerarRelatorioHDs}
               style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer', textAlign: 'center' }}>
@@ -3449,6 +3538,16 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
               style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer', textAlign: 'center', gridColumn: '1 / -1' }}>
               📊 Estatística
             </button>
+            <div style={{ gridColumn: '1 / -1', fontSize: 10.5, fontWeight: 800, color: '#9aa7b4', letterSpacing: 0.6, margin: '12px 2px 2px' }}>BACKUP</div>
+            <button onClick={exportarDados}
+              style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer', textAlign: 'center' }}>
+              ⬆ Exportar backup
+            </button>
+            <label style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer', textAlign: 'center' }}>
+              ⬇ Importar
+              <input type="file" accept="application/json,.json" style={{ display: 'none' }}
+                onChange={e => { if (e.target.files[0]) importarDados(e.target.files[0]); e.target.value = ''; }} />
+            </label>
             <div style={{ gridColumn: '1 / -1', fontSize: 10.5, fontWeight: 800, color: '#9aa7b4', letterSpacing: 0.6, margin: '12px 2px 2px' }}>MANUTENÇÃO</div>
             <button onClick={() => { if (modoTeste) { aplicarModoTeste(false); mostrarToast('Modo teste desativado — paciente teste oculto'); } else { aplicarModoTeste(true); criarOuAbrirTeste(); } }} style={{ fontSize: 12, padding: '10px 6px', borderRadius: 8, border: '1px solid #e0c068', background: modoTeste ? '#8a6d00' : '#fdf6e3', color: modoTeste ? 'white' : '#8a6d00', fontWeight: modoTeste ? 700 : 400, cursor: 'pointer', textAlign: 'center', gridColumn: '1 / -1' }}>{modoTeste ? '🧪 Modo teste ATIVO — tocar para ocultar' : '🧪 Ativar modo teste'}</button>
             <button onClick={() => { setModoExcluir(true); setSelExcluir([]); setVerDados(false); }}
@@ -4721,22 +4820,6 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           const _temHDe = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido;
           const _sitE = hdSituacao || (_temHDe ? 'hd' : null);
           if (_sitE !== 'hd' && _sitE !== 'continuidade') return null;
-          const esqAtual = pacAtual.esquemaHD;
-          const drift = (() => {
-            if (esqAtual !== 'sqs' && esqAtual !== 'tqs') return null;
-            const rels = pacAtual.relEnf || [];
-            if (!rels.length) return null;
-            const rec = rels.slice().sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0))[0];
-            const ds = rec.campos && rec.campos.data;
-            if (!ds) return null;
-            const pp = String(ds).split('/'); if (pp.length !== 3) return null;
-            const dow = new Date(+pp[2], +pp[1] - 1, +pp[0]).getDay();
-            const diasAtual = esqAtual === 'sqs' ? [1, 3, 5] : [2, 4, 6];
-            const diasAlt = esqAtual === 'sqs' ? [2, 4, 6] : [1, 3, 5];
-            if (diasAtual.includes(dow) || !diasAlt.includes(dow)) return null;
-            if (pacAtual.driftIgnoradoData === ds) return null;
-            return { ds, dow, alt: esqAtual === 'sqs' ? 'tqs' : 'sqs', altLabel: esqAtual === 'sqs' ? 'Ter/Qui/Sáb' : 'Seg/Qua/Sex' };
-          })();
           return (
             <div style={{ padding: '0 16px 12px' }}>
               <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 4, marginBottom: 8 }}>Esquema HD</div>
@@ -4748,17 +4831,6 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                 <span style={{ ...S.checkItem, fontSize: 12, fontWeight: 700, ...(avAtual.hd_primeira_sessao ? { background: '#e67e22', color: 'white', borderColor: '#e67e22' } : { color: '#e67e22', borderColor: '#e8c39e' }) }}
                   onClick={() => { const nv = !avAtual.hd_primeira_sessao; upAv('hd_primeira_sessao', nv); if (nv) setHdSubAba('hoje'); }}>1ª sessão</span>
               </div>
-              {drift && (
-                <div style={{ marginTop: 8, padding: '10px 12px', borderRadius: 8, background: '#fdf6ec', border: '1.5px solid #e8cfa8', fontSize: 12.5, color: '#8a6d3b', lineHeight: 1.5 }}>
-                  Relatório registrou sessão numa <b>{['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'][drift.dow]}</b> ({drift.ds}), fora do esquema atual. O esquema mudou para <b>{drift.altLabel}</b>?
-                  <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-                    <span style={{ ...S.checkItem, fontSize: 12, background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' }}
-                      onClick={() => { setPacientes(ps => ps.map(p => p.id === pacAtual.id ? { ...p, esquemaHD: drift.alt, driftIgnoradoData: '' } : p)); setPacAtual(pa => ({ ...pa, esquemaHD: drift.alt, driftIgnoradoData: '' })); }}>Sim, mudou p/ {drift.altLabel}</span>
-                    <span style={{ ...S.checkItem, fontSize: 12 }}
-                      onClick={() => { setPacientes(ps => ps.map(p => p.id === pacAtual.id ? { ...p, driftIgnoradoData: drift.ds } : p)); setPacAtual(pa => ({ ...pa, driftIgnoradoData: drift.ds })); }}>Foi só dessa vez</span>
-                  </div>
-                </div>
-              )}
             </div>
           );
         })()}
@@ -4805,7 +4877,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           );
         })()}
 
-        {hdSubAba !== 'ultima' && (() => { const fx = faixaRef(true); return fx ? <div style={{ margin: '10px 16px 0' }}>{fx}</div> : null; })()}
+        {hdSubAba === 'hoje' && (() => { const fx = faixaRef(true); return fx ? <div style={{ margin: '10px 16px 0' }}>{fx}</div> : null; })()}
 
         {(() => {
           const sugs = sugestoesConduta().filter(s => s.n === 'vermelho');
@@ -4819,7 +4891,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           );
         })()}
 
-        {hdSubAba !== 'ultima' && (() => {
+        {hdSubAba === 'hoje' && (() => {
           const relUlt = (pacAtual.relEnf || []).find(r => !r.usadoEm) || (pacAtual.relEnf || [])[0];
           if (!relUlt || !relUlt.raw) return null;
           const rcd = relUlt.campos || {};
@@ -4832,26 +4904,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
         })()}
 
         {hdSubAba === 'ultima' && (() => {
-          const avsPac = (avaliacoes[pacAtual?.id] || []).filter(a => a.id !== avAtual.id);
-          const prevHD = avsPac.find(a => a.conduta === 'hd_hoje' && dataLocalISO(a.data) !== dataLocalISO() && !(pacAtual?.reativadoEm && avAtual.data >= pacAtual.reativadoEm && a.data < pacAtual.reativadoEm));
-          const _hojeISO = dataLocalISO();
-          const _reativISO = pacAtual?.reativadoEm ? dataLocalISO(pacAtual.reativadoEm) : '';
-          const _repISO = ultRelISO(pacAtual, _hojeISO, _reativISO);
-          const _prevISO = prevHD ? dataLocalISO(prevHD.data) : '';
-          const _dISObase = ([avAtual.ultima_hd_data, _prevISO, _repISO].filter(Boolean).sort().pop() || '');
-          const _ddmmISO = s => (!s || s.length < 10) ? '' : (s.slice(6, 10) + '-' + s.slice(3, 5) + '-' + s.slice(0, 2));
-          const _boundOK = iso => !(_reativISO && _hojeISO >= _reativISO && iso < _reativISO);
-          const _hdDias = [...new Set([
-            ...avsPac.filter(a => a.conduta === 'hd_hoje' && dataLocalISO(a.data) < _hojeISO && _boundOK(dataLocalISO(a.data))).map(a => dataLocalISO(a.data)),
-            ...(pacAtual.relEnf || []).map(r => _ddmmISO(r.campos?.data)).filter(iso => iso && iso < _hojeISO && _boundOK(iso)),
-            ...(_dISObase ? [_dISObase] : [])
-          ])].sort().reverse();
-          const _baseIdx = Math.max(0, _hdDias.indexOf(_dISObase));
-          const _navIdx = Math.min(Math.max(_hdDias.length - 1, 0), Math.max(0, _baseIdx + hdDiaNav));
-          const dISO = _hdDias[_navIdx] || _dISObase;
-          const _RO = dISO !== _dISObase;
-          const _podeAntigo = _navIdx < _hdDias.length - 1;
-          const _podeRecente = _navIdx > 0;
+          const { avsPac, prevHD, _prevISO, _dISObase, _hdDias, _baseIdx, _navIdx, dISO, _RO, _podeAntigo, _podeRecente } = calcHdNav();
           if (!dISO) return (pacAtual?.reativadoEm && avAtual.data >= pacAtual.reativadoEm) ? (
             <div style={{ margin: '10px 16px 0', padding: '10px 12px', background: '#fff7ec', border: '1px solid #e8cfa8', borderRadius: 10, fontSize: 12.5, color: '#8a6d3b', lineHeight: 1.5 }}>↻ Reativado — informe a última diálise (externa/domiciliar ou hospitalar). A sessão da internação anterior não é carregada automaticamente.</div>
           ) : null;
@@ -5046,6 +5099,19 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           const _temHDi = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido;
           const _sit = hdSituacao || (_temHDi ? 'continuidade' : null);
           if (_sit && !((_sit === 'hd' || _sit === 'continuidade') && hdSubAba === 'ultima')) return null;
+          // Sessão antiga (navegada ‹): só leitura — apenas as intercorrências daquela sessão como texto, sem painel interativo nem alertas.
+          const { dISO: _navISO, _RO: _navRO, avsPac: _navAvs } = calcHdNav();
+          if (_navRO) {
+            const _oldAv = _navAvs.find(a => a.ultima_hd_data === _navISO && Array.isArray(a.interc) && a.interc.filter(x => x !== 'Nenhuma').length);
+            const _oldInterc = _oldAv ? _oldAv.interc.filter(x => x !== 'Nenhuma') : [];
+            if (!_oldInterc.length) return null;
+            const _oldIntercTxt = _oldInterc.map(x => x === 'Outro' ? (_oldAv.interc_outro || 'Outro') : x).join(', ');
+            return (
+              <div style={{ margin: '0 16px 12px', padding: '9px 13px', background: 'white', borderRadius: 10, border: '1px solid #e3e8ee', fontSize: 13, color: '#c0392b', lineHeight: 1.5 }}>
+                <b>Intercorrências:</b> {_oldIntercTxt}
+              </div>
+            );
+          }
           const temHDInterna = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!pacAtual.dataPrimeiraHD || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido;
           if (!temHDInterna && !avAtual.hd_externa) return (
             <div style={{ margin: '0 16px 12px' }}>
@@ -5157,7 +5223,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           )}
         </div>
 
-        {avAtual.conduta === 'hd_hoje' && hdSubAba !== 'ultima' && !avAtual.hd_pausa_instab && (<>
+        {avAtual.conduta === 'hd_hoje' && hdSubAba === 'hoje' && !avAtual.hd_pausa_instab && (<>
         <Section title="Modalidade">
           <FormRow label="Tipo">
             <select style={S.select} value={avAtual.modalidade||'hd'} onChange={e => upAv('modalidade', e.target.value)}>
