@@ -577,9 +577,10 @@ const S = {
 };
 
 // ── COMPONENTES ──
-function Badge({ conduta }) {
+function Badge({ conduta, pausada }) {
   const map = { hd_hoje: ['HD HOJE', '#c0392b'], hd_amanha: ['HD AMANHÃ', '#e67e22'], conservador: ['CONSERVADOR', '#27ae60'], alta: ['ALTA', '#888'] };
-  const [label, color] = map[conduta] || ['', ''];
+  let [label, color] = map[conduta] || ['', ''];
+  if (pausada && conduta === 'hd_hoje') { label = 'EM HD'; color = '#2e6da4'; }
   if (!label) return null;
   return <span style={{ ...S.badge, background: color }}>{label}</span>;
 }
@@ -2250,16 +2251,39 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
         dvas: { ...(prev.dvas || {}) }, semDvas: prev.semDvas || false,
         diur_doses: { ...(prev.diur_doses || {}) }, diurSem: { ...(prev.diurSem || {}) }, semFuro: prev.semFuro || false,
         ...(() => {
-          const fc = prev.furo_cond;
-          const tinha = (prev.diureticos || []).includes('Furosemida');
-          const inicia = !tinha && (prev.diurIniciar || {}).Furosemida && prev.furo_manut && prev.furo_manut !== 'sem';
-          const ajusta = fc === 'ajustar' && prev.furo_manut && prev.furo_manut !== 'sem';
-          let via = prev.fu_via || '', n = prev.fu_n || '', int = prev.fu_int || '';
           let dl = [...(prev.diureticos || [])];
-          if (fc === 'suspender') { via = ''; n = ''; int = ''; dl = dl.filter(x => x !== 'Furosemida'); }
-          else if (ajusta || inicia) { via = prev.furo_manut; n = prev.furo_dose_n || ''; int = prev.furo_int || ''; if (!dl.includes('Furosemida')) dl = [...dl, 'Furosemida']; }
-          const str = (via && n) ? (n + ' ' + (via === 'amp' ? 'amp' : 'cp') + (int ? ' ' + int : '')) : '';
-          return { fu_via: via, fu_n: n, fu_int: int, diureticos: dl, diur_doses: { ...(prev.diur_doses || {}), Furosemida: str } };
+          const doses = { ...(prev.diur_doses || {}) };
+          const out = {};
+          // Furosemida — uso: fu_via/fu_n/fu_int · conduta: furo_cond + furo_manut/furo_dose_n/furo_int
+          const fc = prev.furo_cond;
+          const fInicia = !dl.includes('Furosemida') && (prev.diurIniciar || {}).Furosemida && prev.furo_manut && prev.furo_manut !== 'sem';
+          const fAjusta = fc === 'ajustar' && prev.furo_manut && prev.furo_manut !== 'sem';
+          let fvia = prev.fu_via || '', fn = prev.fu_n || '', fint = prev.fu_int || '';
+          if (fc === 'suspender') { fvia = ''; fn = ''; fint = ''; dl = dl.filter(x => x !== 'Furosemida'); }
+          else if (fAjusta || fInicia) { fvia = prev.furo_manut; fn = prev.furo_dose_n || ''; fint = prev.furo_int || ''; if (!dl.includes('Furosemida')) dl = [...dl, 'Furosemida']; }
+          out.fu_via = fvia; out.fu_n = fn; out.fu_int = fint;
+          doses.Furosemida = (fvia && fn) ? (fn + ' ' + (fvia === 'amp' ? 'amp' : 'cp') + (fint ? ' ' + fint : '')) : '';
+          // Espironolactona — uso: es_cp/es_int · conduta: espiro_cond + espiro_cp/espiro_int
+          const ec = prev.espiro_cond;
+          const eInicia = !dl.includes('Espironolactona') && (prev.diurIniciar || {}).Espironolactona && prev.espiro_cp;
+          const eAjusta = ec === 'ajustar' && prev.espiro_cp;
+          let ecp = prev.es_cp || '', eint = prev.es_int || '';
+          if (ec === 'suspender') { ecp = ''; eint = ''; dl = dl.filter(x => x !== 'Espironolactona'); }
+          else if (eAjusta || eInicia) { ecp = prev.espiro_cp || ''; eint = prev.espiro_int || ''; if (!dl.includes('Espironolactona')) dl = [...dl, 'Espironolactona']; }
+          out.es_cp = ecp; out.es_int = eint;
+          doses.Espironolactona = ecp ? (String(parseInt(ecp) * 25) + 'mg' + (eint ? ' ' + eint : '')) : '';
+          // Hidroclorotiazida — uso: hz_cp/hz_int · conduta: hctz_cond + hctz_cp/hctz_int
+          const hc = prev.hctz_cond;
+          const hInicia = !dl.includes('Hidroclorotiazida') && (prev.diurIniciar || {}).Hidroclorotiazida && prev.hctz_cp;
+          const hAjusta = hc === 'ajustar' && prev.hctz_cp;
+          let hcp = prev.hz_cp || '', hint = prev.hz_int || '';
+          if (hc === 'suspender') { hcp = ''; hint = ''; dl = dl.filter(x => x !== 'Hidroclorotiazida'); }
+          else if (hAjusta || hInicia) { hcp = prev.hctz_cp || ''; hint = prev.hctz_int || ''; if (!dl.includes('Hidroclorotiazida')) dl = [...dl, 'Hidroclorotiazida']; }
+          out.hz_cp = hcp; out.hz_int = hint;
+          doses.Hidroclorotiazida = hcp ? (String(parseInt(hcp) * 25) + 'mg' + (hint ? ' ' + hint : '')) : '';
+          out.diureticos = dl;
+          out.diur_doses = doses;
+          return out;
         })(),
         acesso: prev.acesso || 'CDL', anticoag_hd: prev.anticoag_hd || 'sem heparina', cateter_pos: prev.cateter_pos || 'Bic. Na 8,4%',
         med_revisar: [...(prev.med_revisar || [])],
@@ -2792,7 +2816,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.3</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.6</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -3365,7 +3389,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                   {infoHD[p.id]?.concluidaHoje && <span style={{ fontSize: 11, fontWeight: 800, color: 'white', background: '#1d7a45', borderRadius: 6, padding: '2px 8px' }}>✓ concluída</span>}
                 </div>
               </div>
-              <Badge conduta={p.ultimaAvaliacao?.conduta} />
+              <Badge conduta={p.ultimaAvaliacao?.conduta} pausada={infoHD[p.id]?.hdPausa} />
               {infoHD[p.id]?.hdHoje && <span onClick={(e) => { e.stopPropagation(); const _a = (avaliacoes[p.id] || []).find(a => a.conduta === 'hd_hoje' && !a.hd_pausa_instab && dataLocalISO(a.data) === dataLocalISO()); if (!_a) { alert('Sem prescrição de HD de hoje para este paciente.'); return; } setColetivoHtml({ html: montarFolhaHD(p, _a), n: 1 }); }} title="Reimprimir prescrição de HD (folha padrão)" style={{ marginLeft: 8, fontSize: 17, cursor: 'pointer', padding: '2px 4px', lineHeight: 1 }}>🖨</span>}
               <span style={{ marginLeft: 8, color: '#ccc', fontSize: 20 }}>›</span>
             </div>
@@ -5253,7 +5277,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           {/* botões de conduta migraram para o seletor de situação no topo */}
 
           
-          {avAtual.conduta === 'hd_hoje' && avAtual.conduta_sugerida && (
+          {avAtual.conduta === 'hd_hoje' && avAtual.conduta_sugerida && !avAtual.hd_pausa_instab && (
             <div style={{ margin: '8px 16px 0', padding: '8px 12px', borderRadius: 8, background: '#fdf6ec', border: '1px solid #e8cfa8', fontSize: 12, color: '#8a6d3b' }}>
               ⚙ HD HOJE pré-marcada ({avAtual.conduta_sugerida}) — confirme ou troque acima.
             </div>
