@@ -597,7 +597,12 @@ const S = {
 };
 
 // ── COMPONENTES ──
-function Badge({ conduta, pausada }) {
+function Badge({ selo, conduta, pausada }) {
+  if (selo !== undefined) {
+    if (!selo || !selo.label) return null;
+    if (selo.projecao) return <span style={{ ...S.badge, background: 'transparent', color: selo.color, border: '1.5px solid ' + selo.color, padding: '1.5px 8.5px' }}>{selo.label}</span>;
+    return <span style={{ ...S.badge, background: selo.color }}>{selo.label}</span>;
+  }
   const map = { hd_hoje: ['HD HOJE', '#c0392b'], hd_amanha: ['HD AMANHÃ', '#e67e22'], conservador: ['CONSERVADOR', '#27ae60'], alta: ['ALTA', '#888'] };
   let [label, color] = map[conduta] || ['', ''];
   if (pausada && conduta === 'hd_hoje') { label = 'EM HD'; color = '#2e6da4'; }
@@ -2631,9 +2636,10 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   ) : null;
 
   const infoHD = (() => {
-    const hojeISO = dataLocalISO();
-    const ontemISO = dataLocalISO(Date.now() - 86400000);
-    const ds = new Date().getDay();
+    const _cicloMs = Date.now() - (new Date().getHours() < 7 ? 86400000 : 0);
+    const hojeISO = dataLocalISO(_cicloMs);
+    const ontemISO = dataLocalISO(_cicloMs - 86400000);
+    const ds = new Date(_cicloMs).getDay();
     const m = {};
     pacientes.forEach(p => {
       const avsP = avaliacoes[p.id] || [];
@@ -2665,23 +2671,29 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
       const relAberto = (p.relEnf || []).find(r => !r.usadoEm);
       const relPendente = !!relAberto;
       const relDivergente = relAberto?.divergencia || null;
-      const ultHDPrescrita = avsP.find(a => a.conduta === 'hd_hoje' && !a.hd_cancelada && dataLocalISO(a.data) < dataLocalISO());
+      const ultHDPrescrita = avsP.find(a => a.conduta === 'hd_hoje' && !a.hd_cancelada && dataLocalISO(a.data) < hojeISO);
       const faltaRelatorio = !!(ultHDPrescrita && !(p.relEnf || []).some(r => r.criadoEm > ultHDPrescrita.data) && !avHoje?.hd_destino && (Date.now() - ultHDPrescrita.data) < 3 * 86400000);
-      m[p.id] = { concluidaHoje: !!avHoje?.concluidaEm, condutaHoje: !!avHoje?.conduta, hdHoje: avHoje?.conduta === 'hd_hoje' && !avHoje?.hd_pausa_instab && !avHoje?.hd_cancelada, hdPausa: !!(avHoje?.conduta === 'hd_hoje' && avHoje?.hd_pausa_instab), prescPendente: avHoje?.conduta === 'hd_hoje' && !avHoje?.hd_pausa_instab && !avHoje?.presc_enviada && !avHoje?.hd_cancelada, relPendente, relDivergente, faltaRelatorio, homonimo, vistoHoje: !!avHoje, arquivado, conclusaoFinal: ultAv?.conclusao, motivo: p.externo ? '' : motivo, amanha: p.externo ? '' : amanha, prioridadeOntem: !p.externo && avOntem?.prioridade === 'sim' && avHoje?.conduta !== 'hd_hoje', emergDial: !!avHoje?.emerg_dial && !((p.dialLog || p.dialOutroOn) && !(p.urgencias||[]).length), prioDialOnly: !!avHoje?.emerg_dial && ((p.dialLog || p.dialOutroOn) && !(p.urgencias||[]).length), suspensa: p.esquemaHD === 'susp' };
+      // ── Selo do ciclo (corte 7h; vazado = projeção, quando não há avaliação do ciclo) ──
+      const _seloMap = c => c === 'hd_hoje' ? { label: 'HD HOJE', color: '#c0392b' } : c === 'hd_amanha' ? { label: 'HD AMANHÃ', color: '#e67e22' } : c === 'conservador' ? { label: 'CONSERVADOR', color: '#27ae60' } : null;
+      let selo = null, cicloCat;
+      if (avHoje) {
+        const c = avHoje.conduta;
+        if (c === 'hd_hoje' && avHoje.hd_pausa_instab) { selo = { label: 'EM HD', color: '#2e6da4', projecao: false }; cicloCat = 'emhd'; }
+        else { const s = _seloMap(c); selo = s ? { ...s, projecao: false } : null; cicloCat = c === 'hd_hoje' ? 'hoje' : c === 'hd_amanha' ? 'emhd' : (p.esquemaHD === 'susp' ? 'susp' : (temPrescricao ? 'susp' : 'cons')); }
+      } else if (temPrescricao && p.esquemaHD !== 'susp') {
+        if (motivo) { selo = { label: 'HD HOJE', color: '#c0392b', projecao: true }; cicloCat = 'hoje'; }
+        else { selo = { label: 'EM HD', color: '#2e6da4', projecao: true }; cicloCat = 'emhd'; }
+      } else if (p.esquemaHD === 'susp') {
+        const s = _seloMap(ultAv?.conduta); selo = s ? { ...s, projecao: false } : null; cicloCat = 'susp';
+      } else {
+        const s = _seloMap(ultAv?.conduta); selo = s ? { ...s, projecao: false } : null; cicloCat = 'cons';
+      }
+      m[p.id] = { concluidaHoje: !!avHoje?.concluidaEm, condutaHoje: !!avHoje?.conduta, hdHoje: avHoje?.conduta === 'hd_hoje' && !avHoje?.hd_pausa_instab && !avHoje?.hd_cancelada, hdPausa: !!(avHoje?.conduta === 'hd_hoje' && avHoje?.hd_pausa_instab), prescPendente: avHoje?.conduta === 'hd_hoje' && !avHoje?.hd_pausa_instab && !avHoje?.presc_enviada && !avHoje?.hd_cancelada, relPendente, relDivergente, faltaRelatorio, homonimo, vistoHoje: !!avHoje, arquivado, conclusaoFinal: ultAv?.conclusao, motivo: p.externo ? '' : motivo, amanha: p.externo ? '' : amanha, prioridadeOntem: !p.externo && avOntem?.prioridade === 'sim' && avHoje?.conduta !== 'hd_hoje', emergDial: !!avHoje?.emerg_dial && !((p.dialLog || p.dialOutroOn) && !(p.urgencias||[]).length), prioDialOnly: !!avHoje?.emerg_dial && ((p.dialLog || p.dialOutroOn) && !(p.urgencias||[]).length), suspensa: p.esquemaHD === 'susp', selo, cicloCat };
     });
     return m;
   })();
 
-  const catDe = (p) => {
-    const av = p.ultimaAvaliacao;
-    const c = av?.conduta;
-    if (c === 'hd_hoje' && av?.hd_pausa_instab) return 'emhd';
-    if (c === 'hd_hoje') return 'hoje';
-    if (c === 'hd_amanha') return 'emhd';
-    if (p.esquemaHD === 'susp') return 'susp';
-    const jaDialisou = (avaliacoes[p.id] || []).some(a => a.conduta === 'hd_hoje');
-    return jaDialisou ? 'susp' : 'cons';
-  };
+  const catDe = (p) => infoHD[p.id]?.cicloCat || 'cons';
 
   if (view === 'pep') {
     const diasDisp = [];
@@ -2837,7 +2849,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.10</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.11</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -3410,7 +3422,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                   {infoHD[p.id]?.concluidaHoje && <span style={{ fontSize: 11, fontWeight: 800, color: 'white', background: '#1d7a45', borderRadius: 6, padding: '2px 8px' }}>✓ concluída</span>}
                 </div>
               </div>
-              <Badge conduta={p.ultimaAvaliacao?.conduta} pausada={infoHD[p.id]?.hdPausa} />
+              <Badge selo={infoHD[p.id]?.selo} />
               {infoHD[p.id]?.hdHoje && <span onClick={(e) => { e.stopPropagation(); const _a = (avaliacoes[p.id] || []).find(a => a.conduta === 'hd_hoje' && !a.hd_pausa_instab && dataLocalISO(a.data) === dataLocalISO()); if (!_a) { alert('Sem prescrição de HD de hoje para este paciente.'); return; } setColetivoHtml({ html: montarFolhaHD(p, _a), n: 1 }); }} title="Reimprimir prescrição de HD (folha padrão)" style={{ marginLeft: 8, fontSize: 17, cursor: 'pointer', padding: '2px 4px', lineHeight: 1 }}>🖨</span>}
               <span style={{ marginLeft: 8, color: '#ccc', fontSize: 20 }}>›</span>
             </div>
