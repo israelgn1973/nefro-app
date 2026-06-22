@@ -973,7 +973,7 @@ function NefroApp() {
   const [hdSubAba, setHdSubAba] = useState('ultima');
   const [manualUltHdAberto, setManualUltHdAberto] = useState(false);
   const [destinoExcAberto, setDestinoExcAberto] = useState(false);
-  useEffect(() => { if (avAtual?.hd_primeira_sessao && (hdSubAba === 'ultima' || hdSubAba === 'programada')) setHdSubAba('hoje'); }, [avAtual?.hd_primeira_sessao, hdSubAba]);
+  useEffect(() => { if (hdSubAba === 'programada' || (avAtual?.hd_primeira_sessao && hdSubAba === 'ultima')) setHdSubAba('hoje'); }, [avAtual?.hd_primeira_sessao, hdSubAba]);
   useEffect(() => { setHdDiaNav(0); setCancMotivoAberto(false); }, [pacAtual?.id, hdSubAba]);
   // Navegação da Última HD (setas ‹ ›) — fonte única, usada pela tabela e pelo painel de intercorrências.
   const calcHdNav = () => {
@@ -2837,7 +2837,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.9</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.10</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -4869,7 +4869,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
 
         {(() => {
           const temHDctx = avAtual.conduta === 'hd_hoje' || avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido;
-          if (!temHDctx) return null;
+          if (!temHDctx || avAtual.conduta === 'hd_amanha') return null;
           return (
             <>
               <div style={{ margin: '10px 16px 0' }}>
@@ -4898,18 +4898,29 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           const _temHDi2 = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido;
           const _sit2 = hdSituacao || (_temHDi2 ? 'hd' : null);
           if (_sit2 !== 'hd' && _sit2 !== 'continuidade') return null;
-          const subs = avAtual.hd_primeira_sessao ? [['hoje','HD hoje']] : [['ultima','Última HD'],['hoje','HD hoje'],['programada','Programada p/ outro dia']];
+          const subs = avAtual.hd_primeira_sessao ? [['hoje','HD hoje']] : [['ultima','Última HD'],['hoje','HD hoje']];
+          const prog = avAtual.conduta === 'hd_amanha';
           return (
-            <div style={{ display: 'flex', gap: 4, margin: '8px 16px 0', borderBottom: '2px solid #e3e8ee', pointerEvents: 'auto' }}>
-              {subs.map(([v, lbl]) => (
-                <span key={v} onClick={() => { setHdSubAba(v); if (!modoConsulta) { if (v === 'hoje') upAv('conduta', 'hd_hoje'); else if (v === 'programada') upAv('conduta', 'hd_amanha'); } }}
-                  style={{ flex: 1, textAlign: 'center', padding: '8px 4px', fontSize: 12, fontWeight: 700, cursor: 'pointer', color: hdSubAba === v ? '#1a3a5c' : '#9aa7b4', borderBottom: hdSubAba === v ? '2px solid #1a3a5c' : '2px solid transparent', marginBottom: -2 }}>{lbl}</span>
-              ))}
-            </div>
+            <>
+              {!avAtual.hd_primeira_sessao && (
+                <div style={{ margin: '10px 16px 0' }}>
+                  <span onClick={() => { if (modoConsulta) return; setAvAtual(a => ({ ...a, conduta: prog ? 'hd_hoje' : 'hd_amanha', ...(prog ? {} : { hd_pausa_instab: false }) })); setHdSubAba('hoje'); }}
+                    style={{ ...S.checkItem, fontSize: 12.5, ...(prog ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c', fontWeight: 700 } : { color: '#1a3a5c', borderColor: '#b9d2ee' }) }}>
+                    {prog ? '📅 Programada p/ outro dia ✓' : '📅 Programar p/ outro dia'}
+                  </span>
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 4, margin: '8px 16px 0', borderBottom: '2px solid #e3e8ee', pointerEvents: 'auto' }}>
+                {subs.map(([v, lbl]) => (
+                  <span key={v} onClick={() => setHdSubAba(v)}
+                    style={{ flex: 1, textAlign: 'center', padding: '8px 4px', fontSize: 12, fontWeight: 700, cursor: 'pointer', color: hdSubAba === v ? '#1a3a5c' : '#9aa7b4', borderBottom: hdSubAba === v ? '2px solid #1a3a5c' : '2px solid transparent', marginBottom: -2 }}>{lbl}</span>
+                ))}
+              </div>
+            </>
           );
         })()}
 
-        {hdSubAba === 'hoje' && (() => { const fx = faixaRef(true); return fx ? <div style={{ margin: '10px 16px 0' }}>{fx}</div> : null; })()}
+        {hdSubAba === 'hoje' && avAtual.conduta === 'hd_hoje' && (() => { const fx = faixaRef(true); return fx ? <div style={{ margin: '10px 16px 0' }}>{fx}</div> : null; })()}
 
         {(() => {
           const sugs = sugestoesConduta().filter(s => s.n === 'vermelho');
@@ -4923,7 +4934,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           );
         })()}
 
-        {hdSubAba === 'hoje' && (() => {
+        {hdSubAba === 'hoje' && avAtual.conduta === 'hd_hoje' && (() => {
           const relUlt = (pacAtual.relEnf || []).find(r => !r.usadoEm) || (pacAtual.relEnf || [])[0];
           if (!relUlt || !relUlt.raw) return null;
           const rcd = relUlt.campos || {};
@@ -5101,7 +5112,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
             );
           }
           // aba PROGRAMADA P/ OUTRO DIA
-          if ((_sit3 === 'hd' || _sit3 === 'continuidade') && hdSubAba === 'programada') {
+          if ((_sit3 === 'hd' || _sit3 === 'continuidade') && hdSubAba === 'hoje' && avAtual.conduta === 'hd_amanha') {
             return (
               <div style={{ ...S.card, margin: '12px 16px' }}>
                 <div style={{ padding: 16, fontSize: 14, color: '#444', lineHeight: 1.6 }}>
