@@ -2849,7 +2849,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.12</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.13</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -4812,7 +4812,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           // SELETOR DE SITUAÇÃO HD (Camada 1 da reestruturação)
           const opcoes = [['conservador','Tratamento conservador'],['hd','HD'],['desmame','Desmame de HD']];
           // dedução inicial só pra sugerir (não trava): se já tem HD interna → continuidade
-          const temHDi = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido;
+          const temHDi = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido || (avAtual.conduta && avAtual.conduta.startsWith('hd'));
           const sit = hdSituacao || (pacAtual.esquemaHD === 'susp' ? 'desmame' : temHDi ? 'continuidade' : null);
           return (
             <div style={{ margin: '10px 16px 0' }}>
@@ -4825,7 +4825,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                     else if (v === 'hd') { setHdSubAba('hoje'); upAv('conduta', 'hd_hoje'); upAv('hd_desmame_desde', ''); limpaSusp(); }
                     else if (v === 'desmame') { upAv('conduta', 'conservador'); setPacientes(ps => ps.map(x => x.id === pacAtual.id ? { ...x, esquemaHD: 'susp' } : x)); setPacAtual(pa => ({ ...pa, esquemaHD: 'susp' })); if (!avAtual.hd_desmame_desde) upAv('hd_desmame_desde', dataLocalISO(Date.now())); }
                   }}
-                    style={{ ...S.checkItem, fontSize: 12.5, ...(sit === v ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}>{lbl}</span>
+                    style={{ ...S.checkItem, fontSize: 12.5, ...((sit === v || (v === 'hd' && sit === 'continuidade')) ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c' } : {}) }}>{lbl}</span>
                 ))}
               </div>
             </div>
@@ -4861,8 +4861,8 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
         })()}
 
         {(() => {
-          const _temHDe = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido;
-          const _sitE = hdSituacao || (_temHDe ? 'hd' : null);
+          const _temHDe = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido || (avAtual.conduta && avAtual.conduta.startsWith('hd'));
+          const _sitE = hdSituacao || (pacAtual.esquemaHD === 'susp' ? 'desmame' : _temHDe ? 'hd' : null);
           if (_sitE !== 'hd' && _sitE !== 'continuidade') return null;
           return (
             <div style={{ padding: '0 16px 12px' }}>
@@ -4880,59 +4880,51 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
         })()}
 
         {(() => {
-          const temHDctx = avAtual.conduta === 'hd_hoje' || avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido;
-          if (!temHDctx || avAtual.conduta === 'hd_amanha') return null;
+          const _temHD = (avAtual.conduta && avAtual.conduta.startsWith('hd')) || avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido;
+          const _sitD = hdSituacao || (pacAtual.esquemaHD === 'susp' ? 'desmame' : _temHD ? 'hd' : null);
+          if (_sitD !== 'hd' && _sitD !== 'continuidade') return null;
+          const disp = avAtual.hd_pausa_instab ? 'pausar' : avAtual.conduta === 'hd_amanha' ? 'outro' : 'hoje';
+          const setDisp = (d) => {
+            if (modoConsulta) return;
+            if (d === 'pausar') setAvAtual(a => ({ ...a, conduta: 'hd_hoje', hd_pausa_instab: true }));
+            else if (d === 'outro') setAvAtual(a => ({ ...a, conduta: 'hd_amanha', hd_pausa_instab: false }));
+            else setAvAtual(a => ({ ...a, conduta: 'hd_hoje', hd_pausa_instab: false }));
+            setHdSubAba('hoje');
+          };
+          const revendo = hdSubAba === 'ultima';
+          const opts = [['hoje', 'Realizar hoje', '#1d7a45'], ['pausar', 'Pausar — instab.', '#8a6d3b'], ['outro', 'Outro dia', '#1a3a5c']];
           return (
-            <>
-              <div style={{ margin: '10px 16px 0' }}>
-                <span onClick={() => { const nv = !avAtual.hd_pausa_instab; setAvAtual(a => ({ ...a, hd_pausa_instab: nv, ...(nv ? { conduta: 'hd_hoje' } : {}) })); }}
-                  style={{ ...S.checkItem, fontSize: 12.5, ...(avAtual.hd_pausa_instab ? { background: '#8a6d3b', color: 'white', borderColor: '#8a6d3b', fontWeight: 700 } : { color: '#8a6d3b', borderColor: '#e8cfa8' }) }}>
-                  {avAtual.hd_pausa_instab ? '⏸ HD pausada hoje (instabilidade) ✓' : '⏸ Pausar HD hoje (instabilidade)'}
-                </span>
+            <div style={{ padding: '8px 16px 0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <span style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', letterSpacing: 0.5 }}>Disposição de hoje</span>
+                {!avAtual.hd_primeira_sessao && (
+                  <span onClick={() => setHdSubAba(revendo ? 'hoje' : 'ultima')} style={{ fontSize: 12.5, fontWeight: 600, color: revendo ? '#888' : '#1a3a5c', cursor: 'pointer' }}>{revendo ? '✕ fechar última HD' : '📄 Última HD'}</span>
+                )}
               </div>
-              {avAtual.hd_pausa_instab && (
-                <div style={{ ...S.card, margin: '12px 16px' }}>
-                  <div style={{ padding: 16, fontSize: 14, color: '#444', lineHeight: 1.6 }}>
-                    <b>HD pausada hoje por instabilidade clínica.</b><br/>
-                    Sessão não realizada hoje. Acesso e plano de HD mantidos (segue paciente de HD) — retomar quando estabilizar.
-                    <div style={{ marginTop: 10 }}>
-                      <span style={{ fontSize: 12, color: '#888' }}>Motivo (opcional): </span>
-                      <input value={avAtual.hd_pausa_motivo || ''} onChange={e => upAv('hd_pausa_motivo', e.target.value)} placeholder="ex.: hipotensão refratária, arritmia…" style={{ border: '1px solid #ddd', borderRadius: 8, padding: '5px 9px', fontSize: 13, width: '68%', fontFamily: 'inherit' }} />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
-          );
-        })()}
-
-        {(() => {
-          const _temHDi2 = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido;
-          const _sit2 = hdSituacao || (_temHDi2 ? 'hd' : null);
-          if (_sit2 !== 'hd' && _sit2 !== 'continuidade') return null;
-          const subs = avAtual.hd_primeira_sessao ? [['hoje','HD hoje']] : [['ultima','Última HD'],['hoje','HD hoje']];
-          const prog = avAtual.conduta === 'hd_amanha';
-          return (
-            <>
-              {!avAtual.hd_primeira_sessao && (
-                <div style={{ margin: '10px 16px 0' }}>
-                  <span onClick={() => { if (modoConsulta) return; setAvAtual(a => ({ ...a, conduta: prog ? 'hd_hoje' : 'hd_amanha', ...(prog ? {} : { hd_pausa_instab: false }) })); setHdSubAba('hoje'); }}
-                    style={{ ...S.checkItem, fontSize: 12.5, ...(prog ? { background: '#1a3a5c', color: 'white', borderColor: '#1a3a5c', fontWeight: 700 } : { color: '#1a3a5c', borderColor: '#b9d2ee' }) }}>
-                    {prog ? '📅 Programada p/ outro dia ✓' : '📅 Programar p/ outro dia'}
-                  </span>
-                </div>
-              )}
-              <div style={{ display: 'flex', gap: 4, margin: '8px 16px 0', borderBottom: '2px solid #e3e8ee', pointerEvents: 'auto' }}>
-                {subs.map(([v, lbl]) => (
-                  <span key={v} onClick={() => setHdSubAba(v)}
-                    style={{ flex: 1, textAlign: 'center', padding: '8px 4px', fontSize: 12, fontWeight: 700, cursor: 'pointer', color: hdSubAba === v ? '#1a3a5c' : '#9aa7b4', borderBottom: hdSubAba === v ? '2px solid #1a3a5c' : '2px solid transparent', marginBottom: -2 }}>{lbl}</span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {opts.map(([v, l, cor]) => (
+                  <span key={v} onClick={() => setDisp(v)}
+                    style={{ ...S.checkItem, flex: 1, textAlign: 'center', fontSize: 12.5, fontWeight: 700, padding: '9px 4px', ...(disp === v ? { background: cor, color: 'white', borderColor: cor } : { color: cor, borderColor: cor + '55' }) }}>{l}</span>
                 ))}
               </div>
-            </>
+            </div>
           );
         })()}
 
-        {hdSubAba === 'hoje' && avAtual.conduta === 'hd_hoje' && (() => { const fx = faixaRef(true); return fx ? <div style={{ margin: '10px 16px 0' }}>{fx}</div> : null; })()}
+        {hdSubAba === 'hoje' && avAtual.conduta === 'hd_hoje' && avAtual.hd_pausa_instab && (
+          <div style={{ ...S.card, margin: '12px 16px' }}>
+            <div style={{ padding: 16, fontSize: 14, color: '#444', lineHeight: 1.6 }}>
+              <b>HD pausada hoje por instabilidade clínica.</b><br/>
+              Sessão não realizada hoje. Acesso e plano de HD mantidos (segue paciente de HD) — retomar quando estabilizar.
+              <div style={{ marginTop: 10 }}>
+                <span style={{ fontSize: 12, color: '#888' }}>Motivo (opcional): </span>
+                <input value={avAtual.hd_pausa_motivo || ''} onChange={e => upAv('hd_pausa_motivo', e.target.value)} placeholder="ex.: hipotensão refratária, arritmia…" style={{ border: '1px solid #ddd', borderRadius: 8, padding: '5px 9px', fontSize: 13, width: '68%', fontFamily: 'inherit' }} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {hdSubAba === 'hoje' && avAtual.conduta === 'hd_hoje' && !avAtual.hd_pausa_instab && (() => { const fx = faixaRef(true); return fx ? <div style={{ margin: '10px 16px 0' }}>{fx}</div> : null; })()}
 
         {(() => {
           const sugs = sugestoesConduta().filter(s => s.n === 'vermelho');
@@ -4946,7 +4938,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           );
         })()}
 
-        {hdSubAba === 'hoje' && avAtual.conduta === 'hd_hoje' && (() => {
+        {hdSubAba === 'hoje' && avAtual.conduta === 'hd_hoje' && !avAtual.hd_pausa_instab && (() => {
           const relUlt = (pacAtual.relEnf || []).find(r => !r.usadoEm) || (pacAtual.relEnf || [])[0];
           if (!relUlt || !relUlt.raw) return null;
           const rcd = relUlt.campos || {};
@@ -5090,7 +5082,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
         })()}
 
         {(() => {
-          const _temHDi3 = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido;
+          const _temHDi3 = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido || (avAtual.conduta && avAtual.conduta.startsWith('hd'));
           const _sit3 = hdSituacao || (pacAtual.esquemaHD === 'susp' ? 'desmame' : _temHDi3 ? 'continuidade' : null);
           // Desmame de HD (RFR em prova)
           if (_sit3 === 'desmame') {
