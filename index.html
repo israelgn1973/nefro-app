@@ -2887,7 +2887,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.21</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.24</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -3480,13 +3480,13 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
         const _rem = visitaDist;
         const _val = _rem ? _est.distancia : _est.presencial;
         // Compromisso do dia (chegada): seg(1)/qua(3) HC 11:00 · qui(4) consultório HRA 10:30 · ter(2)/sex(5) ambulatório HC 10:30 (visita a distância)
-        // Trajetos (min): casa→HRA 35, casa→HC 20, HRA→HC 40
+        // Trajetos (min): casa→HRA 30, casa→HC 20, HRA→HC 40
         const _comp = ({ 1: { t: 660, p: 'HC' }, 3: { t: 660, p: 'HC' }, 4: { t: 630, p: 'HRA' }, 2: { t: 630, p: 'HC' }, 5: { t: 630, p: 'HC' } })[new Date().getDay()] || null;
         let _rec = '';
         if (_comp) {
           const _visM = Math.round((_rem ? _est.distancia : _est.presencial) / 5) * 5;
-          const _legAte = _rem ? 0 : 35;
-          const _legApos = _rem ? (_comp.p === 'HC' ? 20 : 35) : (_comp.p === 'HC' ? 40 : 0);
+          const _legAte = _rem ? 0 : 30;
+          const _legApos = _rem ? (_comp.p === 'HC' ? 20 : 30) : (_comp.p === 'HC' ? 40 : 0);
           const _hm = m => { m = ((m % 1440) + 1440) % 1440; return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); };
           const _ini = _comp.t - _legApos - _visM;
           const _sai = _rem ? (_comp.t - _legApos) : (_ini - _legAte);
