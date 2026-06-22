@@ -2671,7 +2671,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
       const relAberto = (p.relEnf || []).find(r => !r.usadoEm);
       const relPendente = !!relAberto;
       const relDivergente = relAberto?.divergencia || null;
-      const ultHDPrescrita = avsP.find(a => a.conduta === 'hd_hoje' && !a.hd_cancelada && dataLocalISO(a.data) < hojeISO);
+      const ultHDPrescrita = avsP.find(a => a.conduta === 'hd_hoje' && !a.hd_cancelada && !a.hd_pausa_instab && dataLocalISO(a.data) < hojeISO);
       const faltaRelatorio = !!(ultHDPrescrita && !(p.relEnf || []).some(r => r.criadoEm > ultHDPrescrita.data) && !avHoje?.hd_destino && (Date.now() - ultHDPrescrita.data) < 3 * 86400000);
       // ── Selo do ciclo (corte 7h; vazado = projeção, quando não há avaliação do ciclo) ──
       const _seloMap = c => c === 'hd_hoje' ? { label: 'HD HOJE', color: '#c0392b' } : c === 'hd_amanha' ? { label: 'HD AMANHÃ', color: '#e67e22' } : c === 'conservador' ? { label: 'CONSERVADOR', color: '#27ae60' } : null;
@@ -2849,7 +2849,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.11</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.12</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
