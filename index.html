@@ -2107,7 +2107,7 @@ const ajRotulo = aj => {
 @media print {
   html, body { margin: 0; padding: 0; height: 1cm; overflow: visible; }
   .page { width: 27.5cm; height: 1cm; position: absolute; top: 0; left: 0; overflow: visible; }
-  .sheet { position: absolute; top: 0; left: 0; transform: translateX(27.5cm) rotate(90deg) scale(2); transform-origin: top left; }
+  .sheet { position: absolute; top: 0; left: 0; transform: translateX(24.75cm) rotate(90deg) scale(1.8); transform-origin: top left; }
   }
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
 body { font-size: 4.75pt; text-transform: uppercase; }
@@ -3015,7 +3015,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.58</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.59</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
