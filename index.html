@@ -990,6 +990,7 @@ function NefroApp() {
   const [modoTeste, setModoTeste] = useState(() => { try { return localStorage.getItem('nefro_modo_teste') === '1'; } catch { return false; } });
   const aplicarModoTeste = (v) => { setModoTeste(v); try { localStorage.setItem('nefro_modo_teste', v ? '1' : '0'); } catch {} };
   const [verRelEnf, setVerRelEnf] = useState(false);
+  const [relAbertoKey, setRelAbertoKey] = useState(null);
   const [verEstimativa, setVerEstimativa] = useState(false);
   const [estimDia, setEstimDia] = useState(0); // 0=hoje,1=amanhã,2=depois
   const [buscaDx, setBuscaDx] = useState('');
@@ -2884,7 +2885,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.25</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.26</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -2993,12 +2994,21 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                   )}
                   {recs.length === 0 ? (
                     <div style={{ padding: '12px 14px', fontSize: 13, color: '#999', textAlign: 'center' }}>Nenhum relatório recebido neste ciclo.</div>
-                  ) : recs.map((r, idx) => (
-                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 14px', borderBottom: '1px solid #f2f5f8', fontSize: 13 }}>
-                      <span style={{ color: '#1a7a45', flex: 1 }}>✓ {r.pacNome}</span>
-                      <span style={{ fontSize: 11, color: '#999' }}>{r.dataSessao || 'sessão s/ data'}</span>
+                  ) : recs.map((r, idx) => {
+                    const _rk = r.pacId + '_' + r.criadoEm;
+                    const _aberto = relAbertoKey === _rk;
+                    return (
+                    <div key={idx} style={{ borderBottom: '1px solid #f2f5f8' }}>
+                      <div onClick={(e) => { e.stopPropagation(); if (r.raw) setRelAbertoKey(_aberto ? null : _rk); }} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 14px', fontSize: 13, cursor: r.raw ? 'pointer' : 'default' }}>
+                        <span style={{ color: '#1a7a45', flex: 1 }}>✓ {r.pacNome}{r.raw ? <span style={{ color: '#c2c8ce', fontWeight: 400, fontSize: 11 }}>{_aberto ? ' ▲' : ' ▼'}</span> : null}</span>
+                        <span style={{ fontSize: 11, color: '#999' }}>{r.dataSessao || 'sessão s/ data'}</span>
+                      </div>
+                      {_aberto && r.raw && (
+                        <div style={{ padding: '2px 14px 12px', fontSize: 12.5, color: '#3a4a5a', whiteSpace: 'pre-wrap', lineHeight: 1.55 }}>{r.raw}</div>
+                      )}
                     </div>
-                  ))}
+                    );
+                  })}
                   <div style={{ padding: '8px 14px', borderTop: '1px solid #e3e8ee', textAlign: 'center' }}>
                     <span onClick={(e) => { e.stopPropagation(); const agora = Date.now(); setRelZeradoEm(agora); try { localStorage.setItem('relZeradoEm', String(agora)); } catch(e) {} mostrarToast('Contador zerado'); setVerRelEnf(false); }}
                       style={{ fontSize: 12, fontWeight: 700, color: '#c0392b', cursor: 'pointer' }}>↺ zerar contador</span>
