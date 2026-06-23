@@ -589,15 +589,17 @@ const exportarFolhaPDF = async (frameId, fallbackFn) => {
     let alvos = doc.querySelectorAll('.pg');
     if (!alvos.length) alvos = doc.querySelectorAll('.page');
     if (!alvos.length) alvos = [doc.body];
-    const pdf = new JSP('p', 'mm', 'a4');
-    const A4W = 210, A4H = 297;
+    let pdf = null;
     for (let i = 0; i < alvos.length; i++) {
       const canvas = await H2C(alvos[i], { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
+      const land = canvas.width > canvas.height;      // paisagem se mais largo que alto (folha de HD)
+      const pageW = land ? 297 : 210, pageH = land ? 210 : 297;
+      let w = pageW, h = canvas.height * pageW / canvas.width;
+      if (h > pageH) { h = pageH; w = canvas.width * pageH / canvas.height; }
+      if (!pdf) pdf = new JSP(land ? 'l' : 'p', 'mm', 'a4');
+      else pdf.addPage('a4', land ? 'l' : 'p');
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      let w = A4W, h = canvas.height * A4W / canvas.width;
-      if (h > A4H) { h = A4H; w = canvas.width * A4H / canvas.height; }
-      if (i > 0) pdf.addPage();
-      pdf.addImage(imgData, 'JPEG', (A4W - w) / 2, 0, w, h);
+      pdf.addImage(imgData, 'JPEG', (pageW - w) / 2, (pageH - h) / 2, w, h);
     }
     const blob = pdf.output('blob');
     const file = new File([blob], nome + '.pdf', { type: 'application/pdf' });
@@ -2986,7 +2988,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.54</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.55</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
