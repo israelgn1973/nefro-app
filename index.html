@@ -1332,7 +1332,7 @@ function NefroApp() {
     else if (d.normotenso) itens.push(<span key="pa">PA normotenso</span>);
     { const nora = (d.dvas || {})['Noradrenalina']; if (nora && nora.vazao != null && nora.vazao !== '') { const vz = num(nora.vazao); const l1 = nora.dd ? 8 : 15, l2 = nora.dd ? 16 : 30; itens.push(<span key="nora" style={!isNaN(vz) ? tier(vz > l1, vz > l2) : {}}>Nora {nora.vazao} ml/h{nora.dd ? ' (DD)' : ''}</span>); } }
     // Respiração
-    if (d.fio2 != null && d.fio2 !== '') { const f = num(d.fio2); itens.push(<span key="fio2" style={!isNaN(f) ? tier(f > 50, f > 70) : {}}>FiO2 {d.fio2}%</span>); }
+    if (['COT/VM','TQT/VM'].includes(d.resp) && d.fio2 != null && d.fio2 !== '') { const f = num(d.fio2); itens.push(<span key="fio2" style={!isNaN(f) ? tier(f > 50, f > 70) : {}}>FiO2 {d.fio2}%</span>); }
     // Volume
     if (d.ganhos != null && d.ganhos !== '') itens.push(<span key="g">Ganhos {d.ganhos} ml</span>);
     if (d.diurese != null && d.diurese !== '') { const dv = num(d.diurese); let st = {}; if (!isNaN(dv)) st = tier(dv < 500, dv < 100); else { const t = String(d.diurese).toLowerCase(); if (t.includes('anúr') || t.includes('anur')) st = verm; else if (t.includes('olig')) st = amb; } itens.push(<span key="diu" style={st}>Diurese {d.diurese}{!isNaN(dv) ? ' ml' : ''}</span>); }
@@ -1828,7 +1828,7 @@ const ajRotulo = aj => {
         if (sel.includes('Quelante de P')) { const p = num(d.labs?.p_hoje); det.push('Quelante de P' + (isNaN(p) ? '' : ` (P ${p})`) + (incDil ? ': Quelante às refeições (carbonato/acetato de Ca; sevelâmer se Ca alto). Restrição dietética de P.' : '')); }
         if (sel.includes('Bicarbonato')) { det.push('Bicarbonato de sódio' + (incDil ? (d.bic_ml ? ` ${d.bic_ml} ml${d.bic_h ? ` a cada ${d.bic_h}h` : ''}` : ' (definir volume/intervalo)') + '.' : '')); }
         if (sel.includes('Glicoinsulina')) { det.push('Glicoinsulina' + (incDil ? ': Insulina regular 10 UI + glicose 50% 100 ml EV 15–30 min. HGT 1/1h por 4–6h.' : '')); }
-        if (sel.includes('Gluconato Ca (membrana)')) { det.push('Gluconato Ca (membrana)' + (incDil ? ': Gluconato Ca 10% 10–20 mL (1–2 amp) em SG 100 mL EV lento sob monitor; repetir s/n alteração no ECG. Não baixa o K.' : '')); }
+        if (sel.includes('Gluconato Ca (membrana)')) { det.push(incDil ? 'Gluconato de cálcio 10% 10 mL + SG 100 mL EV lento' : 'Gluconato Ca (membrana)'); }
         if (sel.includes('Ajustar tonicidade das diluições')) { det.push('Ajustar tonicidade das diluições' + (incDil ? ' conforme o Na sérico.' : '')); }
         if (sel.includes('Água livre')) { det.push('Reposição de água livre (hipernatremia)' + (incDil ? ': SG 5% EV ou água VO/SNG conforme déficit.' : '')); }
         if (sel.includes('NaCl 3%')) { det.push('NaCl 3% (hiponatremia sintomática)' + (incDil ? ': subir 4–6 mEq nas primeiras horas; respeitar teto de 24h.' : '')); }
@@ -2327,7 +2327,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
       anticoag_hd:'sem heparina', cateter_pos:'Bic. Na 8,4%', interc:['Nenhuma'], interc_outro:'', observacoes:'',
       ...(prev ? {
         // HERDADOS (estáveis) — marcados como "de ontem" até confirmar
-        padrao_resp: prev.padrao_resp || '', resp: prev.resp || '', fio2: prev.fio2 || '', peep: prev.peep || '', fluxoO2: prev.fluxoO2 || '',
+        padrao_resp: prev.padrao_resp || '', resp: prev.resp || '', fio2: ['COT/VM','TQT/VM'].includes(prev.resp) ? (prev.fio2 || '') : '', peep: ['COT/VM','TQT/VM'].includes(prev.resp) ? (prev.peep || '') : '', fluxoO2: ['cateter de O2','máscara de O2','máscara não reinalante','VNI'].includes(prev.resp) ? (prev.fluxoO2 || '') : '',
         edema: prev.edema || 'ausente', svd: prev.svd || '', peso_est: prev.peso_est || '',
         ultima_hd_data: ehReativacao ? '' : (prev.ultima_hd_data || ''), tempo_obtido: ehReativacao ? '' : (prev.tempo_obtido || ''), uf_obtida: ehReativacao ? '' : (prev.uf_obtida || ''), hd_desmame_desde: prev.hd_desmame_desde || '', cons_motivo: prev.cons_motivo || '',
         ...(() => {
@@ -2921,7 +2921,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.36</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.38</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
