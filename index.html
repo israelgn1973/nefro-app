@@ -1925,7 +1925,7 @@ const ajRotulo = aj => {
     const edemaImportante = ['acentuado', 'muito acentuado'].includes(avAtual.edema);
     const hdPrevia = avs.some(a => a.id !== avAtual.id && a.conduta?.startsWith('hd'));
     const primeiraSessao = !hdPrevia;
-    const cdlNovo = interc.includes('Implante de CDL pré-sessão') || (primeiraSessao && avAtual.acesso !== 'FAV');
+    const cdlNovo = avAtual.cdl_novo || interc.includes('Implante de CDL pré-sessão') || (primeiraSessao && avAtual.acesso !== 'FAV');
     const ehHD = avAtual.conduta === 'hd_hoje';
 
     if (ehHD && avAtual.sangramento === 'ativo') {
@@ -2343,7 +2343,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
       conduta: condutaSug ? 'hd_hoje' : 'conservador', prioridade: 'nao', conclusao: 'acompanhamento', aj_diur: {}, cond_alertas: [], labs: {},
       eg: (prev && ['estável','grave','gravíssimo'].includes(prev.eg)) ? prev.eg : 'estável', consciencia: (prev && prev.consciencia) ? prev.consciencia : flexSexo('consciente e orientado', pacN.sexo), padrao_resp: flexSexo('eupneico', pacN.sexo), resp:'', sat:'', pai:false, pam:'', pa:'', dvas:{}, fio2:'', peep:'', fluxoO2:'', edema:'ausente', sangramento:'', sangramento_sitio:'', sang_outro:false, sang_sitio_open:false,
       ganhos:'', diurese:'', diurese_qual:'', bh_parcial:false, bh_horas:'', svd:'', diureticos:[], diur_doses:{}, diurSem:{}, diurIniciar:{}, furo_cond:'', espiro_cond:'', hctz_cond:'', furo_acm:'', furo_manut:'sem', furo_dose_n:'', furo_int:'', furo_bolus_n:'', furo_bolus_amp:'', furo_bolus_av_n:'', furo_bolus_av_amp:'', espiro_cp:'', espiro_int:'', hctz_cp:'', hctz_int:'', fu_via:'', fu_n:'', fu_int:'', es_cp:'', es_int:'', hz_cp:'', hz_int:'',
-      ultima_hd_data:'', acesso:'CDL', tempo_obtido:'', uf_obtida:'',
+      ultima_hd_data:'', acesso:'CDL', cdl_novo:false, tempo_obtido:'', uf_obtida:'',
       anticoag_hd:'sem heparina', cateter_pos:'Bic. Na 8,4%', interc:['Nenhuma'], interc_outro:'', observacoes:'',
       ...(prev ? {
         // HERDADOS (estáveis) — marcados como "de ontem" até confirmar
@@ -2945,7 +2945,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.51</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.52</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -5465,6 +5465,12 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
         </Section>
 
         <Section title="Anticoagulação">
+          {avAtual.acesso !== 'FAV' && (
+            <div style={{ padding: '8px 14px 2px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <span onClick={() => upAv('cdl_novo', !avAtual.cdl_novo)} style={{ ...S.checkItem, ...(avAtual.cdl_novo ? { background: '#8a6d00', color: 'white', borderColor: '#8a6d00' } : {}) }}>{avAtual.cdl_novo ? '☑' : '☐'} CDL novo</span>
+              {avAtual.cdl_novo && <span style={{ fontSize: 11.5, color: '#8a6d00' }}>→ HD sem heparina + cateter com bicarbonato</span>}
+            </div>
+          )}
           <FormRow label="Tipo">
             <select style={S.select} value={avAtual.anticoag||''} onChange={e => { const v = e.target.value; setAvAtual(a => v === 'com' ? { ...a, anticoag: 'com', lavagens: '0' } : { ...a, anticoag: v, lavagens: a.lavagens === '0' ? '' : a.lavagens }); }}>
               <option value="">— definir —</option>
