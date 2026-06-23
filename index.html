@@ -1726,11 +1726,6 @@ function NefroApp() {
       }
 
       const preopLista = (pacRef.preopTipos || []).map(t => t === 'Outro' ? (pacRef.preopOutro || 'Outro') : t).join(', ');
-      if ((pacRef.gatilhos || []).includes('Pré-operatório')) {
-        linhas.push(''); linhas.push('PARECER PRÉ-OPERATÓRIO');
-        if (preopLista) linhas.push('Cirurgia proposta: ' + preopLista);
-        linhas.push('Apesar do risco aumentado de complicações renais e sistêmicas, do ponto de vista nefrológico não há contraindicação absoluta à realização do procedimento proposto. Recomenda-se avaliação criteriosa da relação risco-benefício pela equipe assistente.');
-      }
       linhas.push(''); linhas.push('CONDUTA');
       let decTxt = { hd_hoje: 'HD HOJE', hd_amanha: 'HD AMANHÃ', conservador: 'Tratamento conservador' }[d.conduta];
       if (d.conduta === 'hd_hoje' && d.hd_pausa_instab) decTxt = 'HD pausada hoje (instabilidade clínica)';
@@ -1781,23 +1776,25 @@ const ajRotulo = aj => {
           if ((id === 'alto_risco' || id === 'otimizar_urg') && d.parecer_obs) t += ' ' + d.parecer_obs;
           return t;
         }).filter(Boolean);
+        if (preopLista) add('Cirurgia proposta', preopLista);
         add('Parecer pré-operatório', txtP);
       }
       if (d.ultima_hd_obs) add('Última HD — intercorrências', d.ultima_hd_obs);
       if ((d.cond_eletr || []).length) {
         const sel = d.cond_eletr || [];
+        const incDil = !!d.incluir_diluicoes;
         const det = [];
-        if (sel.includes('Repor K')) { const k = num(d.labs?.pot_hoje); det.push('Repor K' + (isNaN(k) ? '' : ` (K ${k})`) + ': ' + (!isNaN(k) && k < 3.0 ? 'KCl 19,1% 2 amp (50 mEq) em SF 250 ml EV 4h (central; monitor). Repor Mg. Reavaliar 2–4h.' : 'KCl 6% 15 ml VO 8/8h ou 1 amp (25 mEq) em SF 250 ml EV 2h. Reavaliar 4–6h.')); }
-        if (sel.includes('Repor Ca')) { const ca = num(d.labs?.ca_hoje); det.push('Repor Ca' + (isNaN(ca) ? '' : ` (Cai ${ca})`) + ': ' + (!isNaN(ca) && ca < 0.9 ? 'Gluconato Ca 10% 1–2 amp em SG 100 ml EV 10–20 min; reavaliar 1–2h. Corrigir Mg. Cautela se P alto (Ca×P).' : 'Leve: carbonato Ca 1–2 g/dia VO ou gluconato 10% 1 amp EV lento. Corrigir Mg.')); }
-        if (sel.includes('Repor Mg')) { const mg = num(d.labs?.mg_hoje); det.push('Repor Mg' + (isNaN(mg) ? '' : ` (Mg ${mg})`) + ': ' + (!isNaN(mg) && mg < 1.0 ? 'MgSO4 50% 2 g em SF 100 ml EV 30–60 min (torsades: 10–15 min). DRC: reduzir ~50%.' : 'MgSO4 50% 1 g em SF 100 ml EV 1h, 1–2x/dia. DRC: reduzir ~50%.')); }
-        if (sel.includes('Repor P')) { const p = num(d.labs?.p_hoje); det.push('Repor P' + (isNaN(p) ? '' : ` (P ${p})`) + ': ' + (!isNaN(p) && p < 1.0 ? 'Fosfato K/Na 0,3–0,4 mmol/kg EV 6h; reavaliar. Monitorar Ca/K.' : 'VO: fosfato de sódio/potássio ou refeição rica em P. Reavaliar.')); }
-        if (sel.includes('Quelante de P')) { const p = num(d.labs?.p_hoje); det.push('Quelante de P' + (isNaN(p) ? '' : ` (P ${p})`) + ': Quelante às refeições (carbonato/acetato de Ca; sevelâmer se Ca alto). Restrição dietética de P.'); }
-        if (sel.includes('Bicarbonato')) { det.push('Bicarbonato de sódio' + (d.bic_ml ? ` ${d.bic_ml} ml${d.bic_h ? ` a cada ${d.bic_h}h` : ''}` : ' (definir volume/intervalo)') + '.'); }
-        if (sel.includes('Glicoinsulina')) { det.push('Glicoinsulina: Insulina regular 10 UI + glicose 50% 100 ml EV 15–30 min. HGT 1/1h por 4–6h.'); }
-        if (sel.includes('Ajustar tonicidade das diluições')) { det.push('Ajustar tonicidade das diluições conforme o Na sérico.'); }
-        if (sel.includes('Água livre')) { det.push('Reposição de água livre (hipernatremia): SG 5% EV ou água VO/SNG conforme déficit.'); }
-        if (sel.includes('NaCl 3%')) { det.push('NaCl 3% (hiponatremia sintomática): subir 4–6 mEq nas primeiras horas; respeitar teto de 24h.'); }
-        if (sel.includes('DDAVP')) { det.push('DDAVP (poliúria com hipernatremia / DI central): desmopressina intranasal 10 mcg 1–2x/dia, titular pela diurese e Na (10–40 mcg/dia).'); }
+        if (sel.includes('Repor K')) { const k = num(d.labs?.pot_hoje); det.push('Repor K' + (isNaN(k) ? '' : ` (K ${k})`) + (incDil ? ': ' + (!isNaN(k) && k < 3.0 ? 'KCl 10% 3 amp (≈40 mEq) em SF 0,9% 250 ml EV central ~4h (≤10 mEq/h; até 40 em UTI c/ monitor). Não usar SG. Repor Mg. Reavaliar K 2–4h.' : 'KCl 10% 2 amp (≈27 mEq) em SF 0,9% 250–500 ml EV (mais diluído p/ periférico) ou VO (xarope KCl 6% 15 ml = 12 mEq, 10–20 ml 3x/dia). Reavaliar 4–6h.') : '')); }
+        if (sel.includes('Repor Ca')) { const ca = num(d.labs?.ca_hoje); det.push('Repor Ca' + (isNaN(ca) ? '' : ` (Cai ${ca})`) + (incDil ? ': ' + (!isNaN(ca) && ca < 0.9 ? 'Gluconato Ca 10% 1–2 amp em SG 100 ml EV 10–20 min; reavaliar 1–2h. Corrigir Mg. Cautela se P alto (Ca×P).' : 'Leve: carbonato Ca 1–2 g/dia VO ou gluconato 10% 1 amp EV lento. Corrigir Mg.') : '')); }
+        if (sel.includes('Repor Mg')) { const mg = num(d.labs?.mg_hoje); det.push('Repor Mg' + (isNaN(mg) ? '' : ` (Mg ${mg})`) + (incDil ? ': ' + (!isNaN(mg) && mg < 1.0 ? 'MgSO4 50% 2 g em SF 100 ml EV 30–60 min (torsades: 10–15 min). DRC: reduzir ~50%.' : 'MgSO4 50% 1 g em SF 100 ml EV 1h, 1–2x/dia. DRC: reduzir ~50%.') : '')); }
+        if (sel.includes('Repor P')) { const p = num(d.labs?.p_hoje); det.push('Repor P' + (isNaN(p) ? '' : ` (P ${p})`) + (incDil ? ': ' + (!isNaN(p) && p < 1.0 ? 'Fosfato K/Na 0,3–0,4 mmol/kg EV 6h; reavaliar. Monitorar Ca/K.' : 'VO: fosfato de sódio/potássio ou refeição rica em P. Reavaliar.') : '')); }
+        if (sel.includes('Quelante de P')) { const p = num(d.labs?.p_hoje); det.push('Quelante de P' + (isNaN(p) ? '' : ` (P ${p})`) + (incDil ? ': Quelante às refeições (carbonato/acetato de Ca; sevelâmer se Ca alto). Restrição dietética de P.' : '')); }
+        if (sel.includes('Bicarbonato')) { det.push('Bicarbonato de sódio' + (incDil ? (d.bic_ml ? ` ${d.bic_ml} ml${d.bic_h ? ` a cada ${d.bic_h}h` : ''}` : ' (definir volume/intervalo)') + '.' : '')); }
+        if (sel.includes('Glicoinsulina')) { det.push('Glicoinsulina' + (incDil ? ': Insulina regular 10 UI + glicose 50% 100 ml EV 15–30 min. HGT 1/1h por 4–6h.' : '')); }
+        if (sel.includes('Ajustar tonicidade das diluições')) { det.push('Ajustar tonicidade das diluições' + (incDil ? ' conforme o Na sérico.' : '')); }
+        if (sel.includes('Água livre')) { det.push('Reposição de água livre (hipernatremia)' + (incDil ? ': SG 5% EV ou água VO/SNG conforme déficit.' : '')); }
+        if (sel.includes('NaCl 3%')) { det.push('NaCl 3% (hiponatremia sintomática)' + (incDil ? ': subir 4–6 mEq nas primeiras horas; respeitar teto de 24h.' : '')); }
+        if (sel.includes('DDAVP')) { det.push('DDAVP (poliúria com hipernatremia / DI central)' + (incDil ? ': desmopressina intranasal 10 mcg 1–2x/dia, titular pela diurese e Na (10–40 mcg/dia).' : '')); }
         add('Eletrólitos', det.length ? det : sel);
       }
       { const cd = []; const ini = d.diurIniciar || {}; const dd = d.diur_doses || {};
@@ -2887,7 +2884,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.24</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.25</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -5639,8 +5636,8 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                   const k = num(avAtual.labs?.pot_hoje);
                   caixas.push(['Repor K' + (isNaN(k) ? '' : ` (K ${k})`),
                     !isNaN(k) && k < 3.0
-                      ? 'KCl 19,1% 2 amp (50 mEq) em SF 250 ml EV 4h (central; monitor). Repor Mg. Reavaliar 2–4h.'
-                      : 'KCl 6% 15 ml VO 8/8h ou 1 amp (25 mEq) em SF 250 ml EV 2h. Reavaliar 4–6h.']);
+                      ? 'KCl 10% (amp 10 ml = 13,4 mEq) — grave: 3 amp (≈40 mEq) em SF 0,9% 250 ml, EV central, ~4h. Não usar SG. Repor Mg. Velocidade ≤ 10 mEq/h periférico · ≤ 40 mEq/h central (UTI, monitor); concentrado → acesso central. Nunca EV direto (vesicante). Monitorar K 2–4h.'
+                      : 'KCl 10% (amp 10 ml = 13,4 mEq) — moderada: 2 amp (≈27 mEq) em SF 0,9% 250–500 ml EV (mais diluído p/ periférico, ≤ 10 mEq/h); ou VO: xarope KCl 6% 15 ml = 12 mEq, 10–20 ml 3x/dia (ou cp 6 mEq). Repor Mg. Reavaliar 4–6h.']);
                 }
                 if (sel.includes('Repor Ca')) {
                   const ca = num(avAtual.labs?.ca_hoje);
@@ -5683,6 +5680,12 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                   </div>
                 ) : null;
               })()}
+              {(avAtual.cond_eletr || []).length > 0 && (
+                <div onClick={() => upAv('incluir_diluicoes', !avAtual.incluir_diluicoes)} style={{ marginTop: 8, fontSize: 12.5, color: avAtual.incluir_diluicoes ? '#1a6b3a' : '#888', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <span style={{ width: 15, height: 15, borderRadius: 4, border: '1.5px solid ' + (avAtual.incluir_diluicoes ? '#1a6b3a' : '#bbb'), background: avAtual.incluir_diluicoes ? '#1a6b3a' : '#fff', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, flexShrink: 0 }}>{avAtual.incluir_diluicoes ? '✓' : ''}</span>
+                  <span>incluir preparo/diluições nas saídas (PEP/WhatsApp/PDF)</span>
+                </div>
+              )}
               {(avAtual.cond_eletr||[]).includes('Bicarbonato') && (
                 <div style={{ marginTop: 8, paddingLeft: 12, borderLeft: '2px solid #c8d4e0', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 12, color: '#888' }}>Bicarbonato:</span>
