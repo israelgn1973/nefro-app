@@ -2743,7 +2743,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
       const relPendente = !!relAberto;
       const relDivergente = relAberto?.divergencia || null;
       const ultHDPrescrita = avsP.find(a => a.conduta === 'hd_hoje' && !a.hd_cancelada && dataLocalISO(a.data) < hojeISO);
-      const faltaRelatorio = !!(ultHDPrescrita && !(p.relEnf || []).some(r => r.criadoEm > ultHDPrescrita.data) && !avHoje?.hd_destino && (Date.now() - ultHDPrescrita.data) < 3 * 86400000);
+      const faltaRelatorio = !!(ultHDPrescrita && !(p.relEnf || []).some(r => (r.campos?.data || '') === dataLocalISO(ultHDPrescrita.data).split('-').reverse().join('/')) && !avHoje?.hd_destino && (Date.now() - ultHDPrescrita.data) < 3 * 86400000);
       // ── Selo do ciclo (corte 7h; vazado = projeção, quando não há avaliação do ciclo) ──
       const _seloMap = c => c === 'hd_hoje' ? { label: 'HD HOJE', color: '#c0392b' } : c === 'hd_amanha' ? { label: 'HD AMANHÃ', color: '#e67e22' } : c === 'conservador' ? { label: 'CONSERVADOR', color: '#27ae60' } : null;
       let selo = null, cicloCat;
@@ -2919,7 +2919,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.32</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.33</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -2973,9 +2973,10 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
         const hdHojePacs = pacientes.filter(p => infoHD[p.id]?.hdHoje && !infoHD[p.id]?.arquivado && (modoTeste || !p.teste));
         const prescritasN = hdHojePacs.length;
         const hojeISO3 = dataLocalISO();
+        const hojeBR3 = hojeISO3.split('-').reverse().join('/');
         const faltamN = hdHojePacs.filter(p => {
           const av = (avaliacoes[p.id] || []).find(a => a.conduta === 'hd_hoje' && !a.hd_cancelada && dataLocalISO(a.data) === hojeISO3);
-          return !(av && (p.relEnf || []).some(r => r.criadoEm >= av.data));
+          return av && !(p.relEnf || []).some(r => (r.campos?.data || '') === hojeBR3);
         }).length;
         const prescPendN = hdHojePacs.filter(p => infoHD[p.id]?.prescPendente).length;
         return (
