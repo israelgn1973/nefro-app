@@ -575,6 +575,29 @@ const extrairNascimento = (txt) => { if (!txt) return ''; const re = /(?:\bdata\
 const imprimirFrameTitulado = (frameId) => { const f = document.getElementById(frameId); if (!f || !f.contentWindow) return; const prev = document.title; let t = prev; try { t = f.contentWindow.document.title || prev; } catch (e) {} document.title = t; const restore = () => { document.title = prev; try { window.removeEventListener('afterprint', restore); } catch (e) {} }; try { window.addEventListener('afterprint', restore); } catch (e) {} setTimeout(restore, 60000); f.contentWindow.focus(); f.contentWindow.print(); };
 const _scriptsPDF = {};
 const carregarScript = (src) => new Promise((resolve, reject) => { if (_scriptsPDF[src]) return resolve(); const s = document.createElement('script'); s.src = src; s.onload = () => { _scriptsPDF[src] = true; resolve(); }; s.onerror = () => reject(new Error('script')); document.head.appendChild(s); });
+const aparaBranco = (c) => {
+  // Recorta a moldura branca ao redor do conteúdo p/ que a centralização caia certo na A4.
+  try {
+    const W = c.width, Hh = c.height;
+    const ctx = c.getContext('2d');
+    const data = ctx.getImageData(0, 0, W, Hh).data;
+    const branco = (i) => data[i] >= 250 && data[i + 1] >= 250 && data[i + 2] >= 250;
+    let top = 0, bottom = Hh - 1, left = 0, right = W - 1;
+    achaTop: for (; top < Hh; top++) { for (let x = 0; x < W; x++) if (!branco((top * W + x) * 4)) break achaTop; }
+    if (top >= Hh) return c; // tudo branco
+    achaBot: for (; bottom > top; bottom--) { for (let x = 0; x < W; x++) if (!branco((bottom * W + x) * 4)) break achaBot; }
+    achaLeft: for (; left < W; left++) { for (let y = top; y <= bottom; y++) if (!branco((y * W + left) * 4)) break achaLeft; }
+    achaRight: for (; right > left; right--) { for (let y = top; y <= bottom; y++) if (!branco((y * W + right) * 4)) break achaRight; }
+    const pad = 6;
+    const nx = Math.max(0, left - pad), ny = Math.max(0, top - pad);
+    const nw = Math.min(W, right + pad + 1) - nx, nh = Math.min(Hh, bottom + pad + 1) - ny;
+    if (nw <= 0 || nh <= 0 || (nw === W && nh === Hh)) return c;
+    const out = document.createElement('canvas'); out.width = nw; out.height = nh;
+    const o = out.getContext('2d'); o.fillStyle = '#ffffff'; o.fillRect(0, 0, nw, nh);
+    o.drawImage(c, nx, ny, nw, nh, 0, 0, nw, nh);
+    return out;
+  } catch (e) { return c; }
+};
 const exportarFolhaPDF = async (frameId, fallbackFn) => {
   const f = document.getElementById(frameId);
   if (!f || !f.contentWindow) { if (fallbackFn) fallbackFn(); return; }
@@ -587,11 +610,13 @@ const exportarFolhaPDF = async (frameId, fallbackFn) => {
     const JSP = window.jspdf && window.jspdf.jsPDF;
     if (!H2C || !JSP) throw new Error('libs');
     let alvos = doc.querySelectorAll('.pg');
-    if (!alvos.length) alvos = doc.querySelectorAll('.page');
+    let ehFolha = false;
+    if (!alvos.length) { alvos = doc.querySelectorAll('.page'); ehFolha = alvos.length > 0; }
     if (!alvos.length) alvos = [doc.body];
     let pdf = null;
     for (let i = 0; i < alvos.length; i++) {
-      const canvas = await H2C(alvos[i], { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
+      let canvas = await H2C(alvos[i], { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
+      if (ehFolha) canvas = aparaBranco(canvas); // tira a moldura branca p/ centralizar na A4
       const land = canvas.width > canvas.height;      // paisagem se mais largo que alto (folha de HD)
       const pageW = land ? 297 : 210, pageH = land ? 210 : 297;
       let w = pageW, h = canvas.height * pageW / canvas.width;
@@ -2988,7 +3013,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.55</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.56</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
