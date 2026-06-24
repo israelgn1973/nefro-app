@@ -1818,10 +1818,12 @@ function NefroApp() {
       else if (d.conduta === 'conservador' && d.cons_motivo === 'adequacao') decTxt = 'Tratamento conservador — adequação do esforço terapêutico';
       else if (d.conduta === 'conservador' && d.cons_motivo === 'recusa') decTxt = 'Tratamento conservador — recusa do paciente/família';
       else if (d.conduta === 'conservador' && d.cons_motivo === 'instab') decTxt = 'Tratamento conservador — instabilidade hemodinâmica';
+      else if (d.conduta === 'conservador' && d.cons_motivo === 'acesso') decTxt = 'Tratamento conservador — falência de acesso para diálise';
       if (decTxt) linhas.push(decTxt);
       if (d.conduta === 'conservador' && d.cons_motivo === 'adequacao') linhas.push('Diálise não indicada no contexto de adequação do esforço terapêutico (alinhamento à meta de cuidado).');
       if (d.conduta === 'conservador' && d.cons_motivo === 'recusa') linhas.push('Recusa do paciente/família à diálise após esclarecimento. Mantido suporte clínico.');
       if (d.conduta === 'conservador' && d.cons_motivo === 'instab') linhas.push('Opto por tratamento conservador devido à instabilidade hemodinâmica.');
+      if (d.conduta === 'conservador' && d.cons_motivo === 'acesso') linhas.push('Opto por tratamento conservador por falência de acesso para diálise, sem via viável no momento.');
       if (d.emerg_dial && (pacRef.urgencias || []).length) {
         const us = pacRef.urgencias.map(u => (u === 'Intoxicação dialisável' && (pacRef.intoxSubst || []).length) ? u + ' (' + pacRef.intoxSubst.join(', ') + ')' : u);
         linhas.push('Indicação dialítica de urgência: ' + us.join('; '));
@@ -2975,7 +2977,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.51</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.52</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -5002,7 +5004,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           const _temHDc = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido;
           const _sitC = hdSituacao || (pacAtual.esquemaHD === 'susp' ? 'desmame' : _temHDc ? 'continuidade' : null);
           if (_sitC !== 'conservador') return null;
-          const motivos = [['', 'Sem ressalva'], ['adequacao', 'Adequação do esforço terapêutico'], ['recusa', 'Recusa do paciente/família'], ['instab', 'Instabilidade hemodinâmica']];
+          const motivos = [['', 'Sem ressalva'], ['adequacao', 'Adequação do esforço terapêutico'], ['recusa', 'Recusa do paciente/família'], ['instab', 'Instabilidade hemodinâmica'], ['acesso', 'Falência de acesso']];
           return (
             <div style={{ ...S.card, margin: '10px 16px 0', padding: 14 }}>
               <div style={{ fontSize: 11, color: '#7a8a9a', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Situação do tratamento conservador</div>
