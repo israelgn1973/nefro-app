@@ -200,8 +200,6 @@ const farejarPaciente = (texto) => {
   else { const l0 = linhas.find(l => l && /^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'.\s]{4,}$/.test(l) && l.split(/\s+/).length >= 2); if (l0) r.nome = l0; }
   m = T.match(/idade[:\s]+(\d{1,3})/i) || T.match(/(\d{1,3})\s*anos/i);
   if (m) r.idade = m[1];
-  const _dn = extrairNascimento(T);
-  if (_dn) { r.nascimento = _dn; const _id = calcIdade(_dn); if (_id) r.idade = _id; }
   if (/\bfeminino\b/i.test(T) || /sexo[:\s]*f\b/i.test(T)) r.sexo = 'F';
   else if (/\bmasculino\b/i.test(T) || /sexo[:\s]*m\b/i.test(T)) r.sexo = 'M';
   m = T.match(/causa b[aá]sica[^:]*:\s*(.+)/i) || T.match(/causa da interna[cç][aã]o[^:]*:\s*(.+)/i) || T.match(/diagn[oó]stico[^:]*:\s*(.+)/i) || T.match(/motivo[^:]*:\s*(.+)/i);
@@ -571,8 +569,6 @@ const DIAS_SEM = ['dom','seg','ter','qua','qui','sex','sáb'];
 const proxDiaHD = (esquema, base) => { const dias = esquema === 'sqs' ? [1,3,5] : esquema === 'tqs' ? [2,4,6] : null; const d0 = base ? new Date(base) : new Date(); d0.setHours(12,0,0,0); if (esquema === 'diaria' || !dias) { const d = new Date(d0); d.setDate(d.getDate()+1); return { abrev: DIAS_SEM[d.getDay()], diasAte: 1, amanha: true }; } for (let i=1;i<=7;i++){ const d = new Date(d0); d.setDate(d.getDate()+i); if (dias.includes(d.getDay())) return { abrev: DIAS_SEM[d.getDay()], diasAte: i, amanha: i===1 }; } return null; };
 const creatNormal = (v, sexo) => { const n = parseFloat(String(v ?? '').replace(',', '.')); if (isNaN(n) || n <= 0) return false; const s = String(sexo || '').toUpperCase(); const teto = s.startsWith('F') ? 1.1 : s.startsWith('M') ? 1.3 : 1.2; return n <= teto; };
 const calcIdade = (iso) => { if (!iso || iso.length < 10) return ''; const p = iso.slice(0,10).split('-'); if (p.length < 3) return ''; const y = +p[0], m = +p[1], d = +p[2]; if (!y || !m || !d) return ''; const h = new Date(); let a = h.getFullYear() - y; if ((h.getMonth() + 1) < m || ((h.getMonth() + 1) === m && h.getDate() < d)) a--; return (a >= 0 && a < 150) ? String(a) : ''; };
-const extrairNascimento = (txt) => { if (!txt) return ''; const re = /(?:\bdata\s*de\s*nascimento|\bnascid[oa]\s*em|\bnascimento|\bnasc|\bd\s*\.?\s*n)\.?\s*[:\-=.]?\s*(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})/i; const m = String(txt).match(re); if (!m) return ''; const d = +m[1], mo = +m[2], y = +m[3]; if (d < 1 || d > 31 || mo < 1 || mo > 12 || y < 1900) return ''; const dt = new Date(y, mo - 1, d, 12); if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) return ''; const h = new Date(); if (dt > h || (h.getFullYear() - y) > 130) return ''; const p2 = n => String(n).padStart(2, '0'); return y + '-' + p2(mo) + '-' + p2(d); };
-const imprimirFrameTitulado = (frameId) => { const f = document.getElementById(frameId); if (!f || !f.contentWindow) return; const prev = document.title; let t = prev; try { t = f.contentWindow.document.title || prev; } catch (e) {} document.title = t; const restore = () => { document.title = prev; try { window.removeEventListener('afterprint', restore); } catch (e) {} }; try { window.addEventListener('afterprint', restore); } catch (e) {} setTimeout(restore, 60000); f.contentWindow.focus(); f.contentWindow.print(); };
 const _parseData = (d) => (d == null || d === '') ? new Date() : new Date(typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d + 'T12:00' : d);
 const fmtDataSem = (d) => { const dt = _parseData(d); return DIAS_SEM[dt.getDay()] + ' · ' + dt.toLocaleDateString('pt-BR'); };
 const fmtDataCurta = (iso) => { if (!iso) return ''; const p = String(iso).split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0].slice(2) : String(iso); };
@@ -976,7 +972,7 @@ function NefroApp() {
     if (acessoDet && presc && presc.acesso !== acessoDet) {
       setAvaliacoes(prev => ({ ...prev, [pacId]: (prev[pacId] || []).map(a => a.id === presc.id ? { ...a, acesso: acessoDet } : a) }));
     }
-    setPacientes(ps => ps.map(p => { if (p.id !== pacId) return p; const _dn = !p.nascimento ? extrairNascimento(raw) : ''; const _ex = _dn ? { nascimento: _dn, ...(p.idade ? {} : { idade: calcIdade(_dn) || '' }) } : {}; return { ...p, ..._ex, relEnf: [novoRel, ...(p.relEnf || [])].slice(0, 10), updatedAt: Date.now() }; }));
+    setPacientes(ps => ps.map(p => p.id === pacId ? { ...p, relEnf: [novoRel, ...(p.relEnf || [])].slice(0, 10), updatedAt: Date.now() } : p));
     // alertas NÃO-TRAVANTES (toast)
     const avisos = [];
     if (divergencia) avisos.push('Divergência: ' + divergencia);
@@ -1930,10 +1926,10 @@ const ajRotulo = aj => {
 
     if (ehHD && avAtual.sangramento === 'ativo') {
       if (avAtual.anticoag === 'com') S.push({ n: 'vermelho', t: 'Sangramento ativo' + (avAtual.sangramento_sitio ? ' (' + avAtual.sangramento_sitio + ')' : '') + ' e prescrição COM heparina → reavaliar: HD SEM heparina.' });
+      else if (avAtual.anticoag !== 'sem') S.push({ n: 'ambar', t: 'Sangramento ativo' + (avAtual.sangramento_sitio ? ' (' + avAtual.sangramento_sitio + ')' : '') + ' → indicado HD SEM heparina (rinse rigoroso, cateter com bicarbonato).' });
     }
 
     const motivoOntem = avAtual.hd_parcial_motivo || avAtual.hd_canc_motivo || '';
-    const trocaCDL = motivoOntem.includes('CDL sem fluxo') || motivoOntem.includes('Calafrios') || interc.includes('Disfunção de acesso') || cdlNovo;
     if (ehHD && motivoOntem.includes('CDL sem fluxo') || ehHD && motivoOntem.includes('Calafrios'))
       S.push({ n: 'ambar', t: 'Sessão anterior comprometida por ' + motivoOntem.toLowerCase() + ' → considerar TROCA do CDL antes da próxima sessão.' });
     if (ehHD && motivoOntem.includes('Instabilidade') && (parseFloat(avAtual.uf_hd) || 0) > 2000)
@@ -1942,7 +1938,7 @@ const ajRotulo = aj => {
       S.push({ n: 'ambar', t: 'Encerrou por instabilidade ontem → UF cautelosa hoje (≤ 2000 ml) e reavaliar sódio do dialisato/temperatura.' });
     if (ehHD && motivoOntem.includes('Sangramento') && avAtual.anticoag === 'com')
       S.push({ n: 'vermelho', t: 'SANGRAMENTO na sessão anterior e a prescrição de hoje está COM heparina — reavaliar.' });
-    if (ehHD && (interc.includes('Coagulação do circuito') || motivoOntem.includes('Coagulação')) && avAtual.anticoag === 'sem' && !trocaCDL)
+    if (ehHD && (interc.includes('Coagulação do circuito') || motivoOntem.includes('Coagulação')) && avAtual.anticoag !== 'com')
       S.push({ n: 'vermelho', t: 'Circuito COAGULOU na última sessão e a prescrição está sem heparina — considerar heparinização (se não houver contraindicação) ou rinse rigoroso.' });
     if (ehHD && cdlNovo)
       S.push({ n: 'ambar', t: (primeiraSessao ? 'Primeira sessão' : 'CDL implantado hoje') + ' com CDL novo → HD SEM heparina e cateter preenchido com BICARBONATO 8,4%.' });
@@ -2320,15 +2316,14 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
     const ehReativacao = !!(prev && pacN.reativadoEm && prev.data < pacN.reativadoEm);
     // automação 1: memória da última prescrição de HD (parâmetros estáveis; UF do dia fica em branco)
     const ultHD = avs.find(a => a.conduta?.startsWith('hd') && (a.hd_dur || a.hd_horas || a.dialisato_sodio || a.fluxo_sangue));
-    const histCoagSangra = avs.some(a => { const ic = Array.isArray(a.interc) ? a.interc : []; const mo = String(a.hd_parcial_motivo || a.hd_canc_motivo || ''); return ic.includes('Coagulação do circuito') || ic.includes('Sangramento') || a.sangramento === 'ativo' || mo.includes('Coagulação') || mo.includes('Sangramento'); });
     const PADRAO_HD = { fluxo_sangue: '200', fluxo_banho: '300', anticoag: 'sem', cateter: 'bic', dialisato_bic: '34' };
     const memoriaHD = ultHD ? {
       hd_dur: ultHD.hd_dur || ultHD.hd_horas || '', hd_horas: ultHD.hd_horas || '',
       fluxo_sangue: ultHD.fluxo_sangue || PADRAO_HD.fluxo_sangue, fluxo_banho: ultHD.fluxo_banho || PADRAO_HD.fluxo_banho,
       dialisato_sodio: ultHD.dialisato_sodio || '', dialisato_temp: ultHD.dialisato_temp || '', dialisato_bic: ultHD.dialisato_bic || PADRAO_HD.dialisato_bic,
-      anticoag: histCoagSangra ? '' : (ultHD.anticoag || PADRAO_HD.anticoag), heparina_vol: ultHD.heparina_vol || '', heparina_bolus: ultHD.heparina_bolus || '', heparina_taxa: ultHD.heparina_taxa || '',
+      anticoag: ultHD.anticoag || PADRAO_HD.anticoag, heparina_vol: ultHD.heparina_vol || '', heparina_bolus: ultHD.heparina_bolus || '', heparina_taxa: ultHD.heparina_taxa || '',
       cateter: ultHD.cateter || PADRAO_HD.cateter, priming: ultHD.priming || ''
-    } : { ...PADRAO_HD, ...(histCoagSangra ? { anticoag: '' } : {}) };
+    } : { ...PADRAO_HD };
     // automação 2: conduta sugerida pelo esquema/HD de ontem
     let condutaSug = null;
     const dsHj = new Date().getDay();
@@ -2342,13 +2337,13 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
       ...(condutaSug ? { conduta_sugerida: condutaSug } : {}),
       conduta: condutaSug ? 'hd_hoje' : 'conservador', prioridade: 'nao', conclusao: 'acompanhamento', aj_diur: {}, cond_alertas: [], labs: {},
       eg: (prev && ['estável','grave','gravíssimo'].includes(prev.eg)) ? prev.eg : 'estável', consciencia: (prev && prev.consciencia) ? prev.consciencia : flexSexo('consciente e orientado', pacN.sexo), padrao_resp: flexSexo('eupneico', pacN.sexo), resp:'', sat:'', pai:false, pam:'', pa:'', dvas:{}, fio2:'', peep:'', fluxoO2:'', edema:'ausente', sangramento:'', sangramento_sitio:'', sang_outro:false, sang_sitio_open:false,
-      ganhos:'', diurese:'', diurese_qual:'', bh_parcial:false, bh_horas:'', svd:'', diureticos:[], diur_doses:{}, diurSem:{}, diurIniciar:{}, furo_cond:'', espiro_cond:'', hctz_cond:'', furo_acm:'', furo_manut:'sem', furo_dose_n:'', furo_int:'', furo_bolus_n:'', furo_bolus_amp:'', furo_bolus_av_n:'', furo_bolus_av_amp:'', espiro_cp:'', espiro_int:'', hctz_cp:'', hctz_int:'', fu_via:'', fu_n:'', fu_int:'', es_cp:'', es_int:'', hz_cp:'', hz_int:'',
+      ganhos:'', diurese:'', bh_parcial:false, bh_horas:'', svd:'', diureticos:[], diur_doses:{}, diurSem:{}, diurIniciar:{}, furo_cond:'', espiro_cond:'', hctz_cond:'', furo_acm:'', furo_manut:'sem', furo_dose_n:'', furo_int:'', furo_bolus_n:'', furo_bolus_amp:'', furo_bolus_av_n:'', furo_bolus_av_amp:'', espiro_cp:'', espiro_int:'', hctz_cp:'', hctz_int:'', fu_via:'', fu_n:'', fu_int:'', es_cp:'', es_int:'', hz_cp:'', hz_int:'',
       ultima_hd_data:'', acesso:'CDL', tempo_obtido:'', uf_obtida:'',
       anticoag_hd:'sem heparina', cateter_pos:'Bic. Na 8,4%', interc:['Nenhuma'], interc_outro:'', observacoes:'',
       ...(prev ? {
         // HERDADOS (estáveis) — marcados como "de ontem" até confirmar
         padrao_resp: prev.padrao_resp || '', resp: prev.resp || '', fio2: ['COT/VM','TQT/VM'].includes(prev.resp) ? (prev.fio2 || '') : '', peep: ['COT/VM','TQT/VM'].includes(prev.resp) ? (prev.peep || '') : '', fluxoO2: ['cateter de O2','máscara de O2','máscara não reinalante','VNI'].includes(prev.resp) ? (prev.fluxoO2 || '') : '',
-        edema: prev.edema || 'ausente', svd: prev.svd || '', peso_est: prev.peso_est || '', diurese_qual: (pacN.diag === 'DRC dialítica (5D)' && prev.diurese_qual === 'anúria') ? 'anúria' : '',
+        edema: prev.edema || 'ausente', svd: prev.svd || '', peso_est: prev.peso_est || '',
         ultima_hd_data: ehReativacao ? '' : (prev.ultima_hd_data || ''), tempo_obtido: ehReativacao ? '' : (prev.tempo_obtido || ''), uf_obtida: ehReativacao ? '' : (prev.uf_obtida || ''), hd_desmame_desde: prev.hd_desmame_desde || '', cons_motivo: prev.cons_motivo || '',
         ...(() => {
           const aj = prev.aj_diur || {};
@@ -2945,7 +2940,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.51</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.46</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -3161,7 +3156,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           const criarNovo = () => {
             const pf = farejarPaciente(colaAv.raw);
             const diagBase = pf.diag || (DX.status || [])[0] || '';
-            const p = { ...novoPacVazio(), nome: pf.nome || '', idade: pf.idade || '', nascimento: pf.nascimento || '', sexo: pf.sexo || '',
+            const p = { ...novoPacVazio(), nome: pf.nome || '', idade: pf.idade || '', sexo: pf.sexo || '',
               diag: diagBase, comorbidades: [...new Set(DX.comorb || [])], gatilhos: [...new Set(DX.eventos || [])],
               id: 'p_' + Date.now(), updatedAt: Date.now(), status: montarStatus(diagBase, ''),
               av_pendente: { achados: A, dxAchados: colaAv.dxAchados || null, raw: colaAv.raw, em: Date.now() } };
@@ -3234,7 +3229,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#fff', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', gap: 10, padding: '12px 14px', paddingTop: 'max(12px, env(safe-area-inset-top))', background: '#1a3a5c', alignItems: 'center' }}>
             <button style={{ ...S.btn, background: '#f0f0f0', flex: '0 0 auto', padding: '10px 16px' }} onClick={() => setColetivoHtml(null)}>X Fechar</button>
-            <button style={{ ...S.btn, background: '#27ae60', color: 'white', flex: 1 }} onClick={() => { imprimirFrameTitulado('coletivoFrame'); if (coletivoHtml.marcarAv) marcarAvEnviada(coletivoHtml.marcarAv.pid, coletivoHtml.marcarAv.aid); }}>Salvar PDF ({coletivoHtml.n} {coletivoHtml.n === 1 ? 'prescrição' : 'prescrições'})</button>
+            <button style={{ ...S.btn, background: '#27ae60', color: 'white', flex: 1 }} onClick={() => { const f = document.getElementById('coletivoFrame'); if (f && f.contentWindow) { f.contentWindow.focus(); f.contentWindow.print(); } if (coletivoHtml.marcarAv) marcarAvEnviada(coletivoHtml.marcarAv.pid, coletivoHtml.marcarAv.aid); }}>Salvar PDF ({coletivoHtml.n} {coletivoHtml.n === 1 ? 'prescrição' : 'prescrições'})</button>
           </div>
           <iframe id="coletivoFrame" srcDoc={coletivoHtml.html} style={{ flex: 1, border: 'none', width: '100%', background: '#fff' }} title="Coletivo" />
         </div>
@@ -3265,9 +3260,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                   const meus = validos.filter(item => item.pacId === p.id);
                   if (!meus.length) return p;
                   const novosRels = meus.map((item, k) => ({ id: 'rel_' + Date.now() + '_' + k + '_' + Math.random().toString(36).slice(2,6), criadoEm: Date.now() + k, campos: ajustePorItem.get(item) || item.campos, raw: item.raw, usadoEm: null, divergencia: null }));
-                  let _ex = {};
-                  if (!p.nascimento) { for (const item of meus) { const _dn = extrairNascimento(item.raw); if (_dn) { _ex = { nascimento: _dn, ...(p.idade ? {} : { idade: calcIdade(_dn) || '' }) }; break; } } }
-                  return { ...p, ..._ex, relEnf: [...novosRels, ...(p.relEnf || [])].slice(0, 10), updatedAt: Date.now() };
+                  return { ...p, relEnf: [...novosRels, ...(p.relEnf || [])].slice(0, 10), updatedAt: Date.now() };
                 }));
                 mostrarToast(validos.length + ' relatório(s) guardado(s)' + (nRedat ? ' · ' + nRedat + ' re-datado(s) p/ prescrição pendente' : ''));
                 setCaixaRel(null);
@@ -6025,7 +6018,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#fff', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', gap: 10, padding: '12px 14px', paddingTop: 'max(12px, env(safe-area-inset-top))', background: '#1a3a5c', alignItems: 'center' }}>
               <button style={{ ...S.btn, background: '#f0f0f0', flex: '0 0 auto', padding: '10px 16px' }} onClick={() => { setPdfHtml(null); setView(origemPresc); }}>✕ Fechar</button>
-              <button style={{ ...S.btn, background: '#27ae60', color: 'white', flex: 1 }} onClick={() => { imprimirFrameTitulado('pdfFrame'); marcarPrescEnviada(); }}>🖨️ Imprimir / Salvar PDF</button>
+              <button style={{ ...S.btn, background: '#27ae60', color: 'white', flex: 1 }} onClick={() => { const f = document.getElementById('pdfFrame'); if (f && f.contentWindow) { f.contentWindow.focus(); f.contentWindow.print(); } marcarPrescEnviada(); }}>🖨️ Imprimir / Salvar PDF</button>
             </div>
             <iframe id="pdfFrame" srcDoc={pdfHtml} style={{ flex: 1, border: 'none', width: '100%', background: '#fff' }} title="Prescrição" />
           </div>
