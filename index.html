@@ -211,7 +211,7 @@ const farejarPaciente = (texto) => {
 const CANC_LISTA = ['Cancelada pelo plantonista — sem informação adicional', 'Piora hemodinâmica', 'Família não autorizou', 'Paliativação', 'Recuperação de diurese', 'SVD desobstruída / débito recuperado', 'Instabilidade / arritmia', 'Acesso perdido / disfuncional', 'Recusa do paciente', 'Transferência / exame fora da unidade', 'Óbito antes da sessão', 'Falta de insumo / máquina', 'Falta de vaga / logística'];
 const CANC_LOGISTICO = ['Cancelada pelo plantonista — sem informação adicional', 'Acesso perdido / disfuncional', 'Transferência / exame fora da unidade', 'Falta de insumo / máquina', 'Falta de vaga / logística'];
 const CANC_VINCULO = { 'Família não autorizou': 'recusa', 'Recusa do paciente': 'recusa', 'Paliativação': 'adequacao', 'Instabilidade / arritmia': 'instab', 'Piora hemodinâmica': 'instab', 'Recuperação de diurese': 'rfr', 'SVD desobstruída / débito recuperado': 'rfr' };
-const novoPacVazio = () => ({ nome:'', idade:'', nascimento:'', sexo:'', leito:'', temLeito:false, externo:false, teste:false, externoLocal:'', convenio:'SUS', convenioOutro:'', diag:'', trat:'', filaHD:'', uti:'', esquemaHD:'', preopTipos:[], preopOutro:'', popTipos:[], popDias:{}, popOutro:'', cateDesfecho:'', cateData:0, cirurgiaFase:'', cirurgiaTipo:'', cirurgiaOutro:'', cirurgiaData:0, creatBasal:'', creatBasalData:'', creatAdmissao:'', imgRinsCronico:'', comorbidades:[], perfilHemo:'', fe:'', comorbidades_outras:'', gatilhos:[], sepseFocos:[], sepseOutro:'', gatilhos_outros:'', atbs:[], atbInicio:{}, urgenciaAdm:false, urgencias:[], intoxSubst:[], drcTerminalSit:'', dialLog:false, dialOutroOn:false, dialOutro:'' });
+const novoPacVazio = () => ({ nome:'', idade:'', nascimento:'', sexo:'', leito:'', temLeito:false, externo:false, teste:false, externoLocal:'', convenio:'SUS', convenioOutro:'', diag:'', trat:'', filaHD:'', uti:'', esquemaHD:'', preopTipos:[], preopOutro:'', popTipos:[], popDias:{}, popOutro:'', cateDesfecho:'', cateData:0, cirurgiaFase:'', cirurgiaTipo:'', cirurgiaOutro:'', cirurgiaData:0, creatBasal:'', creatBasalData:'', creatAdmissao:'', imgRinsCronico:'', comorbidades:[], perfilHemo:'', fe:'', comorbidades_outras:'', gatilhos:[], sepseFocos:[], sepseOutro:'', gatilhos_outros:'', atbs:[], atbInicio:{}, urgenciaAdm:false, urgencias:[], intoxSubst:[], drcTerminalSit:'', ordensPend:[], dialLog:false, dialOutroOn:false, dialOutro:'' });
 const montarStatus = (diag, trat) => diag || '';
 
 const CAUSAS_INTERNACAO = [
@@ -286,6 +286,7 @@ const INTERC_HD = ['Nenhuma','Hipotensão','Hipertensão','Câimbras','Disfunç�
 const POP_TIPOS = ['RM com CEC','CATE/angioplastia','Troca valvar','MP definitivo','Estudo eletrofisiológico (EEF)','Outro'];
 const CATE_DESFECHOS = ['programado','branco','angioplastia com sucesso','angioplastia sem sucesso','info indisponível'];
 const CIRURGIA_TIPOS = ['RM com CEC','Troca valvar','MP definitivo','Estudo eletrofisiológico (EEF)','Outro'];
+const ORDENS_OPC = ['Retirar CDL','Retirar SVD','Implantar CDL','Toracocentese','USG rins','TC abdome'];
 
 const URGENCIAS_DIALITICAS = ['Hipercalemia refratária','Acidose metabólica grave','Hipervolemia/EAP refratário','Uremia (encefalopatia/pericardite/sangramento)','Intoxicação dialisável'];
 
@@ -1926,6 +1927,7 @@ const ajRotulo = aj => {
         linhas.push(outras ? 'Mantenho restante da conduta' : 'Conduta mantida — sem alterações no momento');
       }
       { const cc = { acompanhamento: 'Segue em acompanhamento', alta_nefro: 'Alta da nefrologia', alta_hosp: 'Alta hospitalar', paliativo: 'Cuidados paliativos', obito: 'Óbito' }[d.conclusao]; if (cc) linhas.push(cc); }
+      if (pacRef.ordensPend && pacRef.ordensPend.length) { linhas.push(''); add('Ordens pendentes', pacRef.ordensPend.join('; ')); }
       if (d.observacoes) { linhas.push(''); add('Obs', d.observacoes); }
 
       return linhas.join('\n');
@@ -2980,7 +2982,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.57</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.59</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -3539,7 +3541,8 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                   {infoHD[p.id]?.prescPendente && <span style={{ fontSize: 10.5, fontWeight: 800, color: 'white', background: '#d35400', borderRadius: 6, padding: '2px 7px' }}>🖨 PRESCRIÇÃO PENDENTE</span>}
                   {infoHD[p.id]?.motivo && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#c0392b', background: '#fdf0ef', border: '1px solid #f0c2bd', borderRadius: 6, padding: '2px 7px' }}>💧 {infoHD[p.id].motivo}</span>}
                   {infoHD[p.id]?.suspensa && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#666', background: '#eee', borderRadius: 6, padding: '2px 7px' }}>DESMAME · RFR EM PROVA</span>}
-                  {p.drcTerminalSit && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#1a6e5a', background: '#e6f4f0', border: '1px solid #b8ddd2', borderRadius: 6, padding: '2px 7px' }}>🏥 {({ tem_vaga: 'tem vaga externa', aguarda_sorologia: 'aguarda sorologias', aguarda_vaga: 'aguarda vaga externa' })[p.drcTerminalSit] || p.drcTerminalSit}</span>}
+                  {p.drcTerminalSit && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#1a6e5a', background: '#e6f4f0', border: '1px solid #b8ddd2', borderRadius: 6, padding: '2px 7px' }}>🏥 {({ tem_vaga: 'tem vaga externa', aguarda_sorologia: 'aguarda sorologias', aguarda_vaga: 'aguarda vaga externa', aguarda_transf: 'aguarda transferência' })[p.drcTerminalSit] || p.drcTerminalSit}</span>}
+                  {(p.ordensPend || []).length > 0 && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#8a5a00', background: '#fdf3e0', border: '1px solid #ecd2a8', borderRadius: 6, padding: '2px 7px' }}>📋 {p.ordensPend.join(' · ')}</span>}
                   {(() => {
                     const parts = [];
                     if (p.cateDesfecho === 'programado') parts.push('🫀 aguarda cate');
@@ -4045,7 +4048,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
             <div style={{ padding: '12px 16px 0' }}>
               <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', fontWeight: 700, letterSpacing: 0.5, marginBottom: 6 }}>DRC terminal — situação <span style={{ textTransform: 'none', fontWeight: 400, color: '#aaa' }}>· justifica permanência</span></div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {[['tem_vaga', 'Tem vaga externa'], ['aguarda_sorologia', 'Aguarda sorologias'], ['aguarda_vaga', 'Aguarda vaga externa']].map(([v, l]) => {
+                {[['tem_vaga', 'Tem vaga externa'], ['aguarda_sorologia', 'Aguarda sorologias'], ['aguarda_vaga', 'Aguarda vaga externa'], ['aguarda_transf', 'Aguarda transferência']].map(([v, l]) => {
                   const on = pacAtual.drcTerminalSit === v;
                   return (
                     <span key={v} style={{ ...S.checkItem, fontSize: 12, ...(on ? { background: '#1a6e5a', color: 'white', borderColor: '#1a6e5a' } : {}) }}
@@ -6048,6 +6051,21 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                 <option value="obito">Óbito</option>
               </select>
             </FormRow>
+          </div>
+
+          <div style={S.formGroup}>
+            <div style={{ padding: '10px 14px' }}>
+              <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', fontWeight: 700, letterSpacing: 0.5, marginBottom: 6 }}>Ordens pendentes <span style={{ textTransform: 'none', fontWeight: 400, color: '#aaa' }}>· até dar baixa</span></div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {ORDENS_OPC.map(o => {
+                  const on = (pacAtual.ordensPend || []).includes(o);
+                  return (
+                    <span key={'ord_' + o} onClick={() => { const lista = pacAtual.ordensPend || []; const at = { ...pacAtual, ordensPend: on ? lista.filter(x => x !== o) : [...lista, o], updatedAt: Date.now() }; setPacientes(ps => ps.map(pp => pp.id === pacAtual.id ? at : pp)); setPacAtual(at); }}
+                      style={{ ...S.checkItem, fontSize: 12, ...(on ? { background: '#b9770e', color: 'white', borderColor: '#b9770e' } : {}) }}>{o}{on ? ' ✓' : ''}</span>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           <div style={S.formGroup}>
