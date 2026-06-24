@@ -2945,7 +2945,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.47</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.48</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -3086,9 +3086,9 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
         const todosFeitos = pend === 0;
         return (
           <div style={{ margin: '8px 16px 0' }}>
-            <span onClick={() => { if (!todosFeitos) setSoPendentes(v => !v); }}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 13px', borderRadius: 16, fontSize: 12.5, fontWeight: 700, cursor: todosFeitos ? 'default' : 'pointer', border: '1.5px solid ' + (todosFeitos ? '#bcd9c4' : '#d9a0a0'), background: (soPendentes && !todosFeitos) ? '#c0392b' : (todosFeitos ? '#eef7f0' : 'white'), color: (soPendentes && !todosFeitos) ? 'white' : (todosFeitos ? '#1d7a45' : '#c0392b') }}>
-              {todosFeitos ? '✓ Todos evoluídos' : (soPendentes ? '● Faltam evoluir · ' + pend : '○ Faltam evoluir · ' + pend)}
+            <span onClick={() => { if (todosFeitos) setView('pep'); else setSoPendentes(v => !v); }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 13px', borderRadius: 16, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', border: '1.5px solid ' + (todosFeitos ? '#bcd9c4' : '#d9a0a0'), background: (soPendentes && !todosFeitos) ? '#c0392b' : (todosFeitos ? '#eef7f0' : 'white'), color: (soPendentes && !todosFeitos) ? 'white' : (todosFeitos ? '#1d7a45' : '#c0392b') }}>
+              {todosFeitos ? '✓ Todos evoluídos · ver ›' : (soPendentes ? '● Faltam evoluir · ' + pend : '○ Faltam evoluir · ' + pend)}
             </span>
           </div>
         );
