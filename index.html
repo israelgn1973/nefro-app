@@ -607,6 +607,7 @@ const extrairNascimento = (txt) => { if (!txt) return ''; const re = /(?:\bdata\
 const _parseData = (d) => (d == null || d === '') ? new Date() : new Date(typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d + 'T12:00' : d);
 const fmtDataSem = (d) => { const dt = _parseData(d); return DIAS_SEM[dt.getDay()] + ' · ' + dt.toLocaleDateString('pt-BR'); };
 const fmtDataCurta = (iso) => { if (!iso) return ''; const p = String(iso).split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0].slice(2) : String(iso); };
+const fmtDataHora = (ts) => { const dt = new Date(ts); const pad = n => String(n).padStart(2, '0'); return pad(dt.getDate()) + '/' + pad(dt.getMonth() + 1) + '/' + dt.getFullYear() + ' ' + pad(dt.getHours()) + ':' + pad(dt.getMinutes()); };
 const dowDe = (s) => { if (!s) return ''; const str = String(s); let y, m, d; if (str.indexOf('-') > 0) { const p = str.slice(0, 10).split('-'); if (p.length < 3) return ''; y = p[0]; m = p[1]; d = p[2]; } else if (str.indexOf('/') > 0) { const p = str.split('/'); if (p.length < 3) return ''; d = p[0]; m = p[1]; y = p[2]; } else return ''; const dt = new Date(+y, +m - 1, +d, 12); return isNaN(dt.getTime()) ? '' : DIAS_SEM[dt.getDay()]; };
 
 const DEMO_PACIENTES = [];
@@ -824,6 +825,18 @@ function NefroApp() {
   useEffect(() => { salvarDados(pacientes, avaliacoes, lixeira); }, [pacientes, avaliacoes, lixeira]);
   const [pacAtual, setPacAtual] = useState(null);
   const [dxPaineis, setDxPaineis] = useState({});
+  const [docsArquivados, setDocsArquivados] = useState(() => { try { return JSON.parse(localStorage.getItem('nefro_docsArq') || '[]'); } catch { return []; } });
+  const [docVisto, setDocVisto] = useState(null);
+  useEffect(() => { try { localStorage.setItem('nefro_docsArq', JSON.stringify(docsArquivados)); } catch {} }, [docsArquivados]);
+  useEffect(() => {
+    if (!pacAtual) return;
+    const cm = pacAtual.comorbidades || [];
+    if ((cm.includes('Angioplastia prévia/tardia') || cm.includes('RM prévia (PO tardio)')) && !cm.includes('DAC')) {
+      const at = { ...pacAtual, comorbidades: [...cm, 'DAC'], updatedAt: Date.now() };
+      setPacientes(ps => ps.map(p => p.id === pacAtual.id ? at : p));
+      setPacAtual(at);
+    }
+  }, [pacAtual?.comorbidades]);
   const [avAtual, setAvAtual] = useState(null);
   const [tab, setTab] = useState('info');
   const [showModal, setShowModal] = useState(false);
@@ -2983,7 +2996,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.62</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.64</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -3162,7 +3175,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
             </div>
           );
         })()}
-        {colaAv && !colaAv.multi && !colaAv.achados && (
+        {colaAv && !colaAv.multi && !colaAv.achados && (<>
           <div style={{ margin: '10px 16px 0', padding: 12, borderRadius: 10, background: 'white', border: '1px solid #d5dde5' }}>
             <textarea value={colaAv.raw} onChange={e => setColaAv(c => ({ ...c, raw: e.target.value }))}
               placeholder="Cole a resposta do plantonista (de um paciente)…"
@@ -3182,7 +3195,24 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                 setColaAv(c => ({ ...c, achados: farejarAvaliacao(c.raw), dxAchados: farejarDiagnosticos(c.raw), pacId: sug, sugestao: sug }));
               }}>🔎 Extrair dados</button>
           </div>
-        )}
+          {docsArquivados.length > 0 && (
+            <div style={{ margin: '8px 16px 0' }}>
+              <div style={{ fontSize: 10.5, color: '#999', textTransform: 'uppercase', fontWeight: 700, letterSpacing: 0.5, marginBottom: 6 }}>Histórico de documentos</div>
+              {docsArquivados.map(d => (
+                <div key={d.id} style={{ background: 'white', border: '1px solid #e2e2e2', borderRadius: 8, padding: '8px 10px', marginBottom: 6 }}>
+                  <div onClick={() => setDocVisto(v => v === d.id ? null : d.id)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', gap: 8 }}>
+                    <span style={{ fontSize: 12.5, color: '#1a3a5c', fontWeight: 600 }}>{d.paciente || 'Documento'} <span style={{ color: '#999', fontWeight: 400 }}>· {fmtDataHora(d.data)}</span></span>
+                    <span style={{ display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0 }}>
+                      <span style={{ fontSize: 11, color: '#1a7a45', fontWeight: 700 }}>{docVisto === d.id ? 'fechar' : 'ver'}</span>
+                      <span onClick={e => { e.stopPropagation(); if (confirm('Excluir este documento do histórico?')) setDocsArquivados(prev => prev.filter(x => x.id !== d.id)); }} style={{ fontSize: 13, cursor: 'pointer' }}>🗑</span>
+                    </span>
+                  </div>
+                  {docVisto === d.id && <div style={{ marginTop: 8, padding: 8, background: '#f7f7f5', borderRadius: 6, fontSize: 12.5, whiteSpace: 'pre-wrap', maxHeight: 300, overflowY: 'auto', color: '#333' }}>{d.texto}</div>}
+                </div>
+              ))}
+            </div>
+          )}
+        </>)}
         {colaAv && colaAv.achados && (() => {
           const A = colaAv.achados;
           const DX = colaAv.dxAchados || { eventos: [], comorb: [], status: [] };
@@ -3193,6 +3223,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
             if (!colaAv.pacId) { alert('Escolha de qual paciente é esta resposta.'); return; }
             setPacientes(ps => ps.map(p => p.id === colaAv.pacId ? { ...p, av_pendente: { achados: A, dxAchados: colaAv.dxAchados || null, raw: colaAv.raw, em: Date.now() }, updatedAt: Date.now() } : p));
             const nome = ativos.find(p => p.id === colaAv.pacId)?.nome || '';
+            setDocsArquivados(prev => [{ id: 'd_' + Date.now(), data: Date.now(), texto: (colaAv.raw || '').trim(), paciente: nome }, ...prev].slice(0, 200));
             setColaAv(null);
             mostrarToast('✓ ' + tot + ' dados guardados p/ ' + nome + ' — confira ao abrir o registro');
           };
@@ -3205,6 +3236,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
               av_pendente: { achados: A, dxAchados: colaAv.dxAchados || null, raw: colaAv.raw, em: Date.now() } };
             setPacientes(ps => [p, ...ps]);
             setAvaliacoes(av => ({ ...av, [p.id]: [] }));
+            setDocsArquivados(prev => [{ id: 'd_' + Date.now(), data: Date.now(), texto: (colaAv.raw || '').trim(), paciente: pf.nome || '' }, ...prev].slice(0, 200));
             setPacAtual(p);
             setColaAv(null);
             setEditandoPacId(p.id); setNovoPac(p); setShowModal(true);
@@ -3543,7 +3575,10 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                   {infoHD[p.id]?.motivo && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#c0392b', background: '#fdf0ef', border: '1px solid #f0c2bd', borderRadius: 6, padding: '2px 7px' }}>💧 {infoHD[p.id].motivo}</span>}
                   {infoHD[p.id]?.suspensa && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#666', background: '#eee', borderRadius: 6, padding: '2px 7px' }}>DESMAME · RFR EM PROVA</span>}
                   {p.drcTerminalSit && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#1a6e5a', background: '#e6f4f0', border: '1px solid #b8ddd2', borderRadius: 6, padding: '2px 7px' }}>🏥 {({ tem_vaga: 'tem vaga externa', aguarda_sorologia: 'aguarda sorologias', aguarda_vaga: 'aguarda vaga externa', aguarda_transf: 'aguarda transferência' })[p.drcTerminalSit] || p.drcTerminalSit}</span>}
-                  {(p.ordensPend || []).length > 0 && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#8a5a00', background: '#fdf3e0', border: '1px solid #ecd2a8', borderRadius: 6, padding: '2px 7px' }}>📋 {p.ordensPend.join(' · ')}</span>}
+                  {(p.ordensPend || []).map(o => (
+                    <span key={'ordb_' + o} onClick={e => { e.stopPropagation(); if (confirm('Dar baixa em "' + o + '"?')) { const at = { ...p, ordensPend: (p.ordensPend || []).filter(x => x !== o), updatedAt: Date.now() }; setPacientes(ps => ps.map(pp => pp.id === p.id ? at : pp)); if (pacAtual?.id === p.id) setPacAtual(at); } }}
+                      style={{ fontSize: 10.5, fontWeight: 700, color: '#8a5a00', background: '#fdf3e0', border: '1px solid #ecd2a8', borderRadius: 6, padding: '2px 7px', cursor: 'pointer' }}>📋 {o} ✕</span>
+                  ))}
                   {(() => {
                     const parts = [];
                     if (p.cateDesfecho === 'programado') parts.push('🫀 aguarda cate');
