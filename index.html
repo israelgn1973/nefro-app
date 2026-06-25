@@ -2567,15 +2567,16 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
     }
     const convenioFinal = novoPac.convenio === 'OUTROS' ? (novoPac.convenioOutro.trim() || 'OUTROS') : novoPac.convenio;
     const leitoFinal = novoPac.temLeito ? novoPac.leito : '';
+    const idadeFinal = (novoPac.nascimento && calcIdade(novoPac.nascimento)) || novoPac.idade || '';
     if (editandoPacId) {
-      const atualizado = { ...novoPac, convenio: convenioFinal, leito: leitoFinal, status: montarStatus(novoPac.diag, novoPac.trat), id: editandoPacId, updatedAt: Date.now() };
+      const atualizado = { ...novoPac, convenio: convenioFinal, leito: leitoFinal, idade: idadeFinal, status: montarStatus(novoPac.diag, novoPac.trat), id: editandoPacId, updatedAt: Date.now() };
       setPacientes(ps => ps.map(p => p.id === editandoPacId ? atualizado : p));
       setPacAtual(atualizado);
       setEditandoPacId(null);
       setShowModal(false);
       return;
     }
-    const p = { ...novoPac, convenio: convenioFinal, leito: leitoFinal, status: montarStatus(novoPac.diag, novoPac.trat), id: 'p_' + Date.now(), updatedAt: Date.now() };
+    const p = { ...novoPac, convenio: convenioFinal, leito: leitoFinal, idade: idadeFinal, status: montarStatus(novoPac.diag, novoPac.trat), id: 'p_' + Date.now(), updatedAt: Date.now() };
     setPacientes([p, ...pacientes]);
     setAvaliacoes({ ...avaliacoes, [p.id]: [] });
     setPacAtual(p);
@@ -2695,7 +2696,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                 ); })()}
               </FormRow>
               <FormRow label="Idade">
-                <NumInput value={novoPac.idade} onSet={v => setNovoPac(n => ({...n, idade: v}))} placeholder="anos" label="Idade" />
+                <NumInput value={(novoPac.nascimento ? calcIdade(novoPac.nascimento) : '') || novoPac.idade || ''} onSet={v => setNovoPac(n => ({...n, idade: v, nascimento: ''}))} placeholder="anos" label="Idade" />
               </FormRow>
               <FormRow label="Nascimento">
                 <input style={S.input} type="date" value={novoPac.nascimento || ''} max={new Date().toISOString().slice(0,10)}
@@ -2982,7 +2983,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.61</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.62</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
