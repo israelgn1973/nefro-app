@@ -1075,8 +1075,12 @@ function NefroApp() {
       const at = { ...pacAtual, esquemaHD: esq, updatedAt: Date.now() };
       setPacientes(ps => ps.map(p => p.id === pacAtual.id ? at : p));
       setPacAtual(at);
+      // Se hoje é dia de HD pelo esquema recém-detectado e a conduta caiu no default de folga (hd_amanha), corrige para hd_hoje
+      const _dow = new Date().getDay();
+      const _ehDiaHoje = esq === 'diaria' || (esq === 'sqs' && [1, 3, 5].includes(_dow)) || (esq === 'tqs' && [2, 4, 6].includes(_dow));
+      if (_ehDiaHoje && avAtual && avAtual.conduta === 'hd_amanha' && !avAtual.hd_destino) setAvAtual(a => ({ ...a, conduta: 'hd_hoje' }));
     }
-  }, [pacAtual?.id, pacAtual?.relEnf, pacAtual?.esquemaHD]);
+  }, [pacAtual?.id, pacAtual?.relEnf, pacAtual?.esquemaHD, avAtual?.id, avAtual?.conduta, avAtual?.hd_destino]);
   const [buscaData, setBuscaData] = useState('');
   const [extAberto, setExtAberto] = useState(false);
   const [subRot, setSubRot] = useState('beira');
@@ -2520,7 +2524,9 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
         espiro_cp: prev.espiro_cp || '', espiro_int: prev.espiro_int || '', hctz_cp: prev.hctz_cp || '', hctz_int: prev.hctz_int || '',
         fu_via: prev.fu_via || '', fu_n: prev.fu_n || '', fu_int: prev.fu_int || '', es_cp: prev.es_cp || '', es_int: prev.es_int || '', hz_cp: prev.hz_cp || '', hz_int: prev.hz_int || '',
         dvas: { ...(prev.dvas || {}) }, semDvas: prev.semDvas || false,
-        cond_eletr: (prev.cond_eletr || []).filter(x => typeof x === 'string' && x.indexOf('Repor') === 0),
+        cond_eletr: (prev.cond_eletr || []).filter(x => typeof x === 'string' && (x.indexOf('Repor') === 0 || x === 'Bicarbonato')),
+        bic_ml: (prev.cond_eletr || []).includes('Bicarbonato') ? (prev.bic_ml || '') : '',
+        bic_h: (prev.cond_eletr || []).includes('Bicarbonato') ? (prev.bic_h || '') : '',
         diur_doses: { ...(prev.diur_doses || {}) }, diurSem: { ...(prev.diurSem || {}) }, semFuro: prev.semFuro || false,
         ...(() => {
           let dl = [...(prev.diureticos || [])];
@@ -3106,7 +3112,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.87</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.89</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
