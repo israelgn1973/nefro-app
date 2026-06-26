@@ -1858,7 +1858,7 @@ function NefroApp() {
       add('Estado geral', d.eg);
       add('Consciência', d.consciencia);
       const _vmR = ['COT/VM', 'TQT/VM'].includes(d.resp);
-      const _o2R = ['cateter de O2', 'máscara de O2', 'máscara não reinalante', 'VNI'].includes(d.resp);
+      const _o2R = ['cateter de O2', 'máscara de O2', 'máscara não reinalante', 'VNI', 'tenda traqueal'].includes(d.resp);
       const respDet = [d.padrao_resp, d.resp].filter(Boolean).join(', ') + (_vmR && d.fio2 ? ` FiO2 ${d.fio2}%` : '') + (_vmR && d.peep ? ` PEEP ${d.peep}` : '') + (_o2R && d.fluxoO2 ? ` ${d.fluxoO2}L/min` : '');
       add('Respiração', respDet);
       if (!d.sat_nd) add('SatO2', d.sat_bem ? 'saturando bem' : (d.sat ? d.sat + '%' : ''));
@@ -2504,7 +2504,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
       anticoag_hd:'sem heparina', cateter_pos:'Bic. Na 8,4%', interc:['Nenhuma'], interc_outro:'', observacoes:'',
       ...(prev ? {
         // HERDADOS (estáveis) — marcados como "de ontem" até confirmar
-        padrao_resp: prev.padrao_resp || '', resp: prev.resp || '', fio2: ['COT/VM','TQT/VM'].includes(prev.resp) ? (prev.fio2 || '') : '', peep: ['COT/VM','TQT/VM'].includes(prev.resp) ? (prev.peep || '') : '', fluxoO2: ['cateter de O2','máscara de O2','máscara não reinalante','VNI'].includes(prev.resp) ? (prev.fluxoO2 || '') : '',
+        padrao_resp: prev.padrao_resp || '', resp: prev.resp || '', fio2: ['COT/VM','TQT/VM'].includes(prev.resp) ? (prev.fio2 || '') : '', peep: ['COT/VM','TQT/VM'].includes(prev.resp) ? (prev.peep || '') : '', fluxoO2: ['cateter de O2','máscara de O2','máscara não reinalante','VNI', 'tenda traqueal'].includes(prev.resp) ? (prev.fluxoO2 || '') : '',
         edema: prev.edema || 'ausente', svd: prev.svd || '', peso_est: prev.peso_est || '',
         diurese_qual: (pacN.diag === 'DRC dialítica (5D)' && prev.diurese_qual === 'anúria') ? 'anúria' : '',
         ultima_hd_data: ehReativacao ? '' : (prev.ultima_hd_data || ''), tempo_obtido: ehReativacao ? '' : (prev.tempo_obtido || ''), uf_obtida: ehReativacao ? '' : (prev.uf_obtida || ''), hd_desmame_desde: prev.hd_desmame_desde || '', cons_motivo: prev.cons_motivo || '',
@@ -3105,7 +3105,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.84</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.85</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -5007,7 +5007,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           {subRot === 'resp' && (<>
           <ChipSelect herdado={(avAtual._herdados||[]).includes('padrao_resp')} label="Padrão respiratório" options={(String(avAtual.eg || '').includes('grav') ? ['dispneico'] : ['eupneico','dispneico']).map(fx)} value={avAtual.padrao_resp} onSelect={v => upAv('padrao_resp', v)} />
           <ChipSelect herdado={(avAtual._herdados||[]).includes('resp')} label="Suporte / via" options={['ar ambiente','cateter de O2','máscara de O2','máscara não reinalante','VNI','COT/VM','TQT/VM','tenda traqueal']} value={avAtual.resp}
-            onSelect={v => setAvAtual(a => { const _vm = v === 'COT/VM' || v === 'TQT/VM'; const _o2 = ['cateter de O2', 'máscara de O2', 'máscara não reinalante', 'VNI'].includes(v); return { ...a, resp: v, fio2: _vm ? a.fio2 : '', peep: _vm ? a.peep : '', fluxoO2: _o2 ? a.fluxoO2 : '', ...(_vm && a.padrao_resp === 'dispneico' ? { padrao_resp: '' } : {}) }; })} />
+            onSelect={v => setAvAtual(a => { const _vm = v === 'COT/VM' || v === 'TQT/VM'; const _o2 = ['cateter de O2', 'máscara de O2', 'máscara não reinalante', 'VNI', 'tenda traqueal'].includes(v); return { ...a, resp: v, fio2: _vm ? a.fio2 : '', peep: _vm ? a.peep : '', fluxoO2: _o2 ? a.fluxoO2 : '', ...(_vm && a.padrao_resp === 'dispneico' ? { padrao_resp: '' } : {}) }; })} />
           {(avAtual.resp === 'COT/VM' || avAtual.resp === 'TQT/VM') && (
             <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0', display: 'flex', gap: 16, alignItems: 'center', background: '#fafbfc' }}>
               <span style={{ fontSize: 13, color: '#555' }}>FiO2 (%)</span>
@@ -5016,7 +5016,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
               <NumInput campo="peep" style={{ ...S.input, width: 70 }} value={avAtual.peep} onSet={v => upAv('peep', v)} placeholder="5" label="PEEP" />
             </div>
           )}
-          {['cateter de O2','máscara de O2','máscara não reinalante','VNI'].includes(avAtual.resp) && (
+          {['cateter de O2','máscara de O2','máscara não reinalante','VNI', 'tenda traqueal'].includes(avAtual.resp) && (
             <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0', display: 'flex', gap: 16, alignItems: 'center', background: '#fafbfc' }}>
               <span style={{ fontSize: 13, color: '#555' }}>Fluxo (L/min)</span>
               <NumInput campo="fluxoO2" style={{ ...S.input, width: 70 }} value={avAtual.fluxoO2} onSet={v => upAv('fluxoO2', v)} placeholder={avAtual.resp === 'cateter de O2' ? '1–5' : avAtual.resp === 'máscara de O2' ? '5–10' : avAtual.resp === 'máscara não reinalante' ? '10–15' : '—'} label="Fluxo (L/min)" />
@@ -6663,7 +6663,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           <Bloco ir="roteiro" titulo="Beira leito">
             <Item k="Estado geral" v={avV.eg} />
             <Item k="Consciência" v={avV.consciencia} />
-            <Item k="Respiração" v={[avV.padrao_resp, avV.resp].filter(Boolean).join(", ") + (['COT/VM', 'TQT/VM'].includes(avV.resp) && avV.fio2 ? ` · FiO2 ${avV.fio2}%` : '') + (['COT/VM', 'TQT/VM'].includes(avV.resp) && avV.peep ? ` · PEEP ${avV.peep}` : '') + (['cateter de O2', 'máscara de O2', 'máscara não reinalante', 'VNI'].includes(avV.resp) && avV.fluxoO2 ? ` · ${avV.fluxoO2}L/min` : '')} />
+            <Item k="Respiração" v={[avV.padrao_resp, avV.resp].filter(Boolean).join(", ") + (['COT/VM', 'TQT/VM'].includes(avV.resp) && avV.fio2 ? ` · FiO2 ${avV.fio2}%` : '') + (['COT/VM', 'TQT/VM'].includes(avV.resp) && avV.peep ? ` · PEEP ${avV.peep}` : '') + (['cateter de O2', 'máscara de O2', 'máscara não reinalante', 'VNI', 'tenda traqueal'].includes(avV.resp) && avV.fluxoO2 ? ` · ${avV.fluxoO2}L/min` : '')} />
             <Item k="SatO2" v={avV.sat_nd ? '' : avV.sat_bem ? 'saturando bem' : avV.sat} />
             <Item k={avV.pai ? 'PA (PAI)' : avV.pani ? 'PA (PANI)' : 'PA'} v={avV.normotenso && !avV.pa && !avV.pam ? 'normotenso' : (avV.pai ? avV.pam : avV.pa)} />
             <Item k="Drogas vasoativas" v={dvasTxt} />
