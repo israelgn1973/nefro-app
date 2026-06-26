@@ -3049,7 +3049,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.78</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.82</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -3191,19 +3191,14 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           </div>
         );
       })()}
-      {pacientes.filter(p => p.nome && !infoHD[p.id]?.arquivado && (modoTeste || !p.teste) && !p.externo).length > 0 && (() => {
-        const pop = pacientes.filter(p => p.nome && !infoHD[p.id]?.arquivado && (modoTeste || !p.teste) && !p.externo);
-        const pend = pop.filter(p => !infoHD[p.id]?.concluidaHoje).length;
-        const todosFeitos = pend === 0;
-        return (
-          <div style={{ margin: '8px 16px 0' }}>
-            <span onClick={() => { if (todosFeitos) setView('pep'); else setSoPendentes(v => !v); }}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 13px', borderRadius: 16, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', border: '1.5px solid ' + (todosFeitos ? '#bcd9c4' : '#d9a0a0'), background: (soPendentes && !todosFeitos) ? '#c0392b' : (todosFeitos ? '#eef7f0' : 'white'), color: (soPendentes && !todosFeitos) ? 'white' : (todosFeitos ? '#1d7a45' : '#c0392b') }}>
-              {todosFeitos ? '✓ Todos evoluídos · ver ›' : (soPendentes ? '● Faltam evoluir · ' + pend : '○ Faltam evoluir · ' + pend)}
-            </span>
-          </div>
-        );
-      })()}
+      {pacientes.filter(p => p.nome && !infoHD[p.id]?.arquivado && (modoTeste || !p.teste) && !p.externo).length > 0 && (
+        <div style={{ margin: '8px 16px 0' }}>
+          <span onClick={() => setSoPendentes(v => !v)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 14px', borderRadius: 16, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', border: '1.5px solid ' + (soPendentes ? '#1a3a5c' : '#cfd9e6'), background: soPendentes ? '#1a3a5c' : 'white', color: soPendentes ? 'white' : '#33415a' }}>
+            {soPendentes ? 'A evoluir' : 'Todos'}
+          </span>
+        </div>
+      )}
       {colaAv && colaAv.multi && (() => {
           const sel = colaAv.multi.filter(m => m.confirmar);
           const aplicarTodos = () => {
