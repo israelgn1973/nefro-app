@@ -1903,10 +1903,18 @@ function NefroApp() {
 
       const L = d.labs || {};
       const num = x => parseFloat(String(x == null ? '' : x).replace(',', '.')) || 0;
-      const extrasG = (d.exames_extras || []).map(k => { for (const [, its] of CAT_EXAMES) { const it = its.find(x => x[1] === k); if (it) return [it[0], it[1]]; } return [k, k]; });
-      const labLinha = [['Ureia', 'ureia'], ['Creat', 'creat'], ['Na', 'sodio'], ['K', 'pot'], ['Bic', 'bic'], ['Ca', 'ca'], ['Mg', 'mg'], ['P', 'p']].concat(extrasG)
-        .map(([lbl, key]) => { const v = L[`${key}_hoje`]; return (v != null && v !== '') ? `${lbl} ${v}` : null; }).filter(Boolean);
+      const _labLinhaDe = (av) => {
+        const aL = av.labs || {};
+        const ex = (av.exames_extras || []).map(k => { for (const [, its] of CAT_EXAMES) { const it = its.find(x => x[1] === k); if (it) return [it[0], it[1]]; } return [k, k]; });
+        return [['Ureia', 'ureia'], ['Creat', 'creat'], ['Na', 'sodio'], ['K', 'pot'], ['Bic', 'bic'], ['Ca', 'ca'], ['Mg', 'mg'], ['P', 'p']].concat(ex)
+          .map(([lbl, key]) => { const v = aL[`${key}_hoje`]; return (v != null && v !== '') ? `${lbl} ${v}` : null; }).filter(Boolean);
+      };
+      const labLinha = _labLinhaDe(d);
       if (labLinha.length) { linhas.push(''); linhas.push('LABORATÓRIO'); linhas.push(labLinha.join(' / ')); }
+      else {
+        const _hist = (avaliacoes[pacRef.id] || []).filter(a => a.id !== d.id && (a.data || 0) <= (d.data || Infinity)).sort((a, b) => (b.data || 0) - (a.data || 0));
+        for (const a of _hist) { const ll = _labLinhaDe(a); if (ll.length) { linhas.push(''); linhas.push('LABORATÓRIO (últimos — ' + new Date(dataLocalISO(a.data) + 'T12:00').toLocaleDateString('pt-BR') + ')'); linhas.push(ll.join(' / ')); break; } }
+      }
 
       if (d.hd_externa && d.hd_ext_tipo) {
         linhas.push(''); linhas.push('HD PRÉVIA EM SERVIÇO EXTERNO');
@@ -2435,7 +2443,33 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
       </div>
     </div>
   ) : null;
-  const numPadEl = <>{numPadEl0}{toastEl}{verOrigEl}{compRingerEl}</>;
+  const ufPickerEl = (ufPicker && avAtual) ? (() => {
+    const STEPS = [0, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000];
+    const atual = String(avAtual.uf_hd || avAtual.hd_uf || '');
+    const dica = (typeof dicaUF === 'function') ? dicaUF() : null;
+    return (
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 9998, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => setUfPicker(false)}>
+        <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: '14px 14px 0 0', width: '100%', maxWidth: 520, maxHeight: '80vh', overflowY: 'auto', padding: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
+            <span style={{ flex: 1, fontWeight: 700, fontSize: 15, color: '#1a3a5c' }}>UF HD (ml)</span>
+            <span onClick={() => setUfPicker(false)} style={{ fontSize: 16, color: '#888', cursor: 'pointer', padding: '0 4px' }}>{'\u2715'}</span>
+          </div>
+          {dica ? <div style={{ background: '#fef5e7', border: '1px solid #f0d9b5', borderRadius: 8, padding: '7px 10px', fontSize: 12.5, color: '#7a5c1e', marginBottom: 12 }}>{'\uD83D\uDCA1'} {dica}</div> : null}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+            {STEPS.map(v => { const sel = atual === String(v); return (
+              <button key={v} onClick={() => { upAv('uf_hd', String(v)); setUfPicker(false); }} style={{ padding: '14px 0', borderRadius: 10, border: sel ? '2px solid #1a3a5c' : '1px solid #cfd8e3', background: sel ? '#1a3a5c' : '#f7f9fc', color: sel ? 'white' : '#1a3a5c', fontSize: 16, fontWeight: 700, cursor: 'pointer' }}>{v}</button>
+            ); })}
+          </div>
+          <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #eee', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 13, color: '#555', whiteSpace: 'nowrap' }}>Outro valor:</span>
+            <input type="text" inputMode="numeric" pattern="[0-9]*" value={atual} onChange={e => upAv('uf_hd', e.target.value.replace(/\D/g, ''))} placeholder="ml" style={{ flex: 1, padding: '10px 12px', border: '1px solid #cfd8e3', borderRadius: 8, fontSize: 16, color: '#1a3a5c', minWidth: 0 }} />
+            <button onClick={() => setUfPicker(false)} style={{ padding: '10px 18px', borderRadius: 8, border: 'none', background: '#27ae60', color: 'white', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>OK</button>
+          </div>
+        </div>
+      </div>
+    );
+  })() : null;
+  const numPadEl = <>{numPadEl0}{toastEl}{verOrigEl}{compRingerEl}{ufPickerEl}</>;
 
   const calcPO = ts => Math.max(0, Math.floor((Date.now() - ts) / 86400000)) + 'º PO';
   const fx = t => flexSexo(t, pacAtual?.sexo);
@@ -3124,7 +3158,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.93</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.95</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -3456,32 +3490,6 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                   <span style={{ width: 14, height: 14, borderRadius: '50%', display: 'inline-block', background: CORES_UTI[u] || '#999', border: u === 'Branca' ? '1px solid #ccc' : 'none' }}></span>{u}
                 </div>
               ))}
-            </div>
-          </div>
-        );
-      })()}
-      {ufPicker && avAtual && (() => {
-        const STEPS = [0, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000];
-        const atual = String(avAtual.uf_hd || avAtual.hd_uf || '');
-        const dica = (typeof dicaUF === 'function') ? dicaUF() : null;
-        return (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 9998, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => setUfPicker(false)}>
-            <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: '14px 14px 0 0', width: '100%', maxWidth: 520, maxHeight: '80vh', overflowY: 'auto', padding: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
-                <span style={{ flex: 1, fontWeight: 700, fontSize: 15, color: '#1a3a5c' }}>UF HD (ml)</span>
-                <span onClick={() => setUfPicker(false)} style={{ fontSize: 16, color: '#888', cursor: 'pointer', padding: '0 4px' }}>{'\u2715'}</span>
-              </div>
-              {dica ? <div style={{ background: '#fef5e7', border: '1px solid #f0d9b5', borderRadius: 8, padding: '7px 10px', fontSize: 12.5, color: '#7a5c1e', marginBottom: 12 }}>{'\uD83D\uDCA1'} {dica}</div> : null}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-                {STEPS.map(v => { const sel = atual === String(v); return (
-                  <button key={v} onClick={() => { upAv('uf_hd', String(v)); setUfPicker(false); }} style={{ padding: '14px 0', borderRadius: 10, border: sel ? '2px solid #1a3a5c' : '1px solid #cfd8e3', background: sel ? '#1a3a5c' : '#f7f9fc', color: sel ? 'white' : '#1a3a5c', fontSize: 16, fontWeight: 700, cursor: 'pointer' }}>{v}</button>
-                ); })}
-              </div>
-              <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #eee', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 13, color: '#555', whiteSpace: 'nowrap' }}>Outro valor:</span>
-                <input type="text" inputMode="numeric" pattern="[0-9]*" value={atual} onChange={e => upAv('uf_hd', e.target.value.replace(/\D/g, ''))} placeholder="ml" style={{ flex: 1, padding: '10px 12px', border: '1px solid #cfd8e3', borderRadius: 8, fontSize: 16, color: '#1a3a5c', minWidth: 0 }} />
-                <button onClick={() => setUfPicker(false)} style={{ padding: '10px 18px', borderRadius: 8, border: 'none', background: '#27ae60', color: 'white', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>OK</button>
-              </div>
             </div>
           </div>
         );
