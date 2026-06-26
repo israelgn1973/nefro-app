@@ -858,6 +858,9 @@ function NefroApp() {
   const [pdfHtml, setPdfHtml] = useState(null);
   const [filtroHD, setFiltroHD] = useState(false);
   const [soPendentes, setSoPendentes] = useState(false);
+  const [filtroUti, setFiltroUti] = useState('');
+  const [buscaNome, setBuscaNome] = useState('');
+  const [utiPicker, setUtiPicker] = useState(false);
   const [verArquivados, setVerArquivados] = useState(false);
   const [buscaInativo, setBuscaInativo] = useState('');
   const [forcar, setForcar] = useState(0);
@@ -867,6 +870,7 @@ function NefroApp() {
   const [verDisna, setVerDisna] = useState(false);
   const [verMedRev, setVerMedRev] = useState(false);
   const [verDados, setVerDados] = useState(false);
+  const [encaminhaSel, setEncaminhaSel] = useState(false);
   const [verDiasSemHD, setVerDiasSemHD] = useState(false);
   const [verSorologia, setVerSorologia] = useState(false);
   const [diasHDsoAtiva, setDiasHDsoAtiva] = useState(true);
@@ -1312,6 +1316,58 @@ function NefroApp() {
     if (navigator.share) { navigator.share({ title: 'HDs do dia', text: txt }).catch(() => {}); return; }
     if (navigator.clipboard?.writeText) navigator.clipboard.writeText(txt).then(() => mostrarToast('Relatório copiado')).catch(() => prompt('Copie:', txt));
     else prompt('Copie:', txt);
+  };
+  const gerarEncaminhamentoHTML = (p) => {
+    const avs = avaliacoes[p.id] || [];
+    const avHD = avs.find(a => a.acesso || a.hd_dur || a.hd_horas || a.conduta === 'hd_hoje' || a.ultima_hd_data) || {};
+    const avLab = avs.find(a => a.labs && (a.labs.creat_hoje || a.labs.ureia_hoje || a.labs.sodio_hoje || a.labs.pot_hoje || a.labs.bic_hoje)) || {};
+    const L = avLab.labs || {};
+    const sess = (histSessoesHD(p) || []).slice().sort();
+    const fmtBR = iso => iso ? iso.split('-').reverse().join('/') : '';
+    const primeira = sess.length ? fmtBR(sess[0]) : '';
+    const ultimaISO = sess.length ? sess[sess.length - 1] : (avHD.ultima_hd_data || '');
+    const ultima = fmtBR(ultimaISO);
+    const esqMap = { sqs: '3x/semana (seg/qua/sex)', tqs: '3x/semana (ter/qui/s\u00e1b)', diaria: 'di\u00e1ria', sos: 'sob demanda' };
+    const esq = esqMap[p.esquemaHD] || '';
+    const acesso = avHD.acesso === 'FAV' ? 'f\u00edstula arteriovenosa (FAV)' : avHD.acesso === 'CDL' ? 'cateter de duplo l\u00famen (CDL)' : (avHD.acesso || '');
+    const dur = avHD.hd_dur || avHD.hd_horas || '';
+    const hep = avHD.anticoag === 'com' ? 'com heparina' : 'sem heparina';
+    const com = (p.comorbidades || []).filter(Boolean);
+    const idadeSexo = [p.idade ? p.idade + ' anos' : '', p.sexo === 'F' ? 'feminino' : p.sexo === 'M' ? 'masculino' : ''].filter(Boolean).join(', ');
+    const hoje = new Date().toLocaleDateString('pt-BR');
+    const cronic = [];
+    if (com.length) cronic.push('<li><b>Comorbidades:</b> ' + com.join(', ') + '</li>');
+    if (esq) cronic.push('<li>Em programa regular de hemodi\u00e1lise, esquema ' + esq + ' \u2014 curso dial\u00edtico prolongado</li>');
+    const hd = [];
+    if (primeira) hd.push('<li><b>Primeira sess\u00e3o:</b> ' + primeira + '</li>');
+    if (esq) hd.push('<li><b>Esquema atual:</b> ' + esq + '</li>');
+    if (acesso) hd.push('<li><b>Acesso vascular:</b> ' + acesso + '</li>');
+    if (ultima) hd.push('<li><b>\u00daltima sess\u00e3o:</b> ' + ultima + (dur ? ' \u2014 ' + dur + 'h' : '') + ', ' + hep + '</li>');
+    const labLinhas = [];
+    const labCrUr = [L.creat_hoje ? 'Creatinina ' + L.creat_hoje : '', L.ureia_hoje ? 'Ureia ' + L.ureia_hoje : ''].filter(Boolean).join(' \u00b7 ');
+    const labEletro = [L.sodio_hoje ? 'Na ' + L.sodio_hoje : '', L.pot_hoje ? 'K ' + L.pot_hoje : '', L.bic_hoje ? 'Bicarbonato ' + L.bic_hoje : ''].filter(Boolean).join(' \u00b7 ');
+    if (labCrUr) labLinhas.push('<li>' + labCrUr + '</li>');
+    if (labEletro) labLinhas.push('<li>' + labEletro + '</li>');
+    const sec = (titulo, itens) => itens.length ? '<h2>' + titulo + '</h2><ul>' + itens.join('') + '</ul>' : '';
+    const nome1 = (p.nome || 'paciente').trim().split(' ')[0];
+    return '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Encaminhamento_' + nome1 + '</title>'
+      + '<style>@page { size: A4; margin: 0; }'
+      + '* { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; }'
+      + 'body { color: #1a1a1a; font-size: 11.5pt; line-height: 1.45; padding: 1.5cm 1.4cm; }'
+      + '.tit { text-align: center; font-size: 13pt; font-weight: bold; border-bottom: 2px solid #1a3a5c; padding-bottom: 6px; margin-bottom: 4px; color: #1a3a5c; }'
+      + '.data { text-align: right; font-size: 9.5pt; color: #555; margin-bottom: 16px; }'
+      + '.pac { font-size: 12pt; margin-bottom: 2px; } .dx { font-size: 11pt; color: #333; margin-bottom: 14px; }'
+      + 'h2 { font-size: 10.5pt; color: #1a3a5c; text-transform: uppercase; margin: 14px 0 5px; border-bottom: 1px solid #ccd5e0; padding-bottom: 2px; }'
+      + 'ul { list-style: none; } li { margin: 2px 0 2px 2px; }'
+      + '.concl { margin-top: 18px; text-align: justify; } .ass { margin-top: 34px; }'
+      + '.ass .linha { border-top: 1px solid #333; width: 7.5cm; padding-top: 4px; font-size: 10.5pt; }</style></head><body>'
+      + '<div class="tit">ENCAMINHAMENTO PARA HEMODI\u00c1LISE AMBULATORIAL</div>'
+      + '<div class="data">Goi\u00e2nia, ' + hoje + '</div>'
+      + '<div class="pac"><b>Paciente:</b> ' + (p.nome || '') + (idadeSexo ? ' \u2014 ' + idadeSexo : '') + '</div>'
+      + '<div class="dx"><b>Diagn\u00f3stico:</b> Doen\u00e7a renal cr\u00f4nica est\u00e1gio 5D (dial\u00edtica)</div>'
+      + sec('Caracteriza\u00e7\u00e3o da cronicidade', cronic) + sec('Hemodi\u00e1lise', hd) + sec('\u00daltimos exames', labLinhas)
+      + '<div class="concl">Paciente com DRC est\u00e1gio 5D, dependente de terapia renal substitutiva, sem perspectiva de recupera\u00e7\u00e3o da fun\u00e7\u00e3o renal. Necessita dar continuidade \u00e0 hemodi\u00e1lise em regime ambulatorial. Encaminho para vaga em servi\u00e7o de di\u00e1lise cr\u00f4nica.</div>'
+      + '<div class="ass"><div class="linha">Dr. Israel Guimar\u00e3es Neto \u2014 Nefrologia \u2014 CRM-GO 8243</div></div></body></html>';
   };
   const pendenciasAv = (av, pacX) => {
     if (!av) return [];
@@ -3049,7 +3105,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.82</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.84</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -3192,11 +3248,19 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
         );
       })()}
       {pacientes.filter(p => p.nome && !infoHD[p.id]?.arquivado && (modoTeste || !p.teste) && !p.externo).length > 0 && (
-        <div style={{ margin: '8px 16px 0' }}>
+        <div style={{ margin: '8px 16px 0', display: 'flex', gap: 6, alignItems: 'center' }}>
           <span onClick={() => setSoPendentes(v => !v)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 14px', borderRadius: 16, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', border: '1.5px solid ' + (soPendentes ? '#1a3a5c' : '#cfd9e6'), background: soPendentes ? '#1a3a5c' : 'white', color: soPendentes ? 'white' : '#33415a' }}>
+            style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', padding: '7px 11px', borderRadius: 16, fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', border: '1.5px solid ' + (soPendentes ? '#1a3a5c' : '#cfd9e6'), background: soPendentes ? '#1a3a5c' : 'white', color: soPendentes ? 'white' : '#33415a' }}>
             {soPendentes ? 'A evoluir' : 'Todos'}
           </span>
+          <span onClick={() => setUtiPicker(true)}
+            style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 10px', borderRadius: 16, fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', border: '1.5px solid ' + (filtroUti ? '#1a3a5c' : '#cfd9e6'), background: 'white', color: '#33415a' }}>
+            <span style={{ width: 10, height: 10, borderRadius: '50%', display: 'inline-block', background: filtroUti ? (CORES_UTI[filtroUti] || '#999') : '#ccc', border: filtroUti === 'Branca' ? '1px solid #ccc' : 'none' }}></span>
+            {filtroUti || 'UTI'}
+          </span>
+          <input value={buscaNome} onChange={e => setBuscaNome(e.target.value)} placeholder="🔍 nome"
+            style={{ flex: 1, minWidth: 0, padding: '7px 11px', borderRadius: 16, fontSize: 12.5, border: '1.5px solid #cfd9e6', outline: 'none', background: 'white', color: '#33415a' }} />
+          {buscaNome && <span onClick={() => setBuscaNome('')} style={{ flex: '0 0 auto', fontSize: 15, color: '#999', cursor: 'pointer', padding: '0 2px' }}>✕</span>}
         </div>
       )}
       {colaAv && colaAv.multi && (() => {
@@ -3355,11 +3419,54 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
         })()}
 
 
+      {utiPicker && (() => {
+        const _at = pacientes.filter(p => p.nome && !infoHD[p.id]?.arquivado && (modoTeste || !p.teste) && !p.externo);
+        const presentes = UTIs.filter(u => _at.some(p => p.uti === u));
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 9998, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => setUtiPicker(false)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: '14px 14px 0 0', width: '100%', maxWidth: 520, maxHeight: '75vh', overflowY: 'auto', padding: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+                <span style={{ flex: 1, fontWeight: 700, fontSize: 15, color: '#1a3a5c' }}>Filtrar por UTI</span>
+                <span onClick={() => setUtiPicker(false)} style={{ fontSize: 16, color: '#888', cursor: 'pointer', padding: '0 4px' }}>✕</span>
+              </div>
+              <div onClick={() => { setFiltroUti(''); setUtiPicker(false); }} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 8px', borderBottom: '1px solid #eee', cursor: 'pointer', fontWeight: !filtroUti ? 700 : 500 }}>
+                <span style={{ width: 14, height: 14, borderRadius: '50%', background: '#ccc', display: 'inline-block' }}></span>Todas
+              </div>
+              {presentes.map(u => (
+                <div key={u} onClick={() => { setFiltroUti(u); setUtiPicker(false); }} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 8px', borderBottom: '1px solid #eee', cursor: 'pointer', fontWeight: filtroUti === u ? 700 : 500 }}>
+                  <span style={{ width: 14, height: 14, borderRadius: '50%', display: 'inline-block', background: CORES_UTI[u] || '#999', border: u === 'Branca' ? '1px solid #ccc' : 'none' }}></span>{u}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+      {encaminhaSel && (() => {
+        const cands = pacientes.filter(p => p.nome && !infoHD[p.id]?.arquivado && !p.teste && (p.esquemaHD === 'sqs' || p.esquemaHD === 'tqs' || p.esquemaHD === 'diaria' || (histSessoesHD(p) || []).length > 0)).sort((a, b) => (a.uti || '').localeCompare(b.uti || '') || (a.nome || '').localeCompare(b.nome || ''));
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 9998, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => setEncaminhaSel(false)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: '14px 14px 0 0', width: '100%', maxWidth: 520, maxHeight: '80vh', overflowY: 'auto', padding: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
+                <span style={{ flex: 1, fontWeight: 700, fontSize: 15, color: '#1a3a5c' }}>📄 Encaminhar p/ HD crônica</span>
+                <span onClick={() => setEncaminhaSel(false)} style={{ fontSize: 16, color: '#888', cursor: 'pointer', padding: '0 4px' }}>✕</span>
+              </div>
+              {cands.length === 0 ? <div style={{ color: '#888', fontSize: 13, padding: '12px 0' }}>Nenhum paciente em programa de HD.</div> :
+                cands.map(p => (
+                  <div key={p.id} onClick={() => { setColetivoHtml({ html: gerarEncaminhamentoHTML(p), n: 1, label: 'Salvar PDF — Encaminhamento' }); setEncaminhaSel(false); }}
+                    style={{ padding: '11px 10px', borderBottom: '1px solid #eee', cursor: 'pointer' }}>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{p.nome}</div>
+                    <div style={{ fontSize: 12, color: '#7a8a9a' }}>{[p.uti ? 'UTI ' + p.uti : '', p.esquemaHD ? ({ sqs: 'Seg/Qua/Sex', tqs: 'Ter/Qui/Sáb', diaria: 'diária', susp: 'suspensa', sos: 'SOS' }[p.esquemaHD] || p.esquemaHD) : ''].filter(Boolean).join(' · ')}</div>
+                  </div>
+                ))}
+            </div>
+          </div>
+        );
+      })()}
       {coletivoHtml && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#fff', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', gap: 10, padding: '12px 14px', paddingTop: 'max(12px, env(safe-area-inset-top))', background: '#1a3a5c', alignItems: 'center' }}>
             <button style={{ ...S.btn, background: '#f0f0f0', flex: '0 0 auto', padding: '10px 16px' }} onClick={() => setColetivoHtml(null)}>X Fechar</button>
-            <button style={{ ...S.btn, background: '#27ae60', color: 'white', flex: 1 }} onClick={() => { mostrarToast('Gerando PDF…'); exportarColetivaPDF('coletivoFrame', () => { const f = document.getElementById('coletivoFrame'); if (f && f.contentWindow) { f.contentWindow.focus(); f.contentWindow.print(); } }); if (coletivoHtml.marcarAv) marcarAvEnviada(coletivoHtml.marcarAv.pid, coletivoHtml.marcarAv.aid); }}>Salvar PDF ({coletivoHtml.n} {coletivoHtml.n === 1 ? 'prescrição' : 'prescrições'})</button>
+            <button style={{ ...S.btn, background: '#27ae60', color: 'white', flex: 1 }} onClick={() => { mostrarToast('Gerando PDF…'); exportarColetivaPDF('coletivoFrame', () => { const f = document.getElementById('coletivoFrame'); if (f && f.contentWindow) { f.contentWindow.focus(); f.contentWindow.print(); } }); if (coletivoHtml.marcarAv) marcarAvEnviada(coletivoHtml.marcarAv.pid, coletivoHtml.marcarAv.aid); }}>{coletivoHtml.label || ('Salvar PDF (' + coletivoHtml.n + ' ' + (coletivoHtml.n === 1 ? 'prescrição' : 'prescrições') + ')')}</button>
           </div>
           <iframe id="coletivoFrame" srcDoc={coletivoHtml.html} style={{ flex: 1, border: 'none', width: '100%', background: '#fff' }} title="Coletivo" />
         </div>
@@ -3608,6 +3715,8 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
             const porData = buscaData ? ativos.filter(p => (avaliacoes[p.id] || []).some(a => dataLocalISO(a.data) === buscaData)) : ativos;
             let vis = filtroHD ? porData.filter(p => infoHD[p.id]?.motivo || infoHD[p.id]?.prioridadeOntem) : porData;
             if (soPendentes) { const _f = vis.filter(p => !infoHD[p.id]?.concluidaHoje); if (_f.length) vis = _f; }
+            if (filtroUti) vis = vis.filter(p => p.uti === filtroUti);
+            if (buscaNome.trim()) { const _q = buscaNome.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); vis = vis.filter(p => (p.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(_q)); }
             const pert = (p, u) => u === '__EXT__' ? !!p.externo : (!p.externo && (p.uti || '') === u);
             const ordemTrajeto = [...ANDARES.flatMap(([, us]) => us), ...UTIs.filter(u => !ANDARES.some(([, us]) => us.includes(u))), '', '__EXT__'];
             const andarDe = (u) => { const a = ANDARES.find(([, us]) => us.includes(u)); return a ? a[0] : null; };
@@ -3889,6 +3998,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
 
             <div style={SG_LBL}>Relatórios do dia</div>
             <button onClick={gerarRelatorioHDs} style={SG_BTN}>📋 HDs do dia</button>
+            <button onClick={() => setEncaminhaSel(true)} style={SG_BTN}>📄 Encaminhar p/ HD</button>
             <button onClick={gerarResumoExternos} style={SG_BTN}>📱 Resumo externos</button>
             <button onClick={() => setView('pep')} style={SG_BTN}>📄 Evoluções p/ PEP</button>
             <button onClick={gerarColetivoDia} style={SG_BTN}>🖨 Prescrições do dia (PDF)</button>
