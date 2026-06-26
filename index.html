@@ -1862,8 +1862,12 @@ function NefroApp() {
       const _gatExib = _fus ? [_fus, ..._gatRaw.filter(x => !['Sepse','Choque séptico','Pneumonia','ITU','Urossepse'].includes(x))] : _gatRaw;
       const gatil = [..._gatExib, pacRef.gatilhos_outros].filter(Boolean).join(', ');
       const atbsTxt = (pacRef.atbs || []).map(m => m + ' (D' + atbDia((pacRef.atbInicio || {})[m]) + ')').join(', ');
-      if (comorb || gatil || atbsTxt) {
+      const diagR = pacRef.diag || '';
+      const _sitTRS = { tem_vaga: 'tem vaga externa', aguarda_sorologia: 'aguarda sorologias', aguarda_vaga: 'aguarda vaga externa', aguarda_transf: 'aguarda transferência' }[pacRef.drcTerminalSit] || '';
+      if (diagR || _sitTRS || comorb || gatil || atbsTxt) {
         linhas.push('CONTEXTO CLÍNICO');
+        if (diagR) linhas.push('Diagnóstico renal: ' + diagR + (_sitTRS ? ' — ' + _sitTRS : ''));
+        else if (_sitTRS) linhas.push('Situação HD crônica: ' + _sitTRS);
         if (comorb) linhas.push('Comorbidades: ' + comorb);
         if (gatil) linhas.push('Diagnósticos: ' + gatil);
         if (atbsTxt) linhas.push('Antibióticos em uso: ' + atbsTxt);
@@ -3158,7 +3162,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.95</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.97</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
