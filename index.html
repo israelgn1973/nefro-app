@@ -284,7 +284,7 @@ const DROGAS_NEFROTOXICAS = ['Aminoglicosídeo (amicacina)','Polimixina B','Anfo
 const INTOXICACOES_DIALISAVEIS = ['Lítio','Metanol','Etilenoglicol','Salicilato','Outro'];
 const INTERC_HD = ['Nenhuma','Hipotensão','Hipertensão','Câimbras','Disfunção de acesso','Implante de CDL pré-sessão','Coagulação do circuito','Náuseas/vômitos','Calafrios/febre','Rebaixamento','Convulsão','Sangramento'];
 const POP_TIPOS = ['RM com CEC','CATE/angioplastia','Troca valvar','MP definitivo','Estudo eletrofisiológico (EEF)','Outro'];
-const CATE_DESFECHOS = ['programado','branco','angioplastia com sucesso','angioplastia sem sucesso','info indisponível'];
+const CATE_DESFECHOS = ['programado','branco','angioplastia com sucesso','angioplastia sem sucesso','indicação de RM','info indisponível'];
 const CIRURGIA_TIPOS = ['RM com CEC','Troca valvar','MP definitivo','Estudo eletrofisiológico (EEF)','Outro'];
 const ORDENS_OPC = ['Retirar CDL','Retirar SVD','Implantar CDL','Toracocentese','USG rins','TC abdome'];
 const INTERC_EVENTOS = ['Hipotensão/choque','Hipercalemia','Dessaturação/IOT','Arritmia/PCR','Sangramento','Falência de acesso','Diálise de urgência','Rebaixamento/convulsão','Coagulação do sistema','Outro'];
@@ -3167,7 +3167,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.107</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.109</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -5435,7 +5435,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
         })()}
 
         {(() => {
-          const _temHDe = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido || (avAtual.conduta && avAtual.conduta.startsWith('hd'));
+          const _temHDe = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido || (avAtual.conduta && avAtual.conduta.startsWith('hd')) || ['diaria', 'sqs', 'tqs'].includes(pacAtual.esquemaHD);
           const _sitE = hdSituacao || (pacAtual.esquemaHD === 'susp' ? 'desmame' : _temHDe ? 'hd' : null);
           if (_sitE !== 'hd' && _sitE !== 'continuidade') return null;
           return (
@@ -5473,7 +5473,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
         })()}
 
         {(() => {
-          const _temHD = (avAtual.conduta && avAtual.conduta.startsWith('hd')) || avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido;
+          const _temHD = (avAtual.conduta && avAtual.conduta.startsWith('hd')) || avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido || ['diaria', 'sqs', 'tqs'].includes(pacAtual.esquemaHD);
           const _sitD = hdSituacao || (pacAtual.esquemaHD === 'susp' ? 'desmame' : _temHD ? 'hd' : null);
           if (_sitD !== 'hd' && _sitD !== 'continuidade') return null;
           const disp = avAtual.conduta === 'hd_amanha' ? 'outro' : 'hoje';
@@ -5681,7 +5681,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
         })()}
 
         {(() => {
-          const _temHDi3 = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido || (avAtual.conduta && avAtual.conduta.startsWith('hd'));
+          const _temHDi3 = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido || (avAtual.conduta && avAtual.conduta.startsWith('hd')) || ['diaria', 'sqs', 'tqs'].includes(pacAtual.esquemaHD);
           const _sit3 = hdSituacao || (pacAtual.esquemaHD === 'susp' ? 'desmame' : _temHDi3 ? 'continuidade' : null);
           // Desmame de HD (RFR em prova)
           if (_sit3 === 'desmame') {
@@ -5742,7 +5742,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
 
         {(() => {
           // CAMADA 2: Última HD só aparece na Continuidade (sub-aba ÚLTIMA HD)
-          const _temHDi = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido;
+          const _temHDi = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido || ['diaria', 'sqs', 'tqs'].includes(pacAtual.esquemaHD);
           const _sit = hdSituacao || (_temHDi ? 'continuidade' : null);
           if (_sit && !((_sit === 'hd' || _sit === 'continuidade') && hdSubAba === 'ultima')) return null;
           // Sessão antiga (navegada ‹): só leitura — apenas as intercorrências daquela sessão como texto, sem painel interativo nem alertas.
@@ -5758,7 +5758,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
               </div>
             );
           }
-          const temHDInterna = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!pacAtual.dataPrimeiraHD || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido;
+          const temHDInterna = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!pacAtual.dataPrimeiraHD || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido || ['diaria', 'sqs', 'tqs'].includes(pacAtual.esquemaHD);
           if (!temHDInterna && !avAtual.hd_externa) return (
             <div style={{ margin: '0 16px 12px' }}>
               <button style={{ ...S.btn, background: 'white', color: '#8a6d3b', border: '1.5px dashed #e8cfa8', width: '100%', fontSize: 13 }}
