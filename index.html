@@ -65,7 +65,7 @@ const CAT_EXAMES = [
   ['Hematologia', [['Hb', 'hb', 'g/dL', true], ['Ht', 'ht', '%', false], ['Leucócitos', 'leuco', '/mm³', false], ['Plaquetas', 'plaq', 'mil/mm³', false], ['INR', 'inr', '', true]]],
   ['Hepático', [['TGO', 'tgo', 'U/L', false], ['TGP', 'tgp', 'U/L', false], ['BT', 'bt', 'mg/dL', true], ['Albumina', 'alb', 'g/dL', true]]],
   ['Cardio / inflamação', [['Troponina', 'tropo', '', true], ['BNP', 'bnp', 'pg/mL', false], ['PCR', 'pcr', 'mg/dL', true], ['CPK', 'cpk', 'U/L', false]]],
-  ['Outros', [['Glicemia', 'glic', 'mg/dL', false], ['Ácido úrico', 'aur', 'mg/dL', true], ['PTH', 'pth', 'pg/mL', false], ['Vit D', 'vitd', 'ng/mL', false]]],
+  ['Outros', [['Cálcio total', 'catot', 'mg/dL', true], ['Glicemia', 'glic', 'mg/dL', false], ['Ácido úrico', 'aur', 'mg/dL', true], ['PTH', 'pth', 'pg/mL', false], ['Vit D', 'vitd', 'ng/mL', false]]],
 ];
 const MAPA_EC_G = [['EAP', ['IC']], ['SCA', ['DAC']], ['Crise hipertensiva', ['HAS']], ['Cetoacidose', ['DM']], ['hepatorrenal', ['Hepatopatia/cirrose']], ['Encefalopatia hepática', ['Hepatopatia/cirrose']], ['Ascite', ['Hepatopatia/cirrose']]];
 const ALIAS_DX = {
@@ -76,15 +76,20 @@ const dividirPorPaciente = (texto, ativos) => {
   // acha onde cada paciente cadastrado aparece no texto; corta entre eles
   const linhas = texto.split('\n');
   const marcas = []; // {pacId, nome, pos} posição (índice de linha) onde o nome aparece
+  // frequência dos primeiros nomes (p/ desambiguar repetidos, ex.: duas "Maria")
+  const freqPrimeiro = {};
+  ativos.forEach(p => { const f = nrmNome(p.nome).split(' ').filter(t => t.length > 2)[0]; if (f) freqPrimeiro[f] = (freqPrimeiro[f] || 0) + 1; });
   ativos.forEach(p => {
-    const primeiro = nrmNome(p.nome).split(' ').filter(t => t.length > 2)[0];
     const tokens = nrmNome(p.nome).split(' ').filter(t => t.length > 2);
+    const primeiro = tokens[0];
+    if (!primeiro) return;
+    const compartilhado = freqPrimeiro[primeiro] > 1;
     for (let li = 0; li < linhas.length; li++) {
       const ln = nrmNome(linhas[li]);
-      // considera "achou o nome" se >=2 tokens do nome aparecem na linha (ou 1 se nome curto)
-      const need = tokens.length >= 2 ? 2 : 1;
-      const hits = tokens.filter(t => ln.includes(t)).length;
-      if (hits >= need) { marcas.push({ pacId: p.id, nome: p.nome, pos: li }); break; }
+      if (!ln.includes(primeiro)) continue;
+      // 1º nome único basta; se repetido (duas Marias), exige +1 token do nome
+      if (compartilhado && tokens.slice(1).filter(t => ln.includes(t)).length < 1) continue;
+      marcas.push({ pacId: p.id, nome: p.nome, pos: li }); break;
     }
   });
   marcas.sort((a, b) => a.pos - b.pos);
@@ -187,8 +192,9 @@ const farejarAvaliacao = (texto) => {
   if (m = (texto||'').match(/(?:nora|noradrenalina|adrenalina|dobuta|dobutamina|vaso|vasopressina|dopa|tridil|nitro)[^\d]{0,12}(\d{1,3}(?:[.,]\d)?)\s*(?:ml|mcg)/i)) { num.dva = { v: m[0].trim(), src: m[0].trim() }; }
   // exames
   const lab = {};
-  const exRe = [['ureia', /ureia[:\s]*(\d{1,3})/i], ['creat', /creat(?:inina)?[:\s]*(\d{1,2}[.,]?\d{0,2})/i], ['sodio', /\b(?:na|sodio)[:\s]*(\d{3})/i], ['pot', /\b(?:k|potassio)[:\s]*(\d[.,]?\d?)/i], ['bic', /(?:bic|hco3|bicarbonato)[:\s]*(\d{1,2}[.,]?\d?)/i]];
+  const exRe = [['ureia', /\b(?:ureia|ur|u)\b\.?\s*[:=]?\s*(\d{2,3})(?!\d)/i], ['creat', /\b(?:creatinina|creat|cr|c)\b\.?\s*[:=]?\s*(\d{1,2}[.,]\d{1,2})/i], ['sodio', /\b(?:sodio|na)\b\.?\s*[:=]?\s*(\d{3})(?!\d)/i], ['pot', /\b(?:potassio|k)\b\.?\s*[:=]?\s*(\d[.,]?\d?)(?!\d)/i], ['mg', /\b(?:magnesio|mg)\b\.?\s*[:=]?\s*(\d[.,]?\d{0,2})(?!\d)/i], ['bic', /\b(?:bicarbonato|bic|hco3)\b\.?\s*[:=]?\s*(\d{1,2}[.,]?\d?)(?!\d)/i]];
   exRe.forEach(([k, re]) => { const mm = (texto||'').match(re); if (mm) lab[k] = { v: mm[1].replace('.', ','), src: mm[0].trim() }; });
+  { const cm = (texto||'').match(/\b(?:calcio|ca)\b\.?\s*[:=]?\s*(\d{1,2}[.,]\d{1,3})/i); if (cm) { const caN = parseFloat(cm[1].replace(',', '.')); const dest = caN < 4.5 ? 'ca' : 'catot'; lab[dest] = { v: cm[1].replace('.', ','), src: cm[0].trim() }; } }
   return { cat, num, lab };
 };
 const farejarPaciente = (texto) => {
@@ -211,7 +217,7 @@ const farejarPaciente = (texto) => {
 const CANC_LISTA = ['Cancelada pelo plantonista — sem informação adicional', 'Piora hemodinâmica', 'Família não autorizou', 'Paliativação', 'Recuperação de diurese', 'SVD desobstruída / débito recuperado', 'Instabilidade / arritmia', 'Acesso perdido / disfuncional', 'Recusa do paciente', 'Transferência / exame fora da unidade', 'Óbito antes da sessão', 'Falta de insumo / máquina', 'Falta de vaga / logística'];
 const CANC_LOGISTICO = ['Cancelada pelo plantonista — sem informação adicional', 'Acesso perdido / disfuncional', 'Transferência / exame fora da unidade', 'Falta de insumo / máquina', 'Falta de vaga / logística'];
 const CANC_VINCULO = { 'Família não autorizou': 'recusa', 'Recusa do paciente': 'recusa', 'Paliativação': 'adequacao', 'Instabilidade / arritmia': 'instab', 'Piora hemodinâmica': 'instab', 'Recuperação de diurese': 'rfr', 'SVD desobstruída / débito recuperado': 'rfr' };
-const novoPacVazio = () => ({ nome:'', idade:'', nascimento:'', sexo:'', leito:'', temLeito:false, externo:false, teste:false, externoLocal:'', convenio:'SUS', convenioOutro:'', diag:'', trat:'', filaHD:'', uti:'', esquemaHD:'', preopTipos:[], preopOutro:'', popTipos:[], popDias:{}, popOutro:'', cateDesfecho:'', cateData:0, cirurgiaFase:'', cirurgiaTipo:'', cirurgiaOutro:'', cirurgiaData:0, creatBasal:'', creatBasalData:'', creatAdmissao:'', imgRinsCronico:'', comorbidades:[], perfilHemo:'', fe:'', comorbidades_outras:'', gatilhos:[], sepseFocos:[], sepseOutro:'', gatilhos_outros:'', atbs:[], atbInicio:{}, urgenciaAdm:false, urgencias:[], intoxSubst:[], drcTerminalSit:'', ordensPend:[], dialLog:false, dialOutroOn:false, dialOutro:'' });
+const novoPacVazio = () => ({ nome:'', idade:'', nascimento:'', sexo:'', leito:'', temLeito:false, externo:false, teste:false, externoLocal:'', convenio:'SUS', convenioOutro:'', diag:'', trat:'', filaHD:'', uti:'', esquemaHD:'', preopTipos:[], preopOutro:'', popTipos:[], popDias:{}, popOutro:'', cateDesfecho:'', cateData:0, cirurgiaFase:'', cirurgiaTipo:'', cirurgiaOutro:'', cirurgiaData:0, creatBasal:'', creatBasalData:'', creatAdmissao:'', creatAdmissaoData:'', imgRinsCronico:'', comorbidades:[], perfilHemo:'', fe:'', comorbidades_outras:'', gatilhos:[], sepseFocos:[], sepseOutro:'', gatilhos_outros:'', atbs:[], atbInicio:{}, urgenciaAdm:false, urgencias:[], intoxSubst:[], drcTerminalSit:'', ordensPend:[], dialLog:false, dialOutroOn:false, dialOutro:'' });
 const montarStatus = (diag, trat) => diag || '';
 
 const CAUSAS_INTERNACAO = [
@@ -1122,6 +1128,7 @@ function NefroApp() {
   const proxNavRef = React.useRef(0);
   const abrirRelatorio = (raw) => { verOrigTs.current = Date.now(); setVerOriginal(raw); };
   const [hdSituacao, setHdSituacao] = useState(null);
+  useEffect(() => { setHdSituacao(null); }, [pacAtual?.id]);
   const [relZeradoEm, setRelZeradoEm] = useState(() => { try { return parseInt(localStorage.getItem('relZeradoEm')) || 0; } catch(e) { return 0; } });
   const [faltaIgnorado, setFaltaIgnorado] = useState(false);
   const [hdSubAba, setHdSubAba] = useState('ultima');
@@ -1560,8 +1567,8 @@ function NefroApp() {
             <div style={{ fontSize: 11, color: '#999', textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 }}>{contexto === 'cond' ? 'Diuréticos — conduta' : 'Diuréticos em uso'}</div>
             {contexto !== 'cond' && <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {['Furosemida','Espironolactona','Hidroclorotiazida'].map(nome => {
-                const com = (avAtual.diureticos||[]).includes(nome);
                 const semExplicito = nome === 'Furosemida' ? !!avAtual.semFuro : !!(avAtual.diurSem||{})[nome];
+                const com = (avAtual.diureticos||[]).includes(nome) && !semExplicito;
                 const setCom = () => setAvAtual(a => ({ ...a, diureticos: [...new Set([...(a.diureticos||[]), nome])], ...(nome === 'Furosemida' ? { semFuro: false } : { diurSem: { ...(a.diurSem||{}), [nome]: false } }) }));
                 const setSem = () => setAvAtual(a => {
                   const limpa = nome === 'Furosemida' ? { semFuro: true, furo_manut: 'sem', furo_dose_n: '', furo_int: '', furo_bolus_n: '', fu_via:'', fu_n:'', fu_int:'', furo_bolus_av_n:'', furo_bolus_av_amp:'' } : nome === 'Espironolactona' ? { espiro_cp: '', espiro_int: '', es_cp:'', es_int:'', diurSem: { ...(a.diurSem||{}), [nome]: true } } : { hctz_cp: '', hctz_int: '', hz_cp:'', hz_int:'', diurSem: { ...(a.diurSem||{}), [nome]: true } };
@@ -2592,7 +2599,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           const fInicia = !dl.includes('Furosemida') && (prev.diurIniciar || {}).Furosemida && prev.furo_manut && prev.furo_manut !== 'sem';
           const fAjusta = fc === 'ajustar' && prev.furo_manut && prev.furo_manut !== 'sem';
           let fvia = prev.fu_via || '', fn = prev.fu_n || '', fint = prev.fu_int || '';
-          if (fc === 'suspender') { fvia = ''; fn = ''; fint = ''; dl = dl.filter(x => x !== 'Furosemida'); }
+          if (fc === 'suspender' || prev.semFuro) { fvia = ''; fn = ''; fint = ''; dl = dl.filter(x => x !== 'Furosemida'); }
           else if (fAjusta || fInicia) { fvia = prev.furo_manut; fn = prev.furo_dose_n || ''; fint = prev.furo_int || ''; if (!dl.includes('Furosemida')) dl = [...dl, 'Furosemida']; }
           out.fu_via = fvia; out.fu_n = fn; out.fu_int = fint;
           doses.Furosemida = (fvia && fn) ? (fn + ' ' + (fvia === 'amp' ? 'amp' : 'cp') + (fint ? ' ' + fint : '')) : '';
@@ -3167,7 +3174,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.111</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.118</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -4963,7 +4970,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           const A = pacAtual.av_pendente.achados;
           const catN = { eg: 'Estado geral', consciencia: 'Consciência', resp: 'Respiração', padrao_resp: 'Padrão resp.', diurese_qual: 'Diurese', svd: 'SVD', edema: 'Edema', normotenso: 'Normotenso', semDvas: 'Sem DVAs' };
           const numN = { pa: 'PA', sat: 'SatO2', fio2: 'FiO2', peep: 'PEEP', fluxoO2: 'Fluxo O2', diurese: 'Diurese (ml)', ganhos: 'Ganhos (ml)', dva: 'DVA' };
-          const labN = { ureia: 'Ureia', creat: 'Creatinina', sodio: 'Na', pot: 'K', bic: 'Bic' };
+          const labN = { ureia: 'Ureia', creat: 'Creatinina', sodio: 'Na', pot: 'K', bic: 'Bic', mg: 'Mg', ca: 'Ca iônico', catot: 'Ca total' };
           const tot = Object.keys(A.cat).length + Object.keys(A.num).length + Object.keys(A.lab).length;
           const limpar = () => { setPacientes(ps => ps.map(p => p.id === pacAtual.id ? { ...p, av_pendente: null, updatedAt: Date.now() } : p)); setPacAtual(p => ({ ...p, av_pendente: null })); };
           const aplicar = () => {
@@ -4981,6 +4988,9 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
               const labs = { ...(a.labs || {}) };
               Object.entries(A.lab).forEach(([k, o]) => { labs[k + '_hoje'] = o.v; });
               n.labs = labs;
+              const CORE_LAB = ['ureia','creat','sodio','pot','bic','ca','mg','p'];
+              const extrasLab = Object.keys(A.lab).filter(k => !CORE_LAB.includes(k));
+              if (extrasLab.length) n.exames_extras = [...new Set([...(a.exames_extras||[]), ...extrasLab])];
               return n;
             });
             limpar();
@@ -5026,7 +5036,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
               ))}
             </div>
             {avAtual.sangramento === 'ativo' && (() => {
-              const GRUPOS_SITIO = [['Digestivo', ['HDA', 'HDB']], ['Acesso / procedimento', ['Cateter/CDL', 'Introdutor', 'Ferida operatória', 'Sítio de punção']], ['Superfície / mucosa', ['Hematúria', 'Hemoptise']], ['Grave / oculto', ['SNC', 'Retroperitoneal']]];
+              const GRUPOS_SITIO = [['Digestivo', ['HDA', 'HDB']], ['Acesso / procedimento', ['Cateter/CDL', 'CVC', 'Introdutor', 'Ferida operatória', 'Sítio de punção']], ['Superfície / mucosa', ['Hematúria', 'Hemoptise']], ['Grave / oculto', ['SNC', 'Retroperitoneal']]];
               const sel = avAtual.sangramento_sitio || '';
               const resumo = avAtual.sang_outro ? (sel || 'outro') : (sel || 'definir');
               return (
@@ -5300,7 +5310,8 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                 <NumInput value={pacAtual.creatBasal} allowComma label="Creatinina basal (mg/dL)" onSet={v => { const at = { ...pacAtual, creatBasal: fmtDec(v), updatedAt: Date.now() }; setPacientes(ps => ps.map(p => p.id === pacAtual.id ? at : p)); setPacAtual(at); }} placeholder="—" style={{ width: 58, border: '1px solid #ddd', borderRadius: 6, fontSize: 13, textAlign: 'center', fontFamily: 'monospace', padding: '3px 4px' }} /></span>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>inicial
                 <NumInput value={pacAtual.creatAdmissao} allowComma label="Creatinina inicial/admissão (mg/dL)" onSet={v => { const val = fmtDec(v); const at = { ...pacAtual, creatAdmissao: val, updatedAt: Date.now() }; if (creatNormal(val, pacAtual.sexo) && !pacAtual.creatBasal) at.creatBasal = val; setPacientes(ps => ps.map(p => p.id === pacAtual.id ? at : p)); setPacAtual(at); }} placeholder={_ini || '—'} style={{ width: 58, border: '1px solid #ddd', borderRadius: 6, fontSize: 13, textAlign: 'center', fontFamily: 'monospace', padding: '3px 4px' }} />
-                {_ini && !pacAtual.creatAdmissao && <span style={{ fontSize: 11, color: '#aaa' }}>↳ 1ª: {_ini}</span>}</span>
+                {_ini && !pacAtual.creatAdmissao && <span style={{ fontSize: 11, color: '#aaa' }}>↳ 1ª: {_ini}</span>}
+                <input type="date" value={pacAtual.creatAdmissaoData || ''} onChange={e => { const at = { ...pacAtual, creatAdmissaoData: e.target.value, updatedAt: Date.now() }; setPacientes(ps => ps.map(p => p.id === pacAtual.id ? at : p)); setPacAtual(at); }} style={{ border: '1px solid #ddd', borderRadius: 6, fontSize: 12, padding: '2px 5px', color: '#666', fontFamily: 'inherit' }} /></span>
             </div>
               );
             })()}
@@ -5308,7 +5319,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
               const LABKEYS = ['ureia','creat','sodio','pot','bic','ca','mg','p'];
               const temEx = a => !a.semExames && LABKEYS.some(k => { const x = a.labs?.[k+'_hoje']; return x != null && x !== ''; });
               const prior = (avaliacoes[pacAtual.id] || []).filter(a => a.id !== avAtual.id && a.data < avAtual.data && temEx(a)).sort((x,y) => y.data - x.data).slice(0,2).reverse();
-              const cols = [...prior, avAtual];
+              const cols = prior.length === 0 ? [{ id: '__ant__', anterior: true }, avAtual] : [...prior, avAtual];
               const setLabAv = (avId, lk, val) => { if (avId === avAtual.id) { upLab(lk, val); return; } setAvaliacoes(prev => ({ ...prev, [pacAtual.id]: (prev[pacAtual.id]||[]).map(a => a.id === avId ? { ...a, labs: { ...(a.labs||{}), [lk]: val }, updatedAt: Date.now() } : a) })); };
               const LINHAS = [['Ureia','ureia','mg/dL'], ['Creatinina','creat','mg/dL'], ['Sódio','sodio','mEq/L'], ['Potássio','pot','mEq/L'], ['Bicarbonato','bic','mEq/L'], ['Ca iônico','ca','mmol/L'], ['Magnésio','mg','mg/dL'], ['Fósforo','p','mg/dL']].concat((avAtual.exames_extras || []).map(k => { for (const [, its] of CAT_EXAMES) { const it = its.find(x => x[1] === k); if (it) return [it[0] + (it[2] ? ' (' + it[2] + ')' : ''), it[1], it[2]]; } return [k, k, '']; }));
               const grid = { display: 'grid', gridTemplateColumns: '1.3fr ' + cols.map(() => '1fr').join(' '), gap: 0 };
@@ -5317,19 +5328,19 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                   <div style={grid}>
                     <div style={{ ...S.labCell, background: '#f4f4f0' }}></div>
                     {cols.map((c, ci) => (
-                      <div key={'h'+ci} style={{ ...S.labCell, background: '#f4f4f0', fontWeight: 700, fontSize: 10.5, color: c.id === avAtual.id ? '#1a3a5c' : '#888', textAlign: 'center' }}>{c.id === avAtual.id ? 'Hoje' : fmtDataCurta(dataLocalISO(c.data))}</div>
+                      <div key={'h'+ci} style={{ ...S.labCell, background: '#f4f4f0', fontWeight: 700, fontSize: 10.5, color: c.id === avAtual.id ? '#1a3a5c' : '#888', textAlign: 'center' }}>{c.anterior ? 'Anterior' : c.id === avAtual.id ? 'Hoje' : fmtDataCurta(dataLocalISO(c.data))}</div>
                     ))}
                   </div>
                   {LINHAS.map(([lbl, key], li) => (
                     <div key={key} style={{ ...grid, background: li % 2 === 1 ? '#f4f7fa' : 'white' }}>
                       <div style={{ ...S.labCell, fontSize: 12, color: '#666' }}>{lbl}</div>
                       {cols.map((c, ci) => {
-                        const val = c.labs?.[key+'_hoje'];
+                        const val = c.anterior ? avAtual.labs?.[key+'_ant'] : c.labs?.[key+'_hoje'];
                         const n = parseFloat(String(val ?? '').replace(',', '.'));
                         const critico = !isNaN(n) && ((key === 'pot' && (n > 6.0 || n < 3.0)) || (key === 'ureia' && n > 250) || (key === 'sodio' && (n < 125 || n > 150)) || (key === 'bic' && n < 18) || (key === 'creat' && n > 3.0));
                         return (
                           <div key={ci} style={{ ...S.labCell, padding: 4, background: critico ? '#fdecea' : 'transparent' }}>
-                            <NumInput value={val} onSet={v => setLabAv(c.id, key+'_hoje', ['pot','ca','mg','creat','p'].includes(key) ? fmtDec(v) : v)} allowComma label={lbl + ' — ' + (c.id === avAtual.id ? 'hoje' : fmtDataCurta(dataLocalISO(c.data)))} bicAuto={key === 'bic'}
+                            <NumInput value={val} onSet={v => setLabAv(c.anterior ? avAtual.id : c.id, key + (c.anterior ? '_ant' : '_hoje'), ['pot','ca','mg','creat','p'].includes(key) ? fmtDec(v) : v)} allowComma label={lbl + ' — ' + (c.anterior ? 'anterior' : c.id === avAtual.id ? 'hoje' : fmtDataCurta(dataLocalISO(c.data)))} bicAuto={key === 'bic'}
                               style={{ width: '100%', border: 'none', outline: 'none', fontSize: 13, fontWeight: critico ? 700 : 400, color: critico ? '#c0392b' : '#333', textAlign: 'center', fontFamily: 'monospace', background: critico ? 'transparent' : (c.id === avAtual.id ? '#f4f4f0' : 'transparent') }} />
                           </div>
                         );
@@ -5387,7 +5398,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           const opcoes = [['conservador','Tratamento conservador'],['hd','HD'],['desmame','Desmame de HD']];
           // dedução inicial só pra sugerir (não trava): se já tem HD interna → continuidade
           const temHDi = avs.some(a => a.id !== avAtual.id && a.conduta && a.conduta.startsWith('hd')) || !!avAtual.ultima_hd_data || !!avAtual.tempo_obtido || (avAtual.conduta && avAtual.conduta.startsWith('hd')) || ['diaria', 'sqs', 'tqs'].includes(pacAtual.esquemaHD);
-          const sit = hdSituacao || (pacAtual.esquemaHD === 'susp' ? 'desmame' : temHDi ? 'continuidade' : null);
+          const sit = hdSituacao || (pacAtual.esquemaHD === 'susp' ? 'desmame' : temHDi ? 'continuidade' : avAtual.conduta === 'conservador' ? 'conservador' : null);
           return (
             <div style={{ margin: '10px 16px 0' }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
