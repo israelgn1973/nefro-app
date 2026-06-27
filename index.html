@@ -3167,7 +3167,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.105</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.106</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -3292,6 +3292,8 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                       <div onClick={(e) => { e.stopPropagation(); if (r.raw) setRelAbertoKey(_aberto ? null : _rk); }} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 14px', fontSize: 13, cursor: r.raw ? 'pointer' : 'default' }}>
                         <span style={{ color: '#1a7a45', flex: 1 }}>✓ {r.pacNome}{r.raw ? <span style={{ color: '#c2c8ce', fontWeight: 400, fontSize: 11 }}>{_aberto ? ' ▲' : ' ▼'}</span> : null}</span>
                         <span style={{ fontSize: 11, color: '#999' }}>{r.dataSessao || 'sessão s/ data'}</span>
+                        <span onClick={(e) => { e.stopPropagation(); if (!confirm('Apagar este relatório de ' + r.pacNome + '?\nVocê poderá colá-lo novamente depois.')) return; setPacientes(ps => ps.map(p => p.id === r.pacId ? { ...p, relEnf: (p.relEnf || []).filter(x => x.criadoEm !== r.criadoEm), updatedAt: Date.now() } : p)); mostrarToast('Relatório apagado'); }}
+                          style={{ fontSize: 14, color: '#c0392b', cursor: 'pointer', padding: '0 2px 0 12px', lineHeight: 1 }}>{'\u2715'}</span>
                       </div>
                       {_aberto && r.raw && (
                         <div style={{ padding: '2px 14px 12px', fontSize: 12.5, color: '#3a4a5a', whiteSpace: 'pre-wrap', lineHeight: 1.55 }}>{r.raw}</div>
