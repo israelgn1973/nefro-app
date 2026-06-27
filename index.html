@@ -1134,6 +1134,8 @@ function NefroApp() {
   const [hdSubAba, setHdSubAba] = useState('ultima');
   const [manualUltHdAberto, setManualUltHdAberto] = useState(false);
   const [destinoExcAberto, setDestinoExcAberto] = useState(false);
+  // varredura: estados de visão do paciente que NÃO devem vazar ao trocar de paciente
+  useEffect(() => { setDiaFolheado(0); setManualUltHdAberto(false); setDestinoExcAberto(false); setAtbDiaAberto(null); }, [pacAtual?.id]);
   useEffect(() => { if (hdSubAba === 'programada' || (avAtual?.hd_primeira_sessao && hdSubAba === 'ultima')) setHdSubAba('hoje'); }, [avAtual?.hd_primeira_sessao, hdSubAba]);
   useEffect(() => { setHdDiaNav(proxNavRef.current); proxNavRef.current = 0; setCancMotivoAberto(false); }, [pacAtual?.id, hdSubAba]);
   // 1A: ao entrar na HD, cair na aba certa — Última HD se a sessão anterior está pendente de fechamento; senão Hoje.
@@ -3174,7 +3176,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.118</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.119</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
