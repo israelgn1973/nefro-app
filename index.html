@@ -2337,12 +2337,10 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
     const lav = av.anticoag === 'com' ? String(num(av.lavagens) || 0) : (av.lavagens || String(Math.max(100, ((durHoras(av.hd_dur || av.hd_horas) || 4) * 2 - 1) * 100)));
     const ufTot = ufEf + num(av.priming || 400) + num(lav);
     return {
-      data: ddmmyyyy, nome: p.nome || '', idade: p.idade || '',
-      setor: p.uti || '', leito: p.leito || '',
-      convenio: p.convenio === 'Outro' ? (p.convenioOutro || 'Outro') : (p.convenio || ''),
-      hospital: 'Ruy Azeredo',
-      tempo: (durHoras(av.hd_dur || av.hd_horas) || 4) + ' horas',
-      uft: String(ufTot), ufe: String(ufEf)
+      n: p.nome || '', i: p.idade || '', l: p.leito || '', s: p.uti || '',
+      c: p.convenio === 'Outro' ? (p.convenioOutro || 'Outro') : (p.convenio || ''),
+      t: (durHoras(av.hd_dur || av.hd_horas) || 4) + ' horas',
+      ut: String(ufTot), ue: String(ufEf), d: ddmmyyyy
     };
   };
   const _linhaTecnico = (p, av) => {
@@ -3226,7 +3224,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.121</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.122</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
