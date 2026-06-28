@@ -2336,11 +2336,15 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
     const ufEf = num(av.uf_hd) + num(av.uf_isolada);
     const lav = av.anticoag === 'com' ? String(num(av.lavagens) || 0) : (av.lavagens || String(Math.max(100, ((durHoras(av.hd_dur || av.hd_horas) || 4) * 2 - 1) * 100)));
     const ufTot = ufEf + num(av.priming || 400) + num(lav);
+    const _ac = av.acesso || '—';
+    const _ag = av.anticoag === 'com' ? ('com heparina' + ((av.heparina_bolus || av.heparina_taxa) ? ' (bolus ' + (av.heparina_bolus || '—') + ' ml, ' + (av.heparina_taxa || '—') + ' ml/h)' : '')) : (av.anticoag === 'sem' ? 'sem heparina' : '—');
+    const _cat = av.cateter === 'hep' ? 'heparina diluída' : (av.cateter === 'fav' ? 'FAV (não preencher)' : 'bicarbonato de sódio 8,4%');
+    const presc = 'Acesso: ' + _ac + '. Fluxo de sangue ' + (av.fluxo_sangue || '200') + ' ml/min, banho ' + (av.fluxo_banho || '300') + ' ml/min. Anticoagulação ' + _ag + '. Dialisato: sódio ' + (av.dialisato_sodio || '142') + ', temperatura ' + (av.dialisato_temp || '35') + ' °C, bicarbonato ' + (av.dialisato_bic || '34') + '. Fechamento do cateter: ' + _cat + '.';
     return {
       n: p.nome || '', i: p.idade || '', l: p.leito || '', s: p.uti || '',
       c: p.convenio === 'Outro' ? (p.convenioOutro || 'Outro') : (p.convenio || ''),
       t: (durHoras(av.hd_dur || av.hd_horas) || 4) + ' horas',
-      ut: String(ufTot), ue: String(ufEf), d: ddmmyyyy
+      ut: String(ufTot), ue: String(ufEf), d: ddmmyyyy, px: presc
     };
   };
   const _linhaTecnico = (p, av) => {
@@ -2364,7 +2368,9 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
     const out = [];
     pacientes.forEach(p => {
       if (p.externo) return;
-      const av = (avaliacoes[p.id] || []).find(a => a.conduta === 'hd_hoje' && dataLocalISO(a.data) === oISO);
+      const avs = avaliacoes[p.id] || [];
+      if (avs.some(a => a.conclusao === 'obito')) return;
+      const av = avs.find(a => a.conduta === 'hd_hoje' && dataLocalISO(a.data) === oISO);
       if (!av || av.hd_cancelada) return;
       if (!(p.relEnf || []).some(r => (r.campos?.data || '') === oBR)) out.push({ p, av });
     });
@@ -3236,7 +3242,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.125</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.127</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
