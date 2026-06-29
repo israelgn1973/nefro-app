@@ -56,9 +56,16 @@ const CONVENIOS = ['IPASGO','UNIMED','IMAS','PARTICULAR','OUTROS'];
 const DIAG_OPCOES = ['IRA', 'IRA / DRC com IRA sobreposta', 'DRC com IRA sobreposta', 'DRC', 'DRC dialítica (5D)', 'IRA revertida', 'Função renal normal'];
 const AMPOLAS_DVA = { 'Noradrenalina': ['4', '4'], 'Adrenalina': ['1', '1'], 'Vasopressina': ['20', '1'], 'Dobutamina': ['250', '20'], 'Dopamina': ['50', '10'], 'Nitroglicerina': ['50', '10'], 'Nitroprussiato': ['50', '2'], 'Azul de metileno': ['50', '5'] };
 const SG_LBL = { gridColumn: '1 / -1', fontSize: 11, fontWeight: 600, color: '#9aa7b4', letterSpacing: 0.5, textTransform: 'uppercase', margin: '12px 2px 2px' };
-const SG_BTN = { fontSize: 13, padding: '10px 12px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer', textAlign: 'center' };
+const SG_BTN = { fontSize: 13, padding: '10px 12px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer', textAlign: 'left' };
 const SG_BTN_FULL = { ...SG_BTN, gridColumn: '1 / -1' };
 const SG_HDR = { gridColumn: '1 / -1', fontSize: 13, padding: '10px 12px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
+const CAB_PLANTAO = `Olá! Aqui é o Dr. Israel, da nefrologia. 👋
+
+Esse link abre a tela do paciente. Se você quiser, dá pra já deixar os dados anotados (PA, ventilação, diurese, exames…) — ajuda a adiantar a nossa visita por telefone.
+
+Mas fique à vontade: se preferir, seguimos como sempre e passamos tudo no telefone mesmo, do nosso jeito de rotina. Qualquer um dos dois, pra mim, está ótimo.
+
+De toda forma, faço questão de ligar pra a gente alinhar as condutas juntos. Obrigado! 🙏`;
 const SG_BODY = { gridColumn: '1 / -1', padding: '4px 4px 6px' };
 const CAT_EXAMES = [
   ['Gasometria', [['pH', 'ph', '', true], ['pCO2', 'pco2', 'mmHg', false], ['pO2', 'po2', 'mmHg', false], ['Lactato', 'lact', 'mmol/L', true], ['BE', 'be', '', true]]],
@@ -135,7 +142,8 @@ const farejarDVAs = (texto) => {
     const idx = mm.index + mm[0].length;
     const rest = s.slice(idx, idx + 18);
     const vm = rest.match(/(\d{1,3}(?:[.,]\d{1,2})?)\s*(?:ml|mcg)/);
-    out.push({ nome, vazao: vm ? vm[1].replace('.', ',') : '' });
+    const dd = /dobrada/.test(s.slice(idx, idx + 30));
+    out.push({ nome, vazao: vm ? vm[1].replace('.', ',') : '', dd });
     s = s.slice(0, mm.index) + ' '.repeat(mm[0].length) + s.slice(idx); // apaga o nome p/ não recasar (ex.: noradrenalina ⊃ adrenalina)
   }
   return out;
@@ -161,8 +169,8 @@ const farejarAvaliacao = (texto) => {
   if (!cat.consciencia) { const mg = (texto || '').match(/(?:glasgow|gcs)[:\s]*(\d{1,2})/i); if (mg) { const g = parseInt(mg[1]); cat.consciencia = g >= 15 ? 'consciente e orientado' : g >= 9 ? 'sonolento' : 'rebaixado'; } }
   // respiração
   if (tem('tenda')) cat.resp = 'tenda traqueal';
-  else if (tem('tqt')) cat.resp = 'TQT/VM';
-  else if (tem('cot', 'intubad', 'tubo orotraqueal', ' tot ', 'ventilacao mecanica', ' vm ', 'em vm')) cat.resp = 'COT/VM';
+  else if (tem('tqt', 'traqueostomia', 'traqueostom')) cat.resp = 'TQT/VM';
+  else if (tem('cot', 'intubad', 'tubo orotraqueal', 'canula orotraqueal', 'orotraqueal', ' tot ', 'ventilacao mecanica', ' vm ', 'em vm')) cat.resp = 'COT/VM';
   else if (tem('vni', 'ventilacao nao invasiva', 'bipap', 'cpap')) cat.resp = 'VNI';
   else if (tem('mascara nao reinalante', 'nao reinalante')) cat.resp = 'máscara não reinalante';
   else if (tem('mascara')) cat.resp = 'máscara de O2';
@@ -171,6 +179,7 @@ const farejarAvaliacao = (texto) => {
   // padrão / dispneia
   if (tem('dispnei', 'taquipnei', 'desconfort respirat')) cat.padrao_resp = 'dispneico';
   else if (tem('eupneic')) cat.padrao_resp = 'eupneico';
+  if (cat.resp === 'COT/VM' || cat.resp === 'TQT/VM') delete cat.padrao_resp;
   // SatO2 qualitativa
   if (tem('saturando bem', 'satura bem', 'boa saturacao')) cat.sat_bem = true;
   else if (tem('sato2 nao aferida', 'sat nao aferida', 'saturacao nao aferida', 'sat nao disponivel', ' sat nd ', 'sato2 nd')) cat.sat_nd = true;
@@ -384,7 +393,7 @@ const montarLinkTecnico = (d) => {
   catch (e) { return ''; }
 };
 const montarLinkPlantao = (p) => {
-  try { return 'https://israelgn1973.github.io/plantao/#' + btoa(unescape(encodeURIComponent(JSON.stringify({ n: p.nome || '', id: p.idade || '', st: p.uti || '', lt: p.leito || '' })))); }
+  try { return 'https://israelgn1973.github.io/plantao/#' + btoa(unescape(encodeURIComponent(JSON.stringify({ n: p.nome || '', id: p.idade || '', st: p.uti || '', lt: p.leito || '', sx: p.sexo || '' })))); }
   catch (e) { return ''; }
 };
 const parseRelEnf = (txt) => {
@@ -2438,7 +2447,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   };
   const copiarLinkPlantao = (p) => {
     const loc = p.uti ? ('UTI ' + p.uti) : (p.leito ? ('Leito ' + p.leito) : '');
-    _copiar((loc ? loc + ' · ' : '') + (p.nome || '') + '\n' + montarLinkPlantao(p), 'Link de avaliação copiado — envie ao plantonista');
+    _copiar(CAB_PLANTAO + '\n\n' + (loc ? loc + ' · ' : '') + (p.nome || '') + '\n' + montarLinkPlantao(p), 'Link de avaliação copiado — envie ao plantonista');
   };
   const gerarColetivoDia = () => {
     const hojeISO = dataLocalISO();
@@ -3292,7 +3301,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.133</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.136</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -3777,7 +3786,12 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
               const alertas = verificarRelEnf(c);
               const pac = pacientes.find(p => p.id === caixaRel.pacId);
               const _dISOpend = c.data ? c.data.split('/').reverse().join('-') : ontemISO();
-              const _pendentes = faltamRelatorios(_dISOpend).faltam;
+              const _pendentes = (() => {
+                const _ds = Array.from(new Set([_dISOpend, dataLocalISO(), ontemISO()]));
+                const _m = {};
+                _ds.forEach(d => faltamRelatorios(d).faltam.forEach(p => { _m[p.id] = p; }));
+                return Object.values(_m);
+              })();
               const _ordena = arr => [...arr].sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt', { sensitivity: 'base' }));
               const _ativosAll = _ordena(pacientes.filter(p => !infoHD[p.id]?.arquivado && (modoTeste || !p.teste)));
               const _usarPend = !caixaRel.verTodos && _pendentes.length > 0;
@@ -4146,7 +4160,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
               ativosP.forEach(p => { const u = p.uti || ''; (porUTI[u] = porUTI[u] || []).push(p); });
               const chaves = [...ordemUTI.filter(u => porUTI[u]), ...Object.keys(porUTI).filter(u => u && !ordemUTI.includes(u)).sort(), ...(porUTI[''] ? [''] : [])];
               const _linhaP = p => ('UTI ' + (p.uti || '?') + (p.leito ? ' · Leito ' + p.leito : '')) + ' · ' + (p.nome || '') + '\n' + montarLinkPlantao(p);
-              const copiarBlocoP = u => { const lst = porUTI[u] || []; _copiar(lst.map(_linhaP).join('\n\n'), (u ? 'UTI ' + u : 'Sem UTI') + ': ' + lst.length + ' link(s) — envie ao plantonista'); };
+              const copiarBlocoP = u => { const lst = porUTI[u] || []; _copiar(CAB_PLANTAO + '\n\n' + lst.map(_linhaP).join('\n\n'), (u ? 'UTI ' + u : 'Sem UTI') + ': ' + lst.length + ' link(s) — envie ao plantonista'); };
               return (
                 <React.Fragment>
                   <div onClick={() => setVerPlantao(v => !v)} style={SG_HDR}><span>🩺 Avaliação p/ plantonista ({ativosP.length})</span><span>{verPlantao ? '▲' : '▼'}</span></div>
@@ -5145,7 +5159,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
               if (A.num.diurese) { n.diurese = A.num.diurese.v; n.diurese_qual = ''; }
               if (A.num.ganhos) n.ganhos = A.num.ganhos.v;
               if (A.num.dva && A.num.dva.lista && A.num.dva.lista.length) {
-                const dv = {}; A.num.dva.lista.forEach(x => { dv[x.nome] = { vazao: x.vazao || '', dd: false }; });
+                const dv = {}; A.num.dva.lista.forEach(x => { dv[x.nome] = { vazao: x.vazao || '', dd: !!x.dd }; });
                 n.dvas = dv; n.semDvas = false;
               } else if (A.cat.semDvas) { n.dvas = {}; n.semDvas = true; }
               const labs = { ...(a.labs || {}) };
