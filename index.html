@@ -61,7 +61,7 @@ const SG_BTN_FULL = { ...SG_BTN, gridColumn: '1 / -1' };
 const SG_HDR = { gridColumn: '1 / -1', fontSize: 13, padding: '10px 12px', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#555', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
 const CAB_PLANTAO = `Olá! Aqui é o Dr. Israel, da nefrologia. 👋
 
-Esse link abre a tela do paciente. Se você quiser, dá pra já deixar os dados anotados (PA, ventilação, diurese, exames…) — ajuda a adiantar a nossa visita por telefone.
+Esse link abre a tela do paciente. Se você quiser, pode preencher os dados ali (PA, ventilação, diurese, exames…). Ao terminar, a própria tela gera um textinho pronto — é só copiar e colar aqui no meu WhatsApp. Isso adianta bastante a nossa visita por telefone.
 
 Mas fique à vontade: se preferir, seguimos como sempre e passamos tudo no telefone mesmo, do nosso jeito de rotina. Qualquer um dos dois, pra mim, está ótimo.
 
@@ -393,7 +393,7 @@ const montarLinkTecnico = (d) => {
   catch (e) { return ''; }
 };
 const montarLinkPlantao = (p) => {
-  try { return 'https://israelgn1973.github.io/plantao/#' + btoa(unescape(encodeURIComponent(JSON.stringify({ n: p.nome || '', id: p.idade || '', st: p.uti || '', lt: p.leito || '', sx: p.sexo || '' })))); }
+  try { return 'https://israelgn1973.github.io/plantao/#' + btoa(unescape(encodeURIComponent(JSON.stringify({ n: p.nome || '', id: p.idade || '', st: p.uti || '', lt: p.leito || '', sx: p.sexo || '', dt: dataLocalISO().split('-').reverse().join('/') })))); }
   catch (e) { return ''; }
 };
 const parseRelEnf = (txt) => {
@@ -3301,7 +3301,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.136</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.138</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -3539,6 +3539,8 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
           const tot = Object.keys(A.cat).length + Object.keys(A.num).length + Object.keys(A.lab).length;
           const guardar = () => {
             if (!colaAv.pacId) { alert('Escolha de qual paciente é esta resposta.'); return; }
+            const _mDt = (colaAv.raw || '').match(/Plant[ãa]o\s*[—–\-:]\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/i);
+            if (_mDt) { const _dpl = _mDt[1].padStart(2, '0') + '/' + _mDt[2].padStart(2, '0') + '/' + _mDt[3]; const _hbr = dataLocalISO().split('-').reverse().join('/'); if (_dpl !== _hbr && !confirm('⚠ Esse texto do plantonista é de ' + _dpl + ', não de hoje (' + _hbr + ').\n\nUma avaliação de plantão vale só para o dia. Aplicar mesmo assim?')) return; }
             setPacientes(ps => ps.map(p => p.id === colaAv.pacId ? { ...p, av_pendente: { achados: A, dxAchados: colaAv.dxAchados || null, raw: colaAv.raw, em: Date.now() }, updatedAt: Date.now() } : p));
             const nome = ativos.find(p => p.id === colaAv.pacId)?.nome || '';
             setDocsArquivados(prev => [{ id: 'd_' + Date.now(), data: Date.now(), texto: (colaAv.raw || '').trim(), paciente: nome }, ...prev].slice(0, 200));
