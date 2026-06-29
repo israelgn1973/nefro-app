@@ -2336,15 +2336,21 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
     const ufEf = num(av.uf_hd) + num(av.uf_isolada);
     const lav = av.anticoag === 'com' ? String(num(av.lavagens) || 0) : (av.lavagens || String(Math.max(100, ((durHoras(av.hd_dur || av.hd_horas) || 4) * 2 - 1) * 100)));
     const ufTot = ufEf + num(av.priming || 400) + num(lav);
-    const _ac = av.acesso || '—';
-    const _ag = av.anticoag === 'com' ? ('com heparina' + ((av.heparina_bolus || av.heparina_taxa) ? ' (bolus ' + (av.heparina_bolus || '—') + ' ml, ' + (av.heparina_taxa || '—') + ' ml/h)' : '')) : (av.anticoag === 'sem' ? 'sem heparina' : '—');
-    const _cat = av.cateter === 'hep' ? 'heparina diluída' : (av.cateter === 'fav' ? 'FAV (não preencher)' : 'bicarbonato de sódio 8,4%');
-    const presc = 'Acesso: ' + _ac + '. Fluxo de sangue ' + (av.fluxo_sangue || '200') + ' ml/min, banho ' + (av.fluxo_banho || '300') + ' ml/min. Anticoagulação ' + _ag + '. Dialisato: sódio ' + (av.dialisato_sodio || '142') + ', temperatura ' + (av.dialisato_temp || '35') + ' °C, bicarbonato ' + (av.dialisato_bic || '34') + '. Fechamento do cateter: ' + _cat + '.';
+    const presc = { pr: 1 };
+    if (av.acesso) presc.ac = av.acesso;
+    if (av.fluxo_sangue) presc.fs = av.fluxo_sangue;
+    if (av.fluxo_banho) presc.fb = av.fluxo_banho;
+    if (av.anticoag) presc.ag = av.anticoag;
+    if (av.dialisato_sodio) presc.dn = av.dialisato_sodio;
+    if (av.dialisato_temp) presc.dt = av.dialisato_temp;
+    if (av.dialisato_bic) presc.db = av.dialisato_bic;
+    if (av.cateter) presc.ct = av.cateter;
+    if (av.anticoag === 'com') { if (av.heparina_bolus) presc.hb = av.heparina_bolus; if (av.heparina_taxa) presc.ht = av.heparina_taxa; }
     return {
       n: p.nome || '', i: p.idade || '', l: p.leito || '', s: p.uti || '',
       c: p.convenio === 'Outro' ? (p.convenioOutro || 'Outro') : (p.convenio || ''),
       t: (durHoras(av.hd_dur || av.hd_horas) || 4) + ' horas',
-      ut: String(ufTot), ue: String(ufEf), d: ddmmyyyy, px: presc
+      ut: String(ufTot), ue: String(ufEf), d: ddmmyyyy, ...presc
     };
   };
   const _linhaTecnico = (p, av) => {
@@ -3242,7 +3248,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.127</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.128</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
