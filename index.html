@@ -115,31 +115,6 @@ const farejarDiagnosticos = (texto) => {
   });
   return achou;
 };
-const MOLDE_PEDIDO = ["Estado geral (estável/grave/gravíssimo): ", "Consciência (Glasgow, ou: consciente/sonolento/rebaixado/sedado): ", "Respiração:", "  Se em VM → FiO2: ___  PEEP: ___", "  Se espontânea → ar ambiente (sim/não): ___  O2 suplementar: ___ L/min", "SatO2 (%): ", "PA: ", "DVAs (sim/não): ", "  Noradrenalina: ___ ml/h (padrão/dobrada)", "  Vasopressina: ___ ml/h", "  Dobutamina: ___ ml/h", "Diurese (ml/24h, ou: anúria/oligúria/preservada): ", "SVD (sim/não): ", "Balanço / ganhos (ml): ", "Edema (ausente/discreto/moderado/acentuado): ", "", "Exames de hoje:", "  Ureia: ", "  Creatinina: ", "  Sódio: ", "  Potássio: ", "  Bicarbonato (ou gasometria): ", "  Outros (se houver): cálcio iônico, magnésio, fósforo, hemoglobina, lactato"];
-const MOLDE_PACIENTE = ["Nome: ", "Idade: ", "Sexo (M/F): ", "Causa básica da internação: ", "Comorbidades (separar por vírgula): ", "DRC prévia? (sim/não/desconhecida): ", "Função renal prévia (creatinina basal, se houver): ", "Rim único / transplante renal?: "];
-const MOLDE_TRANSMISSAO = `Olá! Aqui é o Dr. Israel, da nefrologia. 👋
-Ao longo do plantão vou entrar em contato pra discutirmos juntos os pacientes de nefro/HD. Pra agilizar nossa conversa, deixo abaixo um modelo com os dados que costumo precisar. Qualquer dúvida, estou à disposição. Obrigado! 🙏
-
-🩺 *NEFRO — dados p/ avaliação* (um bloco por paciente)
-*Nome / leito:* ___
-
-🛏 *Beira de leito*
-• PA (ou PAM): ___ · SatO₂: ___
-• DVA: [droga + dose] ou "sem"
-• Ventilação: [modo / FiO₂ / PEEP] · [O₂ nasal __ L] · ou "ar ambiente"
-• Edema: [ausente → anasarca]
-
-💧 *Folha de balanço*
-• Diurese 24h: __ ml
-• Balanço / ganhos: __ ml
-
-🧪 *Labs do dia* (passômetro / PEP)
-• U __ / Cr __ / Na __ / K __ / HCO₃ __
-
-💊 *Confirmar dose vigente (prescrição / bomba)*
-• Diurético em uso + dose: ___ *(essencial — confirmar, não presumir)*
-
-⚠ *Intercorrências:* sangramento ativo? [sim/não] · outras, se houver`;
 const saudacaoHora = () => { const h = new Date().getHours(); return h < 12 ? 'Bom dia.' : h < 18 ? 'Boa tarde.' : 'Boa noite.'; };
 const DVA_DEFS = [
   ['Noradrenalina', /\bnoradrenalina\b|\bnorepinefrina\b|\bnora\b/],
@@ -1178,7 +1153,6 @@ function NefroApp() {
   const [buscaAtb, setBuscaAtb] = useState('');
   const [colaDx, setColaDx] = useState(null);
   const [colaAv, setColaAv] = useState(null); // {raw, achados, pacId, sugestao}
-  const [pedirUTI, setPedirUTI] = useState(false);
   const [modoTeste, setModoTeste] = useState(() => { try { return localStorage.getItem('nefro_modo_teste') === '1'; } catch { return false; } });
   const aplicarModoTeste = (v) => { setModoTeste(v); try { localStorage.setItem('nefro_modo_teste', v ? '1' : '0'); } catch {} };
   const [verRelEnf, setVerRelEnf] = useState(false);
@@ -3318,7 +3292,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.132</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.133</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -4202,46 +4176,6 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                 </React.Fragment>
               );
             })()}
-            <div onClick={() => setPedirUTI(v => !v)} style={SG_HDR}><span>📨 Por UTI (pacientes ativos)</span><span>{pedirUTI ? '▲' : '▼'}</span></div>
-            {pedirUTI && (() => {
-              const utisComPac = [...new Set(pacientes.filter(p => p.nome && p.uti && (modoTeste || !p.teste) && !infoHD[p.id]?.arquivado).map(p => p.uti))];
-              const pedir = (uti) => {
-                const ps = pacientes.filter(p => p.nome && p.uti === uti && (modoTeste || !p.teste) && !infoHD[p.id]?.arquivado);
-                const L = [saudacaoHora(), '', 'Não consigo falar agora. Consegue enviar as informações abaixo dos pacientes da UTI ' + uti + '?', ''];
-                ps.forEach((p, i) => { L.push('----------'); L.push((i + 1) + '. ' + p.nome + (p.leito ? ' (leito ' + p.leito + ')' : '')); L.push(''); MOLDE_PEDIDO.forEach(it => L.push(it)); L.push(''); });
-                L.push('Obrigado!');
-                const txt = L.join('\n');
-                if (navigator.share) navigator.share({ text: txt }).catch(() => {});
-                else if (navigator.clipboard?.writeText) navigator.clipboard.writeText(txt).then(() => mostrarToast('Pedido copiado')).catch(() => prompt('Copie:', txt));
-                else prompt('Copie:', txt);
-              };
-              return (
-                <div style={SG_BODY}>
-                  <div style={{ fontSize: 11.5, color: '#888', marginBottom: 6 }}>Escolha a UTI:</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {utisComPac.length === 0 && <span style={{ fontSize: 12, color: '#888' }}>Nenhum paciente ativo.</span>}
-                    {utisComPac.map(u => <span key={u} onClick={() => pedir(u)} style={{ ...S.checkItem, fontSize: 13 }}>{u}</span>)}
-                  </div>
-                </div>
-              );
-            })()}
-            <button onClick={() => {
-                const L = [saudacaoHora(), '', 'Não consigo falar agora. Consegue enviar as informações abaixo?', '', '— PACIENTE —'];
-                MOLDE_PACIENTE.forEach(it => L.push(it));
-                L.push(''); L.push('— AVALIAÇÃO DE HOJE —');
-                MOLDE_PEDIDO.forEach(it => L.push(it));
-                L.push(''); L.push('Obrigado!');
-                const txt = L.join('\n');
-                if (navigator.share) navigator.share({ text: txt }).catch(() => {});
-                else if (navigator.clipboard?.writeText) navigator.clipboard.writeText(txt).then(() => mostrarToast('Modelo copiado — cole no WhatsApp')).catch(() => prompt('Copie:', txt));
-                else prompt('Copie:', txt);
-              }} style={SG_BTN_FULL}>🆕 Pedir dados — paciente novo</button>
-            <button onClick={() => {
-                const txt = MOLDE_TRANSMISSAO;
-                if (navigator.share) navigator.share({ text: txt }).catch(() => {});
-                else if (navigator.clipboard?.writeText) navigator.clipboard.writeText(txt).then(() => mostrarToast('Modelo copiado — cole no WhatsApp')).catch(() => prompt('Copie:', txt));
-                else prompt('Copie:', txt);
-              }} style={SG_BTN_FULL}>📲 Modelo p/ lista de transmissão</button>
             <div onClick={() => setVerSorologia(v => !v)} style={SG_HDR}><span>🧪 Exames para TRS</span><span>{verSorologia ? '▲' : '▼'}</span></div>
             {verSorologia && (
               <div style={SG_BODY}>
