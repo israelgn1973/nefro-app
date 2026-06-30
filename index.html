@@ -1469,7 +1469,7 @@ function NefroApp() {
     if (!av.diurese && !av.diurese_qual) R('diurese', 'Diurese não informada', 'roteiro', 'bh');
     (av.diureticos || []).forEach(d => {
       const generica = (av.diur_doses || {})[d];
-      const estruturada = d === 'Furosemida' ? (av.furo_dose_n || av.furo_bolus_n) : d === 'Espironolactona' ? av.espiro_cp : d === 'Hidroclorotiazida' ? av.hctz_cp : '';
+      const estruturada = d === 'Furosemida' ? (av.furo_dose_n || av.furo_bolus_n || av.furo_bolus_av_n) : d === 'Espironolactona' ? av.espiro_cp : d === 'Hidroclorotiazida' ? av.hctz_cp : '';
       if (!generica && !estruturada) R('dose_' + d, d + ' sem dose em uso', 'roteiro', 'bh');
     });
     if (!av.conduta) R('conduta', 'CONDUTA não definida', 'hdview', null, null, true);
@@ -3308,7 +3308,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.141</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.142</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
