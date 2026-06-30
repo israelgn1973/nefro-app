@@ -3178,6 +3178,37 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
         () => alert(reais.length + ' evolução(ões) de ' + (dia === diasDisp[0] ? 'hoje' : rotDia(dia)) + ' copiadas em bloco.\n\nCole no PEP — as evoluções vêm separadas por um marcador, para colar uma a uma (ou via colar ritmado).'),
         () => alert('Não foi possível copiar.'));
     };
+    const ORDEM_PEP = ['Branca', 'Azul', 'Laranja', 'Lilás', 'Verde', 'Amarela', 'Rosa', 'Cinza', 'Dourada', 'Prata'];
+    const gerarFilaPEP = async () => {
+      const reais = itens.filter(({ p }) => !p.teste);
+      if (!reais.length) { alert('Nenhuma evolução (não-teste) neste dia.'); return; }
+      const ordenados = reais.slice().sort((a, b) => {
+        const oa = ORDEM_PEP.indexOf(a.p.uti), ob = ORDEM_PEP.indexOf(b.p.uti);
+        const ra = oa < 0 ? 99 : oa, rb = ob < 0 ? 99 : ob;
+        if (ra !== rb) return ra - rb;
+        return String(a.p.leito || '').localeCompare(String(b.p.leito || ''), undefined, { numeric: true });
+      });
+      const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const cards = ordenados.map((it, i) => {
+        const txt = textoUm(it.p, it.av);
+        const hex = CORES_UTI[it.p.uti] || '#888';
+        const extra = (it.p.uti ? ' · UTI ' + esc(it.p.uti) : '') + (it.p.leito ? ' · leito ' + esc(it.p.leito) : '');
+        return '<div class="pac" id="c' + i + '"><div class="ph"><span class="dot" style="background:' + hex + '"></span><b>' + esc(it.p.nome) + '</b>' + extra + '</div><textarea id="t' + i + '" readonly>' + esc(txt) + '</textarea><div class="row"><button id="b' + i + '" onclick="cop(' + i + ')">📋 Copiar</button><label class="chk"><input type="checkbox" onchange="mark(' + i + ',this.checked)"> colei</label></div></div>';
+      }).join('');
+      const titulo = dia === diasDisp[0] ? 'hoje' : rotDia(dia);
+      const css = 'body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#0f1115;color:#e8eef2;padding:14px;line-height:1.45}.top{position:sticky;top:0;background:#0f1115;padding:6px 2px 10px;z-index:5;border-bottom:1px solid #232b36;margin-bottom:10px}h1{font-size:17px;margin:0}.prog{font-size:13px;opacity:.85;margin-top:3px}.pac{background:#1a1f27;border:1px solid #2a3340;border-radius:12px;padding:12px;margin:0 0 12px}.pac.done{opacity:.4}.ph{font-size:14px;margin-bottom:8px;display:flex;align-items:center;gap:7px}.dot{width:11px;height:11px;border-radius:50%;flex:none;border:1px solid rgba(255,255,255,.3)}textarea{width:100%;box-sizing:border-box;height:88px;background:#0f1115;border:1px solid #232b36;border-radius:8px;color:#cdd7e0;font-size:12px;padding:8px;resize:vertical;font-family:inherit}.row{display:flex;gap:10px;align-items:center;margin-top:8px}button{flex:1;background:#0E6E68;color:#fff;border:0;border-radius:9px;padding:11px;font-size:15px;font-weight:600;cursor:pointer}button:active{transform:scale(.99)}button.ok{background:#1f8a4c}.chk{font-size:14px;display:flex;align-items:center;gap:6px;white-space:nowrap;opacity:.85}.chk input{width:20px;height:20px}';
+      const js = 'function exec(ta){ta.focus();ta.select();try{return document.execCommand("copy");}catch(e){return false;}}function cop(i){var ta=document.getElementById("t"+i);var b=document.getElementById("b"+i);function ok(){b.textContent="✓ Copiado";b.className="ok";setTimeout(function(){b.textContent="📋 Copiar";b.className="";},1400);}if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(ta.value).then(ok,function(){if(exec(ta))ok();});}else{if(exec(ta))ok();}}function mark(i,c){var card=document.getElementById("c"+i);if(c){card.classList.add("done");}else{card.classList.remove("done");}document.getElementById("n").textContent=document.querySelectorAll(".pac.done").length;}';
+      const html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fila p/ PEP</title><style>' + css + '</style></head><body><div class="top"><h1>📄 Fila p/ PEP · ' + titulo + '</h1><div class="prog"><span id="n">0</span>/' + ordenados.length + ' colados · ordem do PEP</div></div>' + cards + '<scr' + 'ipt>' + js + '</scr' + 'ipt></body></html>';
+      const blob = new Blob([html], { type: 'text/html' });
+      const nome = 'fila_pep_' + dia + '.html';
+      const file = new File([blob], nome, { type: 'text/html' });
+      const baixar = () => { const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = nome; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 8000); };
+      try {
+        if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: 'Fila p/ PEP' });
+        else if (navigator.share) await navigator.share({ files: [file], title: 'Fila p/ PEP' });
+        else baixar();
+      } catch (e) { if (!e || e.name !== 'AbortError') baixar(); }
+    };
     return (
       <div style={S.app}>
         <div style={S.header}>
@@ -3199,9 +3230,15 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
             <span style={{ fontSize: 11, color: '#888', whiteSpace: 'nowrap' }}>retroativa (faturamento)</span>
           </div>
           {itens.filter(({ p }) => !p.teste).length > 0 && (
+            <button onClick={gerarFilaPEP}
+              style={{ width: '100%', padding: '13px', borderRadius: 8, border: 'none', background: '#0E6E68', color: 'white', fontWeight: 700, fontSize: 14, cursor: 'pointer', marginBottom: 8 }}>
+              📲 Enviar fila p/ PEP (.html)
+            </button>
+          )}
+          {itens.filter(({ p }) => !p.teste).length > 0 && (
             <button onClick={copiarBloco}
-              style={{ width: '100%', padding: '12px', borderRadius: 8, border: 'none', background: '#1a3a5c', color: 'white', fontWeight: 700, fontSize: 14, cursor: 'pointer', marginBottom: 12 }}>
-              📋 Copiar todas em bloco ({itens.filter(({ p }) => !p.teste).length})
+              style={{ width: '100%', padding: '10px', borderRadius: 8, border: '1px solid #1a3a5c', background: 'transparent', color: '#1a3a5c', fontWeight: 600, fontSize: 12.5, cursor: 'pointer', marginBottom: 12 }}>
+              📋 Copiar todas em bloco (texto)
             </button>
           )}
           {!itens.length
@@ -3308,7 +3345,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.143</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.144</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
