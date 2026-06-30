@@ -3164,7 +3164,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
       if (av) itens.push({ p, av });
     });
     const rotDia = d => d.split('-').reverse().slice(0, 2).join('/');
-    const textoUm = (p, av) => p.nome + ' — ' + new Date(av.data).toLocaleDateString('pt-BR') + '\n\n' + gerarTextoPanorama(av, p);
+    const textoUm = (p, av) => gerarTextoPanorama(av, p);
     const copiarUm = (p, av) => {
       const txt = textoUm(p, av);
       navigator.clipboard?.writeText(txt).then(() => alert('Evolução de ' + p.nome + ' copiada — cole no PEP.'), () => alert('Não foi possível copiar.'));
@@ -3345,7 +3345,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.144</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.145</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
