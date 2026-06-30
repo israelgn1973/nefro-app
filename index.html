@@ -3308,7 +3308,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.142</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.143</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -5515,7 +5515,8 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
               const prior = (avaliacoes[pacAtual.id] || []).filter(a => a.id !== avAtual.id && a.data < avAtual.data && temEx(a)).sort((x,y) => y.data - x.data).slice(0,2).reverse();
               const cols = prior.length === 0 ? [{ id: '__ant__', anterior: true }, avAtual] : [...prior, avAtual];
               const setLabAv = (avId, lk, val) => { if (avId === avAtual.id) { upLab(lk, val); return; } setAvaliacoes(prev => ({ ...prev, [pacAtual.id]: (prev[pacAtual.id]||[]).map(a => a.id === avId ? { ...a, labs: { ...(a.labs||{}), [lk]: val }, updatedAt: Date.now() } : a) })); };
-              const LINHAS = [['Ureia','ureia','mg/dL'], ['Creatinina','creat','mg/dL'], ['Sódio','sodio','mEq/L'], ['Potássio','pot','mEq/L'], ['Bicarbonato','bic','mEq/L'], ['Ca iônico','ca','mmol/L'], ['Magnésio','mg','mg/dL'], ['Fósforo','p','mg/dL']].concat((avAtual.exames_extras || []).map(k => { for (const [, its] of CAT_EXAMES) { const it = its.find(x => x[1] === k); if (it) return [it[0] + (it[2] ? ' (' + it[2] + ')' : ''), it[1], it[2]]; } return [k, k, '']; }));
+              const _extrasLinhas = (avAtual.exames_extras || []).map(k => { for (const [, its] of CAT_EXAMES) { const it = its.find(x => x[1] === k); if (it) return [it[0] + (it[2] ? ' (' + it[2] + ')' : ''), it[1], it[2]]; } return [k, k, '']; });
+              const LINHAS = [['Ureia','ureia','mg/dL'], ['Creatinina','creat','mg/dL'], ['Sódio','sodio','mEq/L'], ['Potássio','pot','mEq/L'], ['Bicarbonato','bic','mEq/L'], ..._extrasLinhas, ['Ca iônico','ca','mmol/L'], ['Magnésio','mg','mg/dL'], ['Fósforo','p','mg/dL']];
               const grid = { display: 'grid', gridTemplateColumns: '1.3fr ' + cols.map(() => '1fr').join(' '), gap: 0 };
               return (
                 <div>
