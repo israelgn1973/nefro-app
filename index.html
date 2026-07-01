@@ -25,8 +25,8 @@
    se falhar o import (offline), window.__andamento fica indefinido e o botão avisa
    sem quebrar o resto do app. */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, getDocs, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, getDocs, addDoc, doc, setDoc, writeBatch, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 const firebaseConfig = {
   apiKey: "AIzaSyC-p2P1j0F004pkzV7AWotLwvtASRuBYTM",
   authDomain: "nefro-andamento.firebaseapp.com",
@@ -38,9 +38,11 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
+const googleProvider = new GoogleAuthProvider();
+getRedirectResult(auth).catch(()=>{});
 window.__andamento = {
   async enviar(lista){
-    await signInAnonymously(auth);
+    if (!auth.currentUser) await signInAnonymously(auth);
     const snap = await getDocs(collection(db, 'passagem'));
     const existentes = new Set(snap.docs.map(d => String(d.data().nome || '').trim().toLowerCase()));
     let novos = 0, jaLa = 0;
@@ -53,6 +55,50 @@ window.__andamento = {
       novos++;
     }
     return { novos, jaLa };
+  }
+};
+/* Passo A — sync do NefroApp (iPad + iPhone). Espaco privado do medico:
+   usuarios/<uid>/pacientes. So a conta Google (nao anonimo) acessa (regra travada).
+   NUNCA apaga na nuvem no Passo A: so mescla/sobe. */
+window.__nefrosync = {
+  estado(){ const u = auth.currentUser; return { logado: !!(u && !u.isAnonymous), email: (u && !u.isAnonymous) ? (u.email || '') : null }; },
+  async login(){
+    try { await signInWithPopup(auth, googleProvider); }
+    catch(err){
+      const c = err && err.code ? err.code : '';
+      if (c.indexOf('popup') >= 0 || c.indexOf('operation-not-supported') >= 0 || c.indexOf('cancelled') >= 0) { await signInWithRedirect(auth, googleProvider); }
+      else throw err;
+    }
+  },
+  async logout(){ await signOut(auth); },
+  async puxar(){
+    const u = auth.currentUser; if (!u || u.isAnonymous) throw new Error('sem login');
+    const snap = await getDocs(collection(db, 'usuarios', u.uid, 'pacientes'));
+    const pacientes = [], lixeira = [], avaliacoes = {};
+    snap.forEach(dref => {
+      const data = dref.data() || {};
+      const p = data.p; if (!p) return;
+      if (data.lixo) lixeira.push(p); else pacientes.push(p);
+      avaliacoes[p.id] = data.av || [];
+    });
+    return { pacientes, avaliacoes, lixeira };
+  },
+  async enviar(estado){
+    const u = auth.currentUser; if (!u || u.isAnonymous) throw new Error('sem login');
+    const base = collection(db, 'usuarios', u.uid, 'pacientes');
+    const av = estado.avaliacoes || {};
+    const escrever = async (lista, lixo) => {
+      let batch = writeBatch(db), n = 0;
+      for (const p of (lista || [])) {
+        if (!p || p.id == null) continue;
+        batch.set(doc(base, String(p.id)), { p, av: av[p.id] || [], lixo, updatedAt: p.updatedAt || Date.now() });
+        if (++n >= 400) { await batch.commit(); batch = writeBatch(db); n = 0; }
+      }
+      if (n > 0) await batch.commit();
+    };
+    await escrever(estado.pacientes, false);
+    await escrever(estado.lixeira, true);
+    return { enviados: (estado.pacientes || []).length + (estado.lixeira || []).length };
   }
 };
 </script>
@@ -2970,6 +3016,39 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
     }
   }
 
+  function computarMerge(d) {
+    const recencia = p => p.updatedAt || 0;
+    const novosVence = {};
+    const mapaPac = {};
+    pacientes.forEach(p => { mapaPac[p.id] = p; });
+    (d.pacientes || []).forEach(p => {
+      if (!mapaPac[p.id] || recencia(p) >= recencia(mapaPac[p.id])) { mapaPac[p.id] = p; novosVence[p.id] = true; }
+    });
+    const pacMerged = Object.values(mapaPac);
+    const avMerged = { ...avaliacoes };
+    const dia = a => { try { return dataLocalISO(a.data); } catch { return String(a.data); } };
+    Object.entries(d.avaliacoes || {}).forEach(([pid, avsImp]) => {
+      const atuais = avMerged[pid] || [];
+      const porDia = {};
+      atuais.forEach(a => { porDia[dia(a)] = a; });
+      (avsImp || []).forEach(a => {
+        const k = dia(a);
+        if (!porDia[k] || novosVence[pid]) porDia[k] = a;
+      });
+      avMerged[pid] = Object.values(porDia).sort((x, y) => new Date(y.data) - new Date(x.data));
+    });
+    const lixMap = {};
+    lixeira.forEach(p => { lixMap[p.id] = p; });
+    (d.lixeira || []).forEach(p => { if (!lixMap[p.id]) lixMap[p.id] = p; });
+    const pacIds = new Set(pacMerged.map(p => p.id));
+    const lixMerged = Object.values(lixMap).filter(p => !pacIds.has(p.id));
+    const homs = [];
+    pacMerged.forEach((p, i) => pacMerged.slice(i + 1).forEach(q => {
+      if (nrmNome(p.nome) === nrmNome(q.nome) && String(p.idade || '') === String(q.idade || '')) homs.push(p.nome);
+    }));
+    return { pacMerged, avMerged, lixMerged, homs };
+  }
+
   function importarDados(file) {
     const reader = new FileReader();
     reader.onload = e => {
@@ -2978,40 +3057,10 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
         if (!d.pacientes) { alert('Arquivo inválido.'); return; }
         const qtd = d.pacientes.length;
         if (confirm(`Importar ${qtd} paciente(s) mesclando com os atuais? Pacientes existentes são mantidos; em coincidências vale o registro mais recente.`)) {
-          // vencedor por paciente: o lado com updatedAt mais recente
-          const recencia = p => p.updatedAt || 0;
-          const novosVence = {};
-          const mapaPac = {};
-          pacientes.forEach(p => { mapaPac[p.id] = p; });
-          d.pacientes.forEach(p => {
-            if (!mapaPac[p.id] || recencia(p) >= recencia(mapaPac[p.id])) { mapaPac[p.id] = p; novosVence[p.id] = true; }
-          });
-          const pacMerged = Object.values(mapaPac);
-
-          const avMerged = { ...avaliacoes };
-          const dia = a => { try { return dataLocalISO(a.data); } catch { return String(a.data); } };
-          Object.entries(d.avaliacoes || {}).forEach(([pid, avsImp]) => {
-            const atuais = avMerged[pid] || [];
-            const porDia = {};
-            atuais.forEach(a => { porDia[dia(a)] = a; });
-            (avsImp || []).forEach(a => {
-              const k = dia(a);
-              if (!porDia[k] || novosVence[pid]) porDia[k] = a; // coincidência de dia: vale o lado do paciente mais recente
-            });
-            avMerged[pid] = Object.values(porDia).sort((x, y) => new Date(y.data) - new Date(x.data));
-          });
-
+          const { pacMerged, avMerged, lixMerged, homs } = computarMerge(d);
           setPacientes(pacMerged);
           setAvaliacoes(avMerged);
-          const lixMap = {};
-          lixeira.forEach(p => { lixMap[p.id] = p; });
-          (d.lixeira || []).forEach(p => { if (!lixMap[p.id]) lixMap[p.id] = p; });
-          const pacIds = new Set(pacMerged.map(p => p.id));
-          setLixeira(Object.values(lixMap).filter(p => !pacIds.has(p.id)));
-          const homs = [];
-          pacMerged.forEach((p, i) => pacMerged.slice(i + 1).forEach(q => {
-            if (nrmNome(p.nome) === nrmNome(q.nome) && String(p.idade || '') === String(q.idade || '')) homs.push(p.nome);
-          }));
+          setLixeira(lixMerged);
           alert(`Importação concluída: ${pacMerged.length} paciente(s) no app.` + (homs.length ? `\n\nAtenção — possíveis duplicados (homônimos com mesma idade): ${[...new Set(homs)].join(', ')}. Estão marcados na lista; arraste para a esquerda o registro que não quer manter e exclua.` : ''));
         }
       } catch (err) { alert('Erro ao ler o arquivo.'); }
@@ -3381,7 +3430,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.149</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.150</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -4355,6 +4404,28 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
               <input type="file" accept="application/json,.json" style={{ display: 'none' }}
                 onChange={e => { if (e.target.files[0]) importarDados(e.target.files[0]); e.target.value = ''; }} />
             </label>
+            <div style={SG_LBL}>☁ Nuvem (iPad + iPhone)</div>
+            <button onClick={async () => {
+              if (!window.__nefrosync) { alert('Sincronização ainda carregando (precisa de internet). Tente de novo em alguns segundos.'); return; }
+              let st = window.__nefrosync.estado();
+              if (!st.logado) {
+                if (!confirm('Sincronizar entre seus aparelhos usa sua conta Google (você entra uma vez neste aparelho).\n\nEntrar agora?')) return;
+                try { await window.__nefrosync.login(); } catch (e) { alert('Login falhou: ' + ((e && e.message) ? e.message : e)); return; }
+                st = window.__nefrosync.estado();
+                if (!st.logado) return;
+              }
+              try {
+                const antes = pacientes.length;
+                const remoto = await window.__nefrosync.puxar();
+                const m = computarMerge(remoto);
+                setPacientes(m.pacMerged); setAvaliacoes(m.avMerged); setLixeira(m.lixMerged);
+                await window.__nefrosync.enviar({ pacientes: m.pacMerged, avaliacoes: m.avMerged, lixeira: m.lixMerged });
+                const baixados = m.pacMerged.length - antes;
+                alert('☁ Sincronizado (' + st.email + ').\n\nPacientes no app: ' + m.pacMerged.length + (baixados > 0 ? ('\nBaixados da nuvem: ' + baixados) : '') + '\nEnviados à nuvem: ' + m.pacMerged.length + '.');
+              } catch (e) {
+                alert('Não consegui sincronizar: ' + ((e && e.message) ? e.message : e) + '\n\nSeus dados locais estão intactos. Confira a internet e tente de novo.');
+              }
+            }} style={{ ...SG_BTN, borderColor: '#2980d9', color: '#2980d9', fontWeight: 600 }}>☁ Sincronizar agora</button>
             <div onClick={() => setVerLixeira(v => !v)} style={{ ...SG_HDR, ...(lixeira.length ? { color: '#c0392b', borderColor: '#e8c8c4' } : {}) }}><span>🗑 Lixeira ({lixeira.length})</span><span>{verLixeira ? '▲' : '▼'}</span></div>
             {verLixeira && (
               <div style={SG_BODY}>
