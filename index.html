@@ -756,9 +756,15 @@ function salvarDados(pacientes, avaliacoes, lixeira) {
   } catch (e) {}
 }
 
+// ── PIN de bloqueio: por aparelho. Chave própria, NÃO sincroniza e NÃO entra em export/import ──
+const PIN_KEY = 'nefroapp_pin_v1';
+function hashPin(s) { let h = 5381; s = String(s || ''); for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0; return 'h' + h; }
+function getPin() { try { return (typeof localStorage !== 'undefined' && localStorage.getItem(PIN_KEY)) || ''; } catch (e) { return ''; } }
+const PIN_INP = { width: '100%', boxSizing: 'border-box', fontSize: 18, letterSpacing: 4, textAlign: 'center', padding: '10px', borderRadius: 10, border: '1px solid #ccc', marginBottom: 8, outline: 'none' };
+
 // ── ESTILOS ──
 const S = {
-  app: { fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', background: '#f4f4f0', minHeight: '100dvh', maxWidth: 480, margin: '0 auto' },
+  app: { fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', background: '#f4f4f0', minHeight: '100dvh', maxWidth: 820, margin: '0 auto' },
   header: { background: '#1a3a5c', color: 'white', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10, position: 'sticky', top: 0, zIndex: 100 },
   h1: { fontSize: 18, fontWeight: 700, flex: 1, margin: 0 },
   backBtn: { background: 'none', border: 'none', color: 'white', fontSize: 26, cursor: 'pointer', padding: '0 4px', lineHeight: 1 },
@@ -780,7 +786,7 @@ const S = {
   tabs: { display: 'flex', background: 'white', borderBottom: '1px solid #eee', position: 'sticky', top: 52, zIndex: 90 },
   tab: { flex: 1, padding: '12px 8px', textAlign: 'center', fontSize: 13, fontWeight: 500, color: '#888', cursor: 'pointer', borderBottom: '3px solid transparent' },
   tabActive: { color: '#1a3a5c', borderBottom: '3px solid #1a3a5c', fontWeight: 700 },
-  bottomActions: { position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, background: 'white', borderTop: '1px solid #eee', padding: '12px 16px', display: 'flex', gap: 10 },
+  bottomActions: { position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 820, background: 'white', borderTop: '1px solid #eee', padding: '12px 16px', display: 'flex', gap: 10 },
   btn: { flex: 1, padding: 13, border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' },
   condutaRow: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, padding: '12px 16px' },
   condutaBtn: { padding: '14px 8px', border: '2px solid #ddd', borderRadius: 8, background: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', textAlign: 'center' },
@@ -872,7 +878,7 @@ function NumPadOverlay({ pad, onChange, onClose }) {
   };
   const ok = () => { const limpo = pad.mode === 'pa' ? fmtPA(pad.value) : pad.value.replace(/^0+(?=\d)/, ''); pad.onSet(limpo); if (pad.onNext) pad.onNext(); else onClose(); };
   return (
-    <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: 'white', boxShadow: '0 -4px 20px rgba(0,0,0,0.18)', borderRadius: '16px 16px 0 0', padding: '12px 16px 20px', zIndex: 1000, maxWidth: 480, margin: '0 auto' }}>
+    <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, background: 'white', boxShadow: '0 -4px 20px rgba(0,0,0,0.18)', borderRadius: '16px 16px 0 0', padding: '12px 16px 20px', zIndex: 1000, maxWidth: 820, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <span style={{ fontSize: 12, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5 }}>{pad.label}</span>
         <span onClick={onClose} style={{ fontSize: 16, color: '#888', cursor: 'pointer', padding: 4 }}>✕</span>
@@ -1018,6 +1024,11 @@ function NefroApp() {
   const [verLixeira, setVerLixeira] = useState(false);
   const [sincronizando, setSincronizando] = useState(false);
   const [syncMsg, setSyncMsg] = useState('');
+  const [pinModal, setPinModal] = useState(null);
+  const [pinA, setPinA] = useState('');
+  const [pinB, setPinB] = useState('');
+  const [pinMsg, setPinMsg] = useState('');
+  const [pinTem, setPinTem] = useState(() => !!getPin());
   const [mesStats, setMesStats] = useState(null);
   const [modoExcluir, setModoExcluir] = useState(false);
   const [modalComExcluir, setModalComExcluir] = useState(false);
@@ -3432,7 +3443,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.152</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.154</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -4438,6 +4449,39 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
               }
             }} style={{ ...SG_BTN, borderColor: '#2980d9', color: '#2980d9', fontWeight: 600, opacity: sincronizando ? 0.6 : 1 }}>{sincronizando ? '☁ Sincronizando…' : '☁ Sincronizar agora'}</button>
             {syncMsg && <div style={{ fontSize: 11.5, color: syncMsg.charAt(0) === '✓' ? '#1f8a4c' : '#c0392b', padding: '5px 2px 2px', lineHeight: 1.35 }}>{syncMsg}</div>}
+            <div style={SG_LBL}>🔒 Bloqueio deste aparelho</div>
+            <button onClick={() => { setPinA(''); setPinB(''); setPinMsg(''); setPinModal('definir'); }} style={SG_BTN}>{pinTem ? '🔒 Trocar PIN' : '🔒 Definir PIN'}</button>
+            {pinTem && <button onClick={() => { setPinA(''); setPinMsg(''); setPinModal('remover'); }} style={{ ...SG_BTN, color: '#c0392b' }}>Remover PIN</button>}
+            {pinModal && (
+              <div onClick={() => setPinModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+                <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, padding: 20, width: '100%', maxWidth: 340 }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{pinModal === 'definir' ? (pinTem ? 'Trocar PIN' : 'Definir PIN') : 'Remover PIN'}</div>
+                  <div style={{ fontSize: 12.5, color: '#667', marginBottom: 14 }}>{pinModal === 'definir' ? 'Vale só neste aparelho — não sincroniza. Anote seu PIN: se esquecer, só limpando os dados do navegador (por isso mantenha o backup).' : 'Digite o PIN atual para remover.'}</div>
+                  {pinModal === 'definir'
+                    ? (<><input type="password" inputMode="numeric" autoFocus placeholder="Novo PIN (4 a 8 dígitos)" value={pinA} onChange={e => { setPinA(e.target.value.replace(/\D/g, '').slice(0, 8)); setPinMsg(''); }} style={PIN_INP} />
+                         <input type="password" inputMode="numeric" placeholder="Repita o PIN" value={pinB} onChange={e => { setPinB(e.target.value.replace(/\D/g, '').slice(0, 8)); setPinMsg(''); }} style={PIN_INP} /></>)
+                    : (<input type="password" inputMode="numeric" autoFocus placeholder="PIN atual" value={pinA} onChange={e => { setPinA(e.target.value.replace(/\D/g, '').slice(0, 8)); setPinMsg(''); }} style={PIN_INP} />)}
+                  {pinMsg && <div style={{ color: '#c0392b', fontSize: 12.5, margin: '2px 0 8px' }}>{pinMsg}</div>}
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <button onClick={() => setPinModal(null)} style={{ ...SG_BTN, flex: 1 }}>Cancelar</button>
+                    <button onClick={() => {
+                      if (pinModal === 'definir') {
+                        if (pinA.length < 4) { setPinMsg('Use ao menos 4 dígitos.'); return; }
+                        if (pinA !== pinB) { setPinMsg('Os dois PINs não coincidem.'); return; }
+                        try { localStorage.setItem(PIN_KEY, hashPin(pinA)); } catch (e) {}
+                        setPinTem(true); window.dispatchEvent(new Event('nefropin')); setPinModal(null);
+                        alert('🔒 PIN ativado neste aparelho. Será pedido ao abrir e após 2 min fora do app.');
+                      } else {
+                        if (hashPin(pinA) !== getPin()) { setPinMsg('PIN incorreto.'); return; }
+                        try { localStorage.removeItem(PIN_KEY); } catch (e) {}
+                        setPinTem(false); window.dispatchEvent(new Event('nefropin')); setPinModal(null);
+                        alert('PIN removido deste aparelho.');
+                      }
+                    }} style={{ ...SG_BTN, flex: 1, borderColor: '#2980d9', color: '#2980d9', fontWeight: 600 }}>{pinModal === 'definir' ? 'Salvar' : 'Remover'}</button>
+                  </div>
+                </div>
+              </div>
+            )}
             <div onClick={() => setVerLixeira(v => !v)} style={{ ...SG_HDR, ...(lixeira.length ? { color: '#c0392b', borderColor: '#e8c8c4' } : {}) }}><span>🗑 Lixeira ({lixeira.length})</span><span>{verLixeira ? '▲' : '▼'}</span></div>
             {verLixeira && (
               <div style={SG_BODY}>
@@ -4559,7 +4603,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
               );
             })()}
             <div style={{ height: 150 }} />
-            <div style={{ position: 'fixed', left: 0, right: 0, bottom: 'calc(84px + env(safe-area-inset-bottom, 0px))', zIndex: 55, maxWidth: 480, margin: '0 auto', padding: '0 12px', maxHeight: '46vh', overflowY: 'auto' }}>
+            <div style={{ position: 'fixed', left: 0, right: 0, bottom: 'calc(84px + env(safe-area-inset-bottom, 0px))', zIndex: 55, maxWidth: 820, margin: '0 auto', padding: '0 12px', maxHeight: '46vh', overflowY: 'auto' }}>
               {(() => {
               const avHojeT = avs.find(a => dataLocalISO(a.data) === dataLocalISO() && (!a.intercorrencia || a.conduta));
               const _diag = `v151 · evoluções: ${avs.length} · hoje: ${avHojeT ? 'sim' : 'não'} · concluída: ${avHojeT && avHojeT.concluidaEm ? 'sim' : 'não'}`;
@@ -7316,8 +7360,46 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
 }
 
 
+function PinGate() {
+  const [pinStored, setPinStored] = React.useState(getPin);
+  const [travado, setTravado] = React.useState(() => !!getPin());
+  const [entrada, setEntrada] = React.useState('');
+  const [erro, setErro] = React.useState(false);
+  const bgAt = React.useRef(Date.now());
+  React.useEffect(() => {
+    const onPin = () => { const p = getPin(); setPinStored(p); if (!p) setTravado(false); };
+    const onVis = () => {
+      if (document.hidden) { bgAt.current = Date.now(); }
+      else { const p = getPin(); if (p && Date.now() - bgAt.current > 120000) { setTravado(true); setEntrada(''); setErro(false); } }
+    };
+    window.addEventListener('nefropin', onPin);
+    document.addEventListener('visibilitychange', onVis);
+    return () => { window.removeEventListener('nefropin', onPin); document.removeEventListener('visibilitychange', onVis); };
+  }, []);
+  if (travado && pinStored) {
+    const tentar = (v) => {
+      const val = String(v).replace(/\D/g, '').slice(0, 8);
+      setEntrada(val); setErro(false);
+      if (hashPin(val) === pinStored) { setTravado(false); setEntrada(''); }
+    };
+    return (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 200000, background: '#16324f', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
+        <div style={{ fontSize: 44, marginBottom: 14 }}>🔒</div>
+        <div style={{ color: '#fff', fontSize: 18, fontWeight: 700 }}>NefroApp bloqueado</div>
+        <div style={{ color: '#b9c7d8', fontSize: 13, margin: '6px 0 22px' }}>Digite o PIN para acessar</div>
+        <input type="password" inputMode="numeric" autoFocus value={entrada}
+          onChange={e => tentar(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && hashPin(entrada) !== pinStored) setErro(true); }}
+          style={{ fontSize: 26, letterSpacing: 8, textAlign: 'center', padding: '12px 10px', borderRadius: 12, border: '2px solid ' + (erro ? '#e57373' : 'transparent'), width: 200, outline: 'none', background: '#fff' }} />
+        {erro && <div style={{ color: '#ffb3b3', fontSize: 12.5, marginTop: 12 }}>PIN incorreto</div>}
+      </div>
+    );
+  }
+  return <NefroApp />;
+}
+
 const root = ReactDOM.createRoot(document.getElementById("root"));
-root.render(<NefroApp />);
+root.render(<PinGate />);
 </script>
 </body>
 </html>
