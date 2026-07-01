@@ -1016,6 +1016,8 @@ function NefroApp() {
   const [verSorologia, setVerSorologia] = useState(false);
   const [diasHDsoAtiva, setDiasHDsoAtiva] = useState(true);
   const [verLixeira, setVerLixeira] = useState(false);
+  const [sincronizando, setSincronizando] = useState(false);
+  const [syncMsg, setSyncMsg] = useState('');
   const [mesStats, setMesStats] = useState(null);
   const [modoExcluir, setModoExcluir] = useState(false);
   const [modalComExcluir, setModalComExcluir] = useState(false);
@@ -3430,7 +3432,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.151</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.152</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -4405,8 +4407,9 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                 onChange={e => { if (e.target.files[0]) importarDados(e.target.files[0]); e.target.value = ''; }} />
             </label>
             <div style={SG_LBL}>☁ Nuvem (iPad + iPhone)</div>
-            <button onClick={async () => {
-              if (!window.__nefrosync) { alert('Sincronização ainda carregando (precisa de internet). Tente de novo em alguns segundos.'); return; }
+            <button disabled={sincronizando} onClick={async () => {
+              if (sincronizando) return;
+              if (!window.__nefrosync) { alert('A sincronização não carregou (módulo do Firebase). Verifique a internet, puxe a tela para baixo para recarregar e tente de novo.'); return; }
               let st = window.__nefrosync.estado();
               if (!st.logado) {
                 if (!confirm('Sincronizar entre seus aparelhos usa sua conta Google (você entra uma vez neste aparelho).\n\nEntrar agora?')) return;
@@ -4414,18 +4417,27 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                 st = window.__nefrosync.estado();
                 if (!st.logado) return;
               }
+              const comTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('tempo esgotado — rede lenta ou instável')), ms))]);
+              setSincronizando(true); setSyncMsg('');
               try {
                 const antes = pacientes.length;
-                const remoto = await window.__nefrosync.puxar();
+                const remoto = await comTimeout(window.__nefrosync.puxar(), 30000);
                 const m = computarMerge(remoto);
                 setPacientes(m.pacMerged); setAvaliacoes(m.avMerged); setLixeira(m.lixMerged);
-                await window.__nefrosync.enviar({ pacientes: m.pacMerged, avaliacoes: m.avMerged, lixeira: m.lixMerged });
+                await comTimeout(window.__nefrosync.enviar({ pacientes: m.pacMerged, avaliacoes: m.avMerged, lixeira: m.lixMerged }), 30000);
                 const baixados = m.pacMerged.length - antes;
-                alert('☁ Sincronizado (' + st.email + ').\n\nPacientes no app: ' + m.pacMerged.length + (baixados > 0 ? ('\nBaixados da nuvem: ' + baixados) : '') + '\nEnviados à nuvem: ' + m.pacMerged.length + '.');
+                const msg = '✓ Sincronizado (' + st.email + ') · ' + m.pacMerged.length + ' pacientes' + (baixados > 0 ? (' · ' + baixados + ' baixados') : '');
+                setSyncMsg(msg);
+                alert('☁ ' + msg);
               } catch (e) {
+                const err = '✕ Falhou: ' + ((e && e.message) ? e.message : e);
+                setSyncMsg(err + ' — seus dados locais estão intactos.');
                 alert('Não consegui sincronizar: ' + ((e && e.message) ? e.message : e) + '\n\nSeus dados locais estão intactos. Confira a internet e tente de novo.');
+              } finally {
+                setSincronizando(false);
               }
-            }} style={{ ...SG_BTN, borderColor: '#2980d9', color: '#2980d9', fontWeight: 600 }}>☁ Sincronizar agora</button>
+            }} style={{ ...SG_BTN, borderColor: '#2980d9', color: '#2980d9', fontWeight: 600, opacity: sincronizando ? 0.6 : 1 }}>{sincronizando ? '☁ Sincronizando…' : '☁ Sincronizar agora'}</button>
+            {syncMsg && <div style={{ fontSize: 11.5, color: syncMsg.charAt(0) === '✓' ? '#1f8a4c' : '#c0392b', padding: '5px 2px 2px', lineHeight: 1.35 }}>{syncMsg}</div>}
             <div onClick={() => setVerLixeira(v => !v)} style={{ ...SG_HDR, ...(lixeira.length ? { color: '#c0392b', borderColor: '#e8c8c4' } : {}) }}><span>🗑 Lixeira ({lixeira.length})</span><span>{verLixeira ? '▲' : '▼'}</span></div>
             {verLixeira && (
               <div style={SG_BODY}>
