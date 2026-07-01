@@ -20,6 +20,42 @@
 <script crossorigin src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
 <script crossorigin src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.6/babel.min.js"></script>
+<script type="module">
+/* Fase 2 — ponte NefroApp → Firebase (andamento). Só este trecho usa internet;
+   se falhar o import (offline), window.__andamento fica indefinido e o botão avisa
+   sem quebrar o resto do app. */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, getDocs, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+const firebaseConfig = {
+  apiKey: "AIzaSyC-p2P1j0F004pkzV7AWotLwvtASRuBYTM",
+  authDomain: "nefro-andamento.firebaseapp.com",
+  projectId: "nefro-andamento",
+  storageBucket: "nefro-andamento.firebasestorage.app",
+  messagingSenderId: "297728736481",
+  appId: "1:297728736481:web:7503751466d374aae1cba0"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+window.__andamento = {
+  async enviar(lista){
+    await signInAnonymously(auth);
+    const snap = await getDocs(collection(db, 'passagem'));
+    const existentes = new Set(snap.docs.map(d => String(d.data().nome || '').trim().toLowerCase()));
+    let novos = 0, jaLa = 0;
+    for (const p of lista) {
+      const chave = String(p.nome || '').trim().toLowerCase();
+      if (!chave) continue;
+      if (existentes.has(chave)) { jaLa++; continue; }
+      await addDoc(collection(db, 'passagem'), { nome: p.nome, uti: p.uti || '', leito: p.leito || '', status: 'pendente', statusAt: null, criadoEm: serverTimestamp() });
+      existentes.add(chave);
+      novos++;
+    }
+    return { novos, jaLa };
+  }
+};
+</script>
 </head>
 <body>
 <div id="root"><div style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:-apple-system,sans-serif;color:#1a3a5c;background:#f7f7f4"><div style="font-size:17px;font-weight:700;margin-bottom:12px">NefroApp</div><div style="font-size:13px;color:#888">Carregando…</div><div style="margin-top:16px;width:32px;height:32px;border:3px solid #d5dde5;border-top-color:#1a3a5c;border-radius:50%;animation:spin 0.8s linear infinite"></div></div></div><style>@keyframes spin{to{transform:rotate(360deg)}}</style>
@@ -3164,7 +3200,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
       if (av) itens.push({ p, av });
     });
     const rotDia = d => d.split('-').reverse().slice(0, 2).join('/');
-    const textoUm = (p, av) => gerarTextoPanorama(av, p);
+    const textoUm = (p, av) => new Date(av.data).toLocaleDateString('pt-BR') + '\n\n' + gerarTextoPanorama(av, p);
     const copiarUm = (p, av) => {
       const txt = textoUm(p, av);
       navigator.clipboard?.writeText(txt).then(() => alert('Evolução de ' + p.nome + ' copiada — cole no PEP.'), () => alert('Não foi possível copiar.'));
@@ -3345,7 +3381,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.147</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.149</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -4159,6 +4195,18 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
               );
             })()}
             <button onClick={gerarRelatorioHDs} style={SG_BTN}>📋 HDs do dia</button>
+            <button onClick={async () => {
+              const hds = pacientes.filter(p => !p.externo && infoHD[p.id]?.hdHoje && !infoHD[p.id]?.arquivado && (modoTeste || !p.teste));
+              if (!hds.length) { alert('Nenhuma HD prescrita hoje.'); return; }
+              if (!window.__andamento) { alert('Andamento ainda carregando (precisa de internet). Aguarde alguns segundos e tente de novo.'); return; }
+              if (!confirm('Enviar ' + hds.length + ' paciente(s) com HD hoje para o Andamento?\n\nAdiciona só quem ainda não está lá — não altera os status já marcados pela equipe.')) return;
+              try {
+                const r = await window.__andamento.enviar(hds.map(p => ({ nome: p.nome, uti: p.uti, leito: p.leito })));
+                alert('✅ Enviado ao Andamento.\n\nNovos: ' + r.novos + '\nJá estavam na lista: ' + r.jaLa);
+              } catch (e) {
+                alert('Não consegui enviar: ' + ((e && e.message) ? e.message : e) + '\n\nConfira a internet e tente de novo.');
+              }
+            }} style={{ ...SG_BTN, borderColor: '#0E6E68', color: '#0E6E68', fontWeight: 600 }}>📲 Enviar plantão p/ andamento</button>
             <button onClick={() => setView('stats')} style={SG_BTN_FULL}>📊 Estatística</button>
 
             <div style={SG_LBL}>📲 Enviar para a equipe</div>
