@@ -49,7 +49,7 @@ window.__andamento = {
     for (const p of lista) {
       const chave = String(p.nome || '').trim().toLowerCase();
       if (!chave) continue;
-      const extras = { linkRel: p.linkRel || '', presc: p.presc || '' };
+      const extras = { linkRel: p.linkRel || '', presc: p.presc || '', durH: (p.durH == null ? null : p.durH) };
       if (mapa.has(chave)) { await setDoc(doc(db, 'passagem', mapa.get(chave)), extras, { merge: true }); jaLa++; continue; }
       const ref = await addDoc(collection(db, 'passagem'), { nome: p.nome, uti: p.uti || '', leito: p.leito || '', status: 'pendente', statusAt: null, ...extras, criadoEm: serverTimestamp() });
       mapa.set(chave, ref.id);
@@ -3460,7 +3460,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.157</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.158</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -4283,7 +4283,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                 const _hj = dataLocalISO();
                 const r = await window.__andamento.enviar(hds.map(p => {
                   const _a = (avaliacoes[p.id] || []).find(a => a.conduta === 'hd_hoje' && dataLocalISO(a.data) === _hj);
-                  return { nome: p.nome, uti: p.uti, leito: p.leito, linkRel: _a ? montarLinkTecnico(_payloadTecnico(p, _a)) : '', presc: _a ? montarFolhaHD(p, _a) : '' };
+                  return { nome: p.nome, uti: p.uti, leito: p.leito, linkRel: _a ? montarLinkTecnico(_payloadTecnico(p, _a)) : '', presc: _a ? montarFolhaHD(p, _a) : '', durH: _a ? (durHoras(_a.hd_dur || _a.hd_horas) || 4) : null };
                 }));
                 alert('✅ Enviado ao Andamento.\n\nNovos: ' + r.novos + '\nJá estavam na lista: ' + r.jaLa);
               } catch (e) {
