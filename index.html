@@ -40,18 +40,70 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 getRedirectResult(auth).catch(()=>{});
+/* ===== E2E — criptografia ponta a ponta (LGPD) =====
+   Dado identificável (nome/leito/presc/linkRel/texto) só viaja cifrado (AES-GCM 256).
+   A chave NUNCA vai ao Firebase: vive no localStorage deste app, no backup exportado
+   e no fragmento (#k=) do link do painel — fragmento não chega ao servidor.
+   Marcador 'e1:' distingue cifrado de legado; legado passa direto na leitura. */
+const _b64uEnc = (buf) => { const u = new Uint8Array(buf); let s = ''; for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+const _b64uDec = (s) => { s = String(s).replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; const b = atob(s); const u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; };
+async function e2eCifrar(txt, key) {
+  const s = String(txt == null ? '' : txt); if (!s || !key) return s;
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(s));
+  const u = new Uint8Array(12 + ct.byteLength); u.set(iv); u.set(new Uint8Array(ct), 12);
+  return 'e1:' + _b64uEnc(u.buffer);
+}
+async function e2eDecifrar(txt, key) {
+  const s = String(txt == null ? '' : txt);
+  if (s.slice(0, 3) !== 'e1:') return s;
+  if (!key) return null;
+  try {
+    const u = _b64uDec(s.slice(3));
+    const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: u.subarray(0, 12) }, key, u.subarray(12));
+    return new TextDecoder().decode(pt);
+  } catch (e) { return null; }
+}
+const E2E_KEY = 'nefroapp_e2e_k';
+let _e2eNova = false, _e2eCryptoKey = null, _e2eB64Cache = '';
+function e2eB64(){
+  try {
+    let k = localStorage.getItem(E2E_KEY) || '';
+    if (!k) { k = _b64uEnc(crypto.getRandomValues(new Uint8Array(32)).buffer); localStorage.setItem(E2E_KEY, k); _e2eNova = true; }
+    return k;
+  } catch (e) { return ''; }
+}
+async function e2eKey(){
+  const b64 = e2eB64(); if (!b64) return null;
+  if (_e2eCryptoKey && _e2eB64Cache === b64) return _e2eCryptoKey;
+  _e2eCryptoKey = await crypto.subtle.importKey('raw', _b64uDec(b64), 'AES-GCM', false, ['encrypt', 'decrypt']);
+  _e2eB64Cache = b64;
+  return _e2eCryptoKey;
+}
+window.__e2e = {
+  b64: e2eB64,
+  linkPainel(){ const k = e2eB64(); return 'https://israelgn1973.github.io/andamento/' + (k ? ('#k=' + k) : ''); },
+  foiGerada(){ const v = _e2eNova; _e2eNova = false; return v; }
+};
+e2eB64(); // garante a chave já na carga (link do técnico e do painel nascem prontos)
 window.__andamento = {
   async enviar(lista){
     if (!auth.currentUser) await signInAnonymously(auth);
+    const key = await e2eKey();
     const snap = await getDocs(collection(db, 'passagem'));
-    const mapa = new Map(snap.docs.map(d => [String(d.data().nome || '').trim().toLowerCase(), d.id]));
+    const mapa = new Map();
+    for (const d of snap.docs) {
+      const claro = await e2eDecifrar(d.data().nome, key);
+      const ch = String(claro == null ? '' : claro).trim().toLowerCase();
+      if (ch) mapa.set(ch, d.id);
+    }
     let novos = 0, jaLa = 0;
     for (const p of lista) {
       const chave = String(p.nome || '').trim().toLowerCase();
       if (!chave) continue;
-      const extras = { linkRel: p.linkRel || '', presc: p.presc || '', durH: (p.durH == null ? null : p.durH) };
+      const extras = { linkRel: await e2eCifrar(p.linkRel || '', key), presc: await e2eCifrar(p.presc || '', key), durH: (p.durH == null ? null : p.durH) };
       if (mapa.has(chave)) { await setDoc(doc(db, 'passagem', mapa.get(chave)), extras, { merge: true }); jaLa++; continue; }
-      const ref = await addDoc(collection(db, 'passagem'), { nome: p.nome, uti: p.uti || '', leito: p.leito || '', status: 'pendente', statusAt: null, ...extras, criadoEm: serverTimestamp() });
+      const ref = await addDoc(collection(db, 'passagem'), { nome: await e2eCifrar(p.nome, key), uti: p.uti || '', leito: await e2eCifrar(p.leito || '', key), status: 'pendente', statusAt: null, ...extras, criadoEm: serverTimestamp() });
       mapa.set(chave, ref.id);
       novos++;
     }
@@ -107,13 +159,18 @@ window.__nefrosync = {
 window.__relbox = {
   async puxar(desdeMs){
     if (!auth.currentUser) await signInAnonymously(auth);
+    const key = await e2eKey();
     const snap = await getDocs(collection(db, 'relatorios'));
     const out = [];
-    snap.forEach(d => {
+    for (const d of snap.docs) {
       const x = d.data();
       const t = (x.criadoEm && x.criadoEm.toMillis) ? x.criadoEm.toMillis() : 0;
-      if (!desdeMs || !t || t >= desdeMs) out.push({ id: d.id, texto: x.texto || '', nome: x.nome || '', criadoEm: t });
-    });
+      if (desdeMs && t && t < desdeMs) continue;
+      const texto = await e2eDecifrar(x.texto || '', key);
+      if (texto == null) continue; // cifrado com chave que não é a nossa — descarta
+      const nome = await e2eDecifrar(x.nome || '', key);
+      out.push({ id: d.id, texto, nome: nome == null ? '' : nome, criadoEm: t });
+    }
     out.sort((a, b) => a.criadoEm - b.criadoEm);
     return out;
   }
@@ -490,8 +547,13 @@ const ultRelISO = (pac, hojeISO, reativISO) => {
     .sort();
   return isos.length ? isos[isos.length - 1] : '';
 };
+const _e2eB64 = () => { try { return localStorage.getItem('nefroapp_e2e_k') || ''; } catch (e) { return ''; } };
 const montarLinkTecnico = (d) => {
-  try { return 'https://israelgn1973.github.io/relatorio-hd/#' + btoa(unescape(encodeURIComponent(JSON.stringify(d)))); }
+  try {
+    const k = _e2eB64();
+    const dd = k ? { ...d, k } : d;
+    return 'https://israelgn1973.github.io/relatorio-hd/#' + btoa(unescape(encodeURIComponent(JSON.stringify(dd))));
+  }
   catch (e) { return ''; }
 };
 const montarLinkPlantao = (p) => {
@@ -2250,6 +2312,7 @@ const ajRotulo = aj => {
       { const cc = { alta_nefro: 'Alta da nefrologia', alta_hosp: 'Alta hospitalar', paliativo: 'Cuidados paliativos', obito: 'Óbito' }[d.conclusao]; if (cc) linhas.push(cc); }
       if (pacRef.ordensPend && pacRef.ordensPend.length) { linhas.push(''); add('Recomendações pendentes', pacRef.ordensPend.join('; ')); }
       if (d.observacoes) { linhas.push(''); add('Obs', d.observacoes); }
+      linhas.push(''); linhas.push('Condutas alinhadas com o plantonista.');
 
       return linhas.join('\n');
     }
@@ -3033,7 +3096,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
     try { localStorage.setItem('nefroapp_last_backup', dataLocalISO()); } catch {}
     const dt = dataLocalISO();
     const nome = `nefroapp_backup_${dt}.json`;
-    const blob = new Blob([JSON.stringify({ pacientes, avaliacoes, lixeira, exportadoEm: new Date().toISOString() }, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify({ pacientes, avaliacoes, lixeira, e2ek: _e2eB64() || undefined, exportadoEm: new Date().toISOString() }, null, 2)], { type: 'application/json' });
     const file = new File([blob], nome, { type: 'application/json' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       navigator.share({ files: [file], title: nome }).catch(() => {});
@@ -3085,6 +3148,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
       try {
         const d = JSON.parse(e.target.result);
         if (!d.pacientes) { alert('Arquivo inválido.'); return; }
+        if (d.e2ek && /^[A-Za-z0-9_-]{40,50}$/.test(String(d.e2ek))) { try { localStorage.setItem('nefroapp_e2e_k', String(d.e2ek)); } catch (err) {} }
         const qtd = d.pacientes.length;
         if (confirm(`Importar ${qtd} paciente(s) mesclando com os atuais? Pacientes existentes são mantidos; em coincidências vale o registro mais recente.`)) {
           const { pacMerged, avMerged, lixMerged, homs } = computarMerge(d);
@@ -3318,9 +3382,10 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
       const nome = 'fila_pep_' + dia + '.html';
       const file = new File([blob], nome, { type: 'text/html' });
       const baixar = () => { const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = nome; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 8000); };
+      const ehIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       try {
-        if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: 'Fila p/ PEP' });
-        else if (navigator.share) await navigator.share({ files: [file], title: 'Fila p/ PEP' });
+        if (ehIOS && navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: 'Fila p/ PEP' });
+        else if (ehIOS && navigator.share) await navigator.share({ files: [file], title: 'Fila p/ PEP' });
         else baixar();
       } catch (e) { if (!e || e.name !== 'AbortError') baixar(); }
     };
@@ -3460,7 +3525,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
   if (view === 'lista') return (
     <div style={S.app}>{numPadEl}
       <div style={S.header}>
-        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.158</span></h1>
+        <h1 style={S.h1}>Nefrologia UTI <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>v2.21.161</span></h1>
         <button style={S.headerBtn} onClick={() => { setEditandoPacId(null); setNovoPac(novoPacVazio()); setShowModal(true); }}>+ Paciente</button>
       </div>
 
@@ -4285,7 +4350,7 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
                   const _a = (avaliacoes[p.id] || []).find(a => a.conduta === 'hd_hoje' && dataLocalISO(a.data) === _hj);
                   return { nome: p.nome, uti: p.uti, leito: p.leito, linkRel: _a ? montarLinkTecnico(_payloadTecnico(p, _a)) : '', presc: _a ? montarFolhaHD(p, _a) : '', durH: _a ? (durHoras(_a.hd_dur || _a.hd_horas) || 4) : null };
                 }));
-                alert('✅ Enviado ao Andamento.\n\nNovos: ' + r.novos + '\nJá estavam na lista: ' + r.jaLa);
+                alert('✅ Enviado ao Andamento.\n\nNovos: ' + r.novos + '\nJá estavam na lista: ' + r.jaLa + ((window.__e2e && window.__e2e.foiGerada()) ? '\n\n🔐 Painel agora é protegido por chave: troque o link na descrição do grupo (Backup e dados → 🔗 Copiar link do painel).' : ''));
               } catch (e) {
                 alert('Não consegui enviar: ' + ((e && e.message) ? e.message : e) + '\n\nConfira a internet e tente de novo.');
               }
@@ -4470,6 +4535,13 @@ ${['CAPILAR', 'LINHA ARTERIAL', 'LINHA VENOSA', 'S. FISIOLÓGICO', 'EQUIPO', 'HE
               }
             }} style={{ ...SG_BTN, borderColor: '#2980d9', color: '#2980d9', fontWeight: 600, opacity: sincronizando ? 0.6 : 1 }}>{sincronizando ? '☁ Sincronizando…' : '☁ Sincronizar agora'}</button>
             {syncMsg && <div style={{ fontSize: 11.5, color: syncMsg.charAt(0) === '✓' ? '#1f8a4c' : '#c0392b', padding: '5px 2px 2px', lineHeight: 1.35 }}>{syncMsg}</div>}
+            <div style={SG_LBL}>🔐 Painel protegido</div>
+            <button onClick={() => {
+              const lk = window.__e2e ? window.__e2e.linkPainel() : ('https://israelgn1973.github.io/andamento/' + (_e2eB64() ? '#k=' + _e2eB64() : ''));
+              if (lk.indexOf('#k=') < 0) { alert('A chave ainda não foi criada (o módulo precisa de internet na primeira carga). Recarregue o app conectado e tente de novo.'); return; }
+              _copiar(lk, 'Link do painel copiado — cole na descrição do grupo');
+            }} style={{ ...SG_BTN_FULL, borderColor: '#0E6E68', color: '#0E6E68', fontWeight: 600 }}>🔗 Copiar link do painel (com chave)</button>
+            <div style={{ fontSize: 11.5, color: '#667', padding: '2px 2px 4px', lineHeight: 1.35, gridColumn: '1 / -1' }}>Nome, leito, prescrição e relatórios viajam cifrados — só quem tem este link lê. A chave vai junto no backup exportado; nos seus outros aparelhos, basta importar o backup.</div>
             <div style={SG_LBL}>🔒 Bloqueio deste aparelho</div>
             <button onClick={() => { setPinA(''); setPinB(''); setPinMsg(''); setPinModal('definir'); }} style={SG_BTN}>{pinTem ? '🔒 Trocar PIN' : '🔒 Definir PIN'}</button>
             {pinTem && <button onClick={() => { setPinA(''); setPinMsg(''); setPinModal('remover'); }} style={{ ...SG_BTN, color: '#c0392b' }}>Remover PIN</button>}
